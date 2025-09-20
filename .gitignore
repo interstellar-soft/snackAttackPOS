@@ -1,0 +1,11 @@
+# Backend build
+backend/**/bin/
+backend/**/obj/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Misc
+.vscode/
+.DS_Store
