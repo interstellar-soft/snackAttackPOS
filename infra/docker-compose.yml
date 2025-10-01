@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+      ConnectionStrings__DefaultConnection: ${BACKEND_DB_CONNECTION}
+      Jwt__Issuer: ${BACKEND_JWT_ISSUER}
+      Jwt__Audience: ${BACKEND_JWT_AUDIENCE}
+      Jwt__Key: ${BACKEND_JWT_KEY}
+      Timezone: ${APP_TIMEZONE}
+    ports:
+      - "5000:5000"
+
+  ml:
+    build:
+      context: ../ml
+    environment:
+      TZ: ${APP_TIMEZONE}
+    ports:
+      - "8001:8001"
+
+  frontend:
+    build:
+      context: ../frontend
+    environment:
+      VITE_API_URL: ${FRONTEND_API_URL}
+      VITE_ML_URL: ${FRONTEND_ML_URL}
+    ports:
+      - "5173:4173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres-data:
