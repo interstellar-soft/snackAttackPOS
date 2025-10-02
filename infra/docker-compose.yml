@@ -49,7 +49,7 @@ services:
       VITE_API_URL: ${FRONTEND_API_URL}
       VITE_ML_URL: ${FRONTEND_ML_URL}
     ports:
-      - "5173:4173"
+      - "5173:80"
     depends_on:
       - backend
 
