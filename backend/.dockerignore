@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+.vs/
+Dockerfile.*
+*.user
+*.suo
+.idea/
+.vscode/
+node_modules/
+.env
