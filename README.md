@@ -12,3 +12,13 @@ This repository hosts the Aurora POS platform, a clean-room, open-source grocery
 - [ ] Milestone 7 — Tests, Docs, Runbook
 
 Further documentation will expand alongside subsequent milestones.
+
+## Bringing the stack up
+
+To start all services locally, ensure you have Docker and Docker Compose installed, then run:
+
+```sh
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build
+```
+
+The root `.env` file is passed to Compose so environment configuration can be centralized even though the compose file lives in `infra/`.

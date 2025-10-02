@@ -5,4 +5,4 @@ if [ ! -f .env ]; then
   cp .env.example .env
 fi
 
-docker compose -f infra/docker-compose.yml up -d --build
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build
