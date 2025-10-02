@@ -35,7 +35,7 @@ public static class SeedData
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("ChangeMe123!")
             };
 
-            await db.Users.AddRangeAsync(admin, manager, cashier, cancellationToken);
+            await db.Users.AddRangeAsync(new[] { admin, manager, cashier }, cancellationToken);
         }
 
         if (!await db.Categories.AnyAsync(cancellationToken))
