@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ProductGrid } from '../components/pos/ProductGrid';
 import { CartPanel } from '../components/pos/CartPanel';
-import { ReceiptPreview } from '../components/pos/ReceiptPreview';
 import { TopBar } from '../components/pos/TopBar';
 import { apiFetch } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
@@ -254,13 +253,8 @@ export function POSPage() {
           </form>
           <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
         </div>
-        <div className="flex h-[calc(100vh-12rem)] flex-col gap-4 lg:sticky lg:top-24">
-          <div className="flex-1 overflow-hidden">
-            <CartPanel onClear={clear} />
-          </div>
-          <div className="mt-auto">
-            <ReceiptPreview />
-          </div>
+        <div className="h-[calc(100vh-12rem)] overflow-hidden lg:sticky lg:top-24">
+          <CartPanel onClear={clear} />
         </div>
       </div>
       <CurrencyRateModal
