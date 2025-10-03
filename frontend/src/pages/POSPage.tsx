@@ -80,7 +80,7 @@ export function POSPage() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const scanMutation = useMutation({
+  const scanMutation = useMutation<ProductResponse, Error, string>({
     mutationFn: async (code: string) => {
       if (!token) throw new Error('Not authenticated');
       return await apiFetch<ProductResponse>(
@@ -112,7 +112,7 @@ export function POSPage() {
     }
   });
 
-  const currencyQuery = useQuery({
+  const currencyQuery = useQuery<BalanceResponse>({
     queryKey: ['currency-rate', token],
     queryFn: async () => {
       if (!token) throw new Error('Not authenticated');
@@ -125,8 +125,12 @@ export function POSPage() {
     }
   });
 
-  const computeBalance = useMutation({
-    mutationFn: async (payload: { totalUsd: number; paidUsd: number; paidLbp: number; exchangeRate?: number }) => {
+  const computeBalance = useMutation<
+    BalanceResponse,
+    Error,
+    { totalUsd: number; paidUsd: number; paidLbp: number; exchangeRate?: number }
+  >({
+    mutationFn: async (payload) => {
       if (!token) throw new Error('Not authenticated');
       return await apiFetch<BalanceResponse>(
         '/api/transactions/compute-balance',
