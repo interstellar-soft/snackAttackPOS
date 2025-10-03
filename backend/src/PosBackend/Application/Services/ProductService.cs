@@ -197,14 +197,14 @@ public class ProductService
 public class ProductServiceResult
 {
     public bool Succeeded { get; }
-    public bool NotFound { get; }
+    public bool IsNotFound { get; }
     public Product? Product { get; }
     public IReadOnlyDictionary<string, string[]> Errors { get; }
 
     private ProductServiceResult(bool succeeded, bool notFound, Product? product, IReadOnlyDictionary<string, string[]> errors)
     {
         Succeeded = succeeded;
-        NotFound = notFound;
+        IsNotFound = notFound;
         Product = product;
         Errors = errors;
     }

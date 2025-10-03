@@ -32,7 +32,7 @@ public class ProductsController : ControllerBase
         var result = await _productService.CreateAsync(request, cancellationToken);
         if (!result.Succeeded)
         {
-            if (result.NotFound)
+            if (result.IsNotFound)
             {
                 return NotFound();
             }
@@ -56,7 +56,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<ProductResponse>> UpdateProduct(Guid id, [FromBody] CreateProductRequest request, CancellationToken cancellationToken)
     {
         var result = await _productService.UpdateAsync(id, request, cancellationToken);
-        if (result.NotFound)
+        if (result.IsNotFound)
         {
             return NotFound();
         }
