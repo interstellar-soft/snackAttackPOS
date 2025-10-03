@@ -205,8 +205,10 @@ export function POSPage() {
     alert(`Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`);
   };
 
-  const canEditRate = role === 'Admin' || role === 'Manager';
-  const canSeeAnalytics = canEditRate;
+  const normalizedRole = role?.toLowerCase();
+  const canManageInventory = normalizedRole === 'admin' || normalizedRole === 'manager';
+  const canEditRate = canManageInventory;
+  const canSeeAnalytics = canManageInventory;
 
   const handleSaveRate = async (nextRate: number, notes?: string) => {
     if (!token) return;
@@ -227,6 +229,7 @@ export function POSPage() {
         onLogout={logout}
         lastScan={lastScan}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
+        onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
       />
       <div className="grid gap-4 lg:grid-cols-[2.5fr_1fr]">
         <div className="space-y-4">

@@ -1,54 +1,32 @@
-import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { apiFetch } from '../../lib/api';
+import { ProductsService, Product } from '../../lib/ProductsService';
 import { Input } from '../ui/input';
 import { Card } from '../ui/card';
 import { cn, formatCurrency } from '../../lib/utils';
 import { useCartStore } from '../../stores/cartStore';
-import { useAuthStore } from '../../stores/authStore';
-
-interface ProductResponse {
-  id: string;
-  sku: string;
-  name: string;
-  barcode: string;
-  priceUsd: number;
-  priceLbp: number;
-  category: string;
-  isFlagged?: boolean;
-  flagReason?: string;
-}
 
 interface ProductGridProps {
-  onScan: (product: ProductResponse) => void;
+  onScan: (product: Product) => void;
 }
 
 export function ProductGrid({ onScan }: ProductGridProps) {
   const { t, i18n } = useTranslation();
   const [term, setTerm] = useState('');
-  const token = useAuthStore((state) => state.token);
   const addItem = useCartStore((state) => state.addItem);
 
-  const { data, refetch, isFetching } = useQuery<ProductResponse[], Error>({
-    queryKey: ['products', term, token],
-    queryFn: async () => {
-      const searchParam = term ? `?q=${encodeURIComponent(term)}` : '?q=';
-      return await apiFetch<ProductResponse[]>(`/api/products/search${searchParam}`, {}, token ?? undefined);
-    },
-    enabled: !!token
-  });
+  const [debouncedTerm, setDebouncedTerm] = useState('');
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      if (token) {
-        refetch();
-      }
+      setDebouncedTerm(term);
     }, 300);
     return () => clearTimeout(handler);
-  }, [term, token, refetch]);
+  }, [term]);
 
-  const handleAdd = (product: ProductResponse) => {
+  const { data, isFetching } = ProductsService.useSearchProducts(debouncedTerm);
+
+  const handleAdd = (product: Product) => {
     addItem({
       productId: product.id,
       name: product.name,

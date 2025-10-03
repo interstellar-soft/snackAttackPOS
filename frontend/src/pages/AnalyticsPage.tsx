@@ -133,6 +133,7 @@ export function AnalyticsPage() {
   useLanguageDirection();
   const token = useAuthStore((state) => state.token);
   const logout = useAuthStore((state) => state.logout);
+  const role = useAuthStore((state) => state.role);
   const navigate = useNavigate();
 
   const { data, isLoading, isError } = useQuery<AnalyticsDashboardResponse>({
@@ -147,6 +148,7 @@ export function AnalyticsPage() {
   const dashboard = data ?? demoDashboard;
 
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
+  const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
   const profitLeaderList = dashboard.profitLeaders.slice(0, 5);
   const lossLeaderList = dashboard.lossLeaders.slice(0, 5);
@@ -193,7 +195,12 @@ export function AnalyticsPage() {
 
   return (
     <div className="flex min-h-screen flex-col gap-4 bg-slate-100 p-4 dark:bg-slate-950">
-      <TopBar onLogout={logout} isAnalytics onNavigatePos={() => navigate('/')} />
+      <TopBar
+        onLogout={logout}
+        isAnalytics
+        onNavigatePos={() => navigate('/')}
+        onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
+      />
       {isLoading && <Card className="p-6 text-sm text-slate-500">{t('loadingAnalytics')}</Card>}
       {isError && (
         <Card className="border-amber-400 bg-amber-50 p-4 text-amber-700 dark:border-amber-500 dark:bg-amber-900/40 dark:text-amber-200">

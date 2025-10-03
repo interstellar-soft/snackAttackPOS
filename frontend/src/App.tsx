@@ -4,13 +4,27 @@ import { Suspense } from 'react';
 import { POSPage } from './pages/POSPage';
 import { LoginPage } from './pages/LoginPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
+import { InventoryPage } from './pages/InventoryPage';
 import { queryClient } from './lib/api';
 import { useAuthStore } from './stores/authStore';
 
-function ProtectedRoute({ children }: { children: JSX.Element }) {
+interface ProtectedRouteProps {
+  children: JSX.Element;
+  roles?: string[];
+}
+
+function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
   const token = useAuthStore((state) => state.token);
+  const role = useAuthStore((state) => state.role);
   if (!token) {
     return <Navigate to="/login" replace />;
+  }
+  if (roles && roles.length > 0) {
+    const normalized = role?.toLowerCase();
+    const allowed = roles.map((value) => value.toLowerCase());
+    if (!normalized || !allowed.includes(normalized)) {
+      return <Navigate to="/" replace />;
+    }
   }
   return children;
 }
@@ -33,8 +47,16 @@ export default function App() {
             <Route
               path="/analytics"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={['admin', 'manager']}>
                   <AnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventory"
+              element={
+                <ProtectedRoute roles={['admin', 'manager']}>
+                  <InventoryPage />
                 </ProtectedRoute>
               }
             />
