@@ -30,7 +30,7 @@ export function ProductGrid({ onScan }: ProductGridProps) {
   const token = useAuthStore((state) => state.token);
   const addItem = useCartStore((state) => state.addItem);
 
-  const { data, refetch, isFetching } = useQuery<ProductResponse[]>({
+  const { data, refetch, isFetching } = useQuery<ProductResponse[], Error>({
     queryKey: ['products', term, token],
     queryFn: async () => {
       const searchParam = term ? `?q=${encodeURIComponent(term)}` : '?q=';
