@@ -10,12 +10,25 @@ interface TopBarProps {
   onNavigateAnalytics?: () => void;
   onNavigatePos?: () => void;
   isAnalytics?: boolean;
+  onNavigateInventory?: () => void;
+  isInventory?: boolean;
 }
 
-export function TopBar({ onLogout, lastScan, onNavigateAnalytics, onNavigatePos, isAnalytics }: TopBarProps) {
+export function TopBar({
+  onLogout,
+  lastScan,
+  onNavigateAnalytics,
+  onNavigatePos,
+  isAnalytics,
+  onNavigateInventory,
+  isInventory
+}: TopBarProps) {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const displayName = useAuthStore((state) => state.displayName);
+  const role = useAuthStore((state) => state.role);
+
+  const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
   const toggleLanguage = () => {
     const next = i18n.language === 'en' ? 'ar' : 'en';
@@ -41,7 +54,17 @@ export function TopBar({ onLogout, lastScan, onNavigateAnalytics, onNavigatePos,
             {t('analytics')}
           </Button>
         )}
+        {canManageInventory && onNavigateInventory && !isInventory && (
+          <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigateInventory}>
+            {t('products')}
+          </Button>
+        )}
         {onNavigatePos && isAnalytics && (
+          <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigatePos}>
+            {t('backToPos')}
+          </Button>
+        )}
+        {onNavigatePos && isInventory && (
           <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigatePos}>
             {t('backToPos')}
           </Button>
