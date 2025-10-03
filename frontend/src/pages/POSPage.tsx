@@ -81,13 +81,18 @@ export function POSPage() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const scanMutation = useMutation(async (code: string) => {
-    if (!token) throw new Error('Not authenticated');
-    return await apiFetch<ProductResponse>('/api/products/scan', {
-      method: 'POST',
-      body: JSON.stringify({ barcode: code })
-    }, token);
-  }, {
+  const scanMutation = useMutation({
+    mutationFn: async (code: string) => {
+      if (!token) throw new Error('Not authenticated');
+      return await apiFetch<ProductResponse>(
+        '/api/products/scan',
+        {
+          method: 'POST',
+          body: JSON.stringify({ barcode: code })
+        },
+        token
+      );
+    },
     onSuccess: (product) => {
       addItem({
         productId: product.id,
@@ -108,10 +113,12 @@ export function POSPage() {
     }
   });
 
-  const currencyQuery = useQuery(['currency-rate', token], async () => {
-    if (!token) throw new Error('Not authenticated');
-    return await apiFetch<BalanceResponse>('/api/settings/currency-rate', {}, token);
-  }, {
+  const currencyQuery = useQuery({
+    queryKey: ['currency-rate', token],
+    queryFn: async () => {
+      if (!token) throw new Error('Not authenticated');
+      return await apiFetch<BalanceResponse>('/api/settings/currency-rate', {}, token);
+    },
     enabled: !!token,
     onSuccess: (data) => {
       setRate(data.exchangeRate);
@@ -119,13 +126,18 @@ export function POSPage() {
     }
   });
 
-  const computeBalance = useMutation(async (payload: { totalUsd: number; paidUsd: number; paidLbp: number; exchangeRate?: number }) => {
-    if (!token) throw new Error('Not authenticated');
-    return await apiFetch<BalanceResponse>('/api/transactions/compute-balance', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }, token);
-  }, {
+  const computeBalance = useMutation({
+    mutationFn: async (payload: { totalUsd: number; paidUsd: number; paidLbp: number; exchangeRate?: number }) => {
+      if (!token) throw new Error('Not authenticated');
+      return await apiFetch<BalanceResponse>(
+        '/api/transactions/compute-balance',
+        {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        },
+        token
+      );
+    },
     onSuccess: (data) => setBalance(data)
   });
 
