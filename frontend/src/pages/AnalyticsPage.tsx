@@ -135,14 +135,14 @@ export function AnalyticsPage() {
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
 
-  const { data, isLoading, isError } = useQuery(
-    ['analytics-dashboard', token],
-    async () => {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['analytics-dashboard', token],
+    queryFn: async () => {
       if (!token) throw new Error('Unauthorized');
       return await apiFetch<AnalyticsDashboardResponse>('/api/analytics/dashboard', {}, token);
     },
-    { enabled: !!token }
-  );
+    enabled: !!token
+  });
 
   const dashboard = data ?? demoDashboard;
 
