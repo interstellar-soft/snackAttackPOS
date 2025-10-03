@@ -225,38 +225,38 @@ export function POSPage() {
         lastScan={lastScan}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
       />
-      <form onSubmit={handleScanSubmit} className="flex items-center gap-3">
-        <Input
-          id="barcode-input"
-          value={barcode}
-          onChange={(event) => setBarcode(event.target.value)}
-          placeholder={t('barcodePlaceholder')}
-          className="text-lg"
+      <section className="w-full">
+        <TenderPanel
+          paidUsd={paidUsd}
+          paidLbp={paidLbp}
+          onChangePaidUsd={setPaidUsd}
+          onChangePaidLbp={setPaidLbp}
+          onCheckout={handleCheckout}
+          balanceUsd={balance?.balanceUsd ?? 0}
+          balanceLbp={balance?.balanceLbp ?? 0}
+          exchangeRate={rate}
+          onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
+          canEditRate={canEditRate}
+          disabled={overrideRequired}
         />
-        <Button type="submit">Scan</Button>
-      </form>
+      </section>
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="space-y-4 lg:col-span-2">
+          <form onSubmit={handleScanSubmit} className="flex items-center gap-3">
+            <Input
+              id="barcode-input"
+              value={barcode}
+              onChange={(event) => setBarcode(event.target.value)}
+              placeholder={t('barcodePlaceholder')}
+              className="text-lg"
+            />
+            <Button type="submit">Scan</Button>
+          </form>
           <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
         </div>
-        <div className="flex max-h-[calc(100vh-8rem)] flex-col gap-4">
+        <div className="flex max-h-[calc(100vh-16rem)] flex-col gap-4 lg:sticky lg:top-24">
           <div className="flex-1 overflow-y-auto">
             <CartPanel onClear={clear} />
-          </div>
-          <div className="lg:sticky lg:top-24 space-y-4">
-            <TenderPanel
-              paidUsd={paidUsd}
-              paidLbp={paidLbp}
-              onChangePaidUsd={setPaidUsd}
-              onChangePaidLbp={setPaidLbp}
-              onCheckout={handleCheckout}
-              balanceUsd={balance?.balanceUsd ?? 0}
-              balanceLbp={balance?.balanceLbp ?? 0}
-              exchangeRate={rate}
-              onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
-              canEditRate={canEditRate}
-              disabled={overrideRequired}
-            />
           </div>
           <ReceiptPreview />
         </div>
