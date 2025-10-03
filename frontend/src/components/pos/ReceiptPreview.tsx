@@ -5,7 +5,7 @@ import { formatCurrency } from '../../lib/utils';
 
 export function ReceiptPreview() {
   const { t, i18n } = useTranslation();
-  const { items, subtotalUsd, subtotalLbp } = useCartStore();
+  const { items, subtotalUsd, subtotalLbp, removeItem } = useCartStore();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
 
   return (
@@ -24,9 +24,19 @@ export function ReceiptPreview() {
                   <p className="truncate font-medium text-slate-700 dark:text-slate-200">{item.name}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">x{item.quantity}</p>
                 </div>
-                <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">
-                  {formatCurrency(item.priceUsd * item.quantity * (1 - item.discountPercent / 100), 'USD', locale)}
-                </p>
+                <div className="flex items-center gap-1">
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">
+                    {formatCurrency(item.priceUsd * item.quantity * (1 - item.discountPercent / 100), 'USD', locale)}
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={t('removeItem') ?? 'Remove item'}
+                    onClick={() => removeItem(item.productId)}
+                    className="ml-2 rounded-full p-1 text-xs font-semibold text-red-600 transition-colors hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 dark:text-red-400 dark:hover:text-red-300"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
             ))
           ) : (
