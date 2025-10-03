@@ -21,6 +21,7 @@ builder.Services.AddScoped<CartPricingService>();
 builder.Services.AddScoped<ReceiptRenderer>();
 builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddScoped<CurrencyService>();
+builder.Services.AddScoped<ProductService>();
 builder.Services.AddHttpClient<MlClient>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")

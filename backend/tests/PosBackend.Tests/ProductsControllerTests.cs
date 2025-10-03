@@ -1,0 +1,207 @@
+using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using PosBackend.Application.Requests;
+using PosBackend.Application.Responses;
+using PosBackend.Application.Services;
+using PosBackend.Domain.Entities;
+using PosBackend.Features.Products;
+using PosBackend.Infrastructure.Data;
+using Xunit;
+
+namespace PosBackend.Tests;
+
+public class ProductsControllerTests
+{
+    [Fact]
+    public async Task CreateProduct_PersistsProduct()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        context.Categories.Add(category);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+        var request = new CreateProductRequest
+        {
+            Name = "Potato Chips",
+            Sku = "SNK-001",
+            Barcode = "1234567890123",
+            PriceUsd = 2.5m,
+            PriceLbp = 225000m,
+            CategoryId = category.Id
+        };
+
+        var result = await controller.CreateProduct(request, CancellationToken.None);
+
+        var created = Assert.IsType<CreatedResult>(result.Result);
+        var response = Assert.IsType<ProductResponse>(created.Value);
+        Assert.Equal(request.Name, response.Name);
+        Assert.Equal(request.Sku, response.Sku);
+
+        var stored = await context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == response.Id);
+        Assert.NotNull(stored);
+        Assert.Equal(request.Barcode, stored!.Barcode);
+    }
+
+    [Fact]
+    public async Task CreateProduct_ReturnsValidationProblem_ForDuplicateSku()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Pantry" };
+        var existing = new Product
+        {
+            Category = category,
+            Name = "Existing",
+            Sku = "SNK-001",
+            Barcode = "000111222333",
+            PriceUsd = 1m,
+            PriceLbp = 90000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.Add(existing);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+        var request = new CreateProductRequest
+        {
+            Name = "Duplicate",
+            Sku = "SNK-001",
+            Barcode = "999888777666",
+            PriceUsd = 2m,
+            PriceLbp = 180000m,
+            CategoryId = category.Id
+        };
+
+        var result = await controller.CreateProduct(request, CancellationToken.None);
+
+        var validation = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Contains(nameof(request.Sku), problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_UpdatesExistingEntity()
+    {
+        await using var context = CreateContext();
+        var originalCategory = new Category { Name = "Pantry" };
+        var newCategory = new Category { Name = "Beverages" };
+        var product = new Product
+        {
+            Category = originalCategory,
+            Name = "Original",
+            Sku = "SNK-001",
+            Barcode = "123123123123",
+            PriceUsd = 1m,
+            PriceLbp = 90000m
+        };
+
+        context.Categories.AddRange(originalCategory, newCategory);
+        context.Products.Add(product);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+        var request = new CreateProductRequest
+        {
+            Name = "Updated",
+            Sku = "SNK-002",
+            Barcode = "321321321321",
+            PriceUsd = 3m,
+            PriceLbp = 270000m,
+            CategoryId = newCategory.Id
+        };
+
+        var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ProductResponse>(ok.Value);
+        Assert.Equal(request.Name, response.Name);
+        Assert.Equal(newCategory.Name, response.Category);
+
+        var stored = await context.Products.Include(p => p.Category).FirstAsync(p => p.Id == product.Id);
+        Assert.Equal(request.Sku, stored.Sku);
+        Assert.Equal(newCategory.Id, stored.CategoryId);
+        Assert.Equal(request.PriceUsd, stored.PriceUsd);
+        Assert.Equal(request.PriceLbp, stored.PriceLbp);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_ReturnsNotFound_ForMissingProduct()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        context.Categories.Add(category);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+        var request = new CreateProductRequest
+        {
+            Name = "New",
+            Sku = "SNK-100",
+            Barcode = "000000000000",
+            PriceUsd = 1m,
+            PriceLbp = 90000m,
+            CategoryId = category.Id
+        };
+
+        var result = await controller.UpdateProduct(Guid.NewGuid(), request, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    private static ProductsController CreateController(ApplicationDbContext context)
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["MlService:BaseUrl"] = "http://localhost"
+        };
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+        var httpClient = new HttpClient(new FakeHttpMessageHandler());
+        var mlClient = new MlClient(httpClient, configuration);
+        var watchdog = new ScanWatchdog();
+        var productService = new ProductService(context);
+        var controller = new ProductsController(context, mlClient, watchdog, productService)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        return controller;
+    }
+
+    private static ApplicationDbContext CreateContext()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var context = new ApplicationDbContext(options);
+        context.Database.EnsureCreated();
+        return context;
+    }
+
+    private sealed class FakeHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}")
+            };
+
+            return Task.FromResult(response);
+        }
+    }
+}

@@ -16,12 +16,66 @@ public class ProductsController : ControllerBase
     private readonly ApplicationDbContext _db;
     private readonly MlClient _mlClient;
     private readonly ScanWatchdog _watchdog;
+    private readonly ProductService _productService;
 
-    public ProductsController(ApplicationDbContext db, MlClient mlClient, ScanWatchdog watchdog)
+    public ProductsController(ApplicationDbContext db, MlClient mlClient, ScanWatchdog watchdog, ProductService productService)
     {
         _db = db;
         _mlClient = mlClient;
         _watchdog = watchdog;
+        _productService = productService;
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<ProductResponse>> CreateProduct([FromBody] CreateProductRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _productService.CreateAsync(request, cancellationToken);
+        if (!result.Succeeded)
+        {
+            if (result.NotFound)
+            {
+                return NotFound();
+            }
+
+            foreach (var error in result.Errors)
+            {
+                foreach (var message in error.Value)
+                {
+                    ModelState.AddModelError(error.Key, message);
+                }
+            }
+
+            return ValidationProblem(ModelState);
+        }
+
+        var response = _productService.ToResponse(result.Product!);
+        return Created($"api/products/{response.Id}", response);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<ProductResponse>> UpdateProduct(Guid id, [FromBody] CreateProductRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _productService.UpdateAsync(id, request, cancellationToken);
+        if (result.NotFound)
+        {
+            return NotFound();
+        }
+
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors)
+            {
+                foreach (var message in error.Value)
+                {
+                    ModelState.AddModelError(error.Key, message);
+                }
+            }
+
+            return ValidationProblem(ModelState);
+        }
+
+        var response = _productService.ToResponse(result.Product!);
+        return Ok(response);
     }
 
     [HttpGet("search")]
