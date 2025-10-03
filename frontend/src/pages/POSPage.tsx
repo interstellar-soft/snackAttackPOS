@@ -239,22 +239,26 @@ export function POSPage() {
         <div className="lg:col-span-2">
           <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
         </div>
-        <div className="flex flex-col gap-4">
-          <CartPanel onClear={clear} />
-          <TenderPanel
-            paidUsd={paidUsd}
-            paidLbp={paidLbp}
-            onChangePaidUsd={setPaidUsd}
-            onChangePaidLbp={setPaidLbp}
-            onCheckout={handleCheckout}
-            balanceUsd={balance?.balanceUsd ?? 0}
-            balanceLbp={balance?.balanceLbp ?? 0}
-            exchangeRate={rate}
-            onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
-            canEditRate={canEditRate}
-            disabled={overrideRequired}
-          />
-          <ReceiptPreview />
+        <div className="flex max-h-[calc(100vh-8rem)] flex-col gap-4">
+          <div className="flex-1 overflow-y-auto">
+            <CartPanel onClear={clear} />
+          </div>
+          <div className="flex flex-col gap-4 lg:sticky lg:top-24">
+            <TenderPanel
+              paidUsd={paidUsd}
+              paidLbp={paidLbp}
+              onChangePaidUsd={setPaidUsd}
+              onChangePaidLbp={setPaidLbp}
+              onCheckout={handleCheckout}
+              balanceUsd={balance?.balanceUsd ?? 0}
+              balanceLbp={balance?.balanceLbp ?? 0}
+              exchangeRate={rate}
+              onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
+              canEditRate={canEditRate}
+              disabled={overrideRequired}
+            />
+            <ReceiptPreview />
+          </div>
         </div>
       </div>
       <CurrencyRateModal
