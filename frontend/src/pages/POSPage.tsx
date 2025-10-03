@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,7 @@ import { useLanguageDirection } from '../hooks/useLanguageDirection';
 import { TenderPanel } from '../components/pos/TenderPanel';
 import { CurrencyRateModal } from '../components/pos/CurrencyRateModal';
 import { OverrideModal } from '../components/pos/OverrideModal';
+import { ReceiptPreview } from '../components/pos/ReceiptPreview';
 
 interface BalanceResponse {
   exchangeRate: number;
@@ -50,12 +51,11 @@ export function POSPage() {
   const token = useAuthStore((state) => state.token);
   const role = useAuthStore((state) => state.role);
   const logout = useAuthStore((state) => state.logout);
-  const { addItem, clear, items, subtotalUsd, subtotalLbp, rate, setRate } = useCartStore((state) => ({
+  const { addItem, clear, items, subtotalUsd, rate, setRate } = useCartStore((state) => ({
     addItem: state.addItem,
     clear: state.clear,
     items: state.items,
     subtotalUsd: state.subtotalUsd,
-    subtotalLbp: state.subtotalLbp,
     rate: state.rate,
     setRate: state.setRate
   }));
@@ -143,6 +143,7 @@ export function POSPage() {
     },
     onSuccess: (data) => setBalance(data)
   });
+  const computeBalanceMutate = computeBalance.mutate;
 
   const handleScanSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -151,13 +152,12 @@ export function POSPage() {
     }
   };
 
-  const totalUsd = useMemo(() => Number(subtotalUsd().toFixed(2)), [items, subtotalUsd]);
-  const totalLbp = useMemo(() => Number(subtotalLbp().toFixed(0)), [items, subtotalLbp]);
+  const totalUsd = Number(subtotalUsd().toFixed(2));
 
   useEffect(() => {
     if (!token) return;
-    computeBalance.mutate({ totalUsd, paidUsd, paidLbp, exchangeRate: rate });
-  }, [token, totalUsd, paidUsd, paidLbp, rate]);
+    computeBalanceMutate({ totalUsd, paidUsd, paidLbp, exchangeRate: rate });
+  }, [token, totalUsd, paidUsd, paidLbp, rate, computeBalanceMutate]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -228,22 +228,7 @@ export function POSPage() {
         lastScan={lastScan}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
       />
-      <section className="w-full">
-        <TenderPanel
-          paidUsd={paidUsd}
-          paidLbp={paidLbp}
-          onChangePaidUsd={setPaidUsd}
-          onChangePaidLbp={setPaidLbp}
-          onCheckout={handleCheckout}
-          balanceUsd={balance?.balanceUsd ?? 0}
-          balanceLbp={balance?.balanceLbp ?? 0}
-          exchangeRate={rate}
-          onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
-          canEditRate={canEditRate}
-          disabled={overrideRequired}
-        />
-      </section>
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[2.5fr_1fr]">
         <div className="space-y-4">
           <form onSubmit={handleScanSubmit} className="flex items-center gap-3">
             <Input
@@ -257,8 +242,28 @@ export function POSPage() {
           </form>
           <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
         </div>
-        <div className="h-[calc(100vh-12rem)] overflow-hidden lg:sticky lg:top-24">
-          <CartPanel onClear={clear} />
+        <div className="flex h-[calc(100vh-12rem)] max-w-sm flex-col gap-4 lg:justify-between">
+          <div className="lg:sticky lg:top-24">
+            <TenderPanel
+              paidUsd={paidUsd}
+              paidLbp={paidLbp}
+              onChangePaidUsd={setPaidUsd}
+              onChangePaidLbp={setPaidLbp}
+              onCheckout={handleCheckout}
+              balanceUsd={balance?.balanceUsd ?? 0}
+              balanceLbp={balance?.balanceLbp ?? 0}
+              exchangeRate={rate}
+              onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
+              canEditRate={canEditRate}
+              disabled={overrideRequired}
+            />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <CartPanel onClear={clear} />
+          </div>
+          <div className="mt-auto">
+            <ReceiptPreview />
+          </div>
         </div>
       </div>
       <CurrencyRateModal

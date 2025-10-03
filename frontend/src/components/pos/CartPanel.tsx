@@ -28,20 +28,19 @@ export function CartPanel({ onClear }: CartPanelProps) {
 
   return (
     <Card className="flex h-full flex-col bg-slate-50 dark:bg-slate-900">
-      <CardHeader>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>{t('cart')}</CardTitle>
         <Button type="button" className="bg-slate-600 hover:bg-slate-500" onClick={onClear}>
           {t('clearCart')}
         </Button>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
-        <div className="flex h-full flex-col">
-          <div className="flex-1 overflow-y-auto space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.productId}
-                className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-              >
+      <CardContent className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+          {items.map((item) => (
+            <div
+              key={item.productId}
+              className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+            >
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold">{item.name}</p>
@@ -91,15 +90,14 @@ export function CartPanel({ onClear }: CartPanelProps) {
             ))}
             {items.length === 0 && <p className="text-center text-sm text-slate-500">Cart empty</p>}
           </div>
-          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="flex justify-between">
-              <span>{t('total')} USD</span>
-              <span className="font-semibold">{formatCurrency(subtotalUsd(), 'USD', i18n.language === 'ar' ? 'ar-LB' : 'en-US')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>{t('total')} LBP</span>
-              <span className="font-semibold">{formatCurrency(subtotalLbp(), 'LBP', i18n.language === 'ar' ? 'ar-LB' : 'en-US')}</span>
-            </div>
+        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex justify-between">
+            <span>{t('total')} USD</span>
+            <span className="font-semibold">{formatCurrency(subtotalUsd(), 'USD', i18n.language === 'ar' ? 'ar-LB' : 'en-US')}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>{t('total')} LBP</span>
+            <span className="font-semibold">{formatCurrency(subtotalLbp(), 'LBP', i18n.language === 'ar' ? 'ar-LB' : 'en-US')}</span>
           </div>
         </div>
       </CardContent>
