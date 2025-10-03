@@ -18,8 +18,8 @@ const initialFormState = {
   name: '',
   sku: '',
   barcode: '',
-  priceUsd: '',
-  priceLbp: '',
+  price: '',
+  currency: 'USD',
   category: '',
   description: ''
 };
@@ -44,15 +44,16 @@ export function InventoryPage() {
     return () => clearTimeout(id);
   }, [toast]);
 
-  const handleChange = (field: keyof typeof form) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    field: keyof typeof form
+  ) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((previous) => ({ ...previous, [field]: event.target.value }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const parsedUsd = parseFloat(form.priceUsd);
-    const parsedLbp = parseFloat(form.priceLbp);
+    const parsedPrice = parseFloat(form.price);
 
     const payload = {
       name: form.name.trim(),
@@ -60,11 +61,18 @@ export function InventoryPage() {
       barcode: form.barcode.trim(),
       category: form.category.trim(),
       description: form.description.trim() || undefined,
-      priceUsd: Number.isFinite(parsedUsd) ? parsedUsd : 0,
-      priceLbp: Number.isFinite(parsedLbp) ? parsedLbp : 0
+      price: parsedPrice,
+      currency: form.currency as 'USD' | 'LBP'
     };
 
-    if (!payload.name || !payload.sku || !payload.barcode || !payload.category) {
+    if (
+      !payload.name ||
+      !payload.sku ||
+      !payload.barcode ||
+      !payload.category ||
+      !Number.isFinite(parsedPrice) ||
+      parsedPrice < 0
+    ) {
       setToast({ type: 'error', message: t('inventoryFormIncomplete') });
       return;
     }
@@ -73,6 +81,7 @@ export function InventoryPage() {
       await createProduct.mutateAsync(payload);
       setToast({ type: 'success', message: t('inventoryCreateSuccess') });
       setForm(initialFormState);
+      await inventoryQuery.refetch();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('inventoryCreateError');
       setToast({ type: 'error', message });
@@ -145,32 +154,33 @@ export function InventoryPage() {
                 />
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="priceUsd">
-                  {t('inventoryPriceUsd')}
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="price">
+                  {t('inventoryPrice')}
                 </label>
                 <Input
-                  id="priceUsd"
+                  id="price"
                   type="number"
                   min="0"
                   step="0.01"
-                  value={form.priceUsd}
-                  onChange={handleChange('priceUsd')}
+                  value={form.price}
+                  onChange={handleChange('price')}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="priceLbp">
-                  {t('inventoryPriceLbp')}
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="currency">
+                  {t('inventoryCurrency')}
                 </label>
-                <Input
-                  id="priceLbp"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.priceLbp}
-                  onChange={handleChange('priceLbp')}
-                />
+                <select
+                  id="currency"
+                  value={form.currency}
+                  onChange={handleChange('currency')}
+                  className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="USD">USD</option>
+                  <option value="LBP">LBP</option>
+                </select>
               </div>
             </div>
             <div className="space-y-2">

@@ -15,10 +15,12 @@ namespace PosBackend.Application.Services;
 public class ProductService
 {
     private readonly ApplicationDbContext _db;
+    private readonly CurrencyService _currencyService;
 
-    public ProductService(ApplicationDbContext db)
+    public ProductService(ApplicationDbContext db, CurrencyService currencyService)
     {
         _db = db;
+        _currencyService = currencyService;
     }
 
     public async Task<ProductServiceResult> CreateAsync(CreateProductRequest request, CancellationToken cancellationToken)
@@ -29,6 +31,12 @@ public class ProductService
             return ProductServiceResult.Failure(errors);
         }
 
+        var priceResult = await TryResolvePricesAsync(request, cancellationToken);
+        if (!priceResult.Succeeded)
+        {
+            return ProductServiceResult.Failure(priceResult.Errors);
+        }
+
         var product = new Product
         {
             Name = request.Name,
@@ -36,8 +44,8 @@ public class ProductService
             Barcode = request.Barcode,
             Description = NormalizeOptional(request.Description),
             CategoryId = request.CategoryId,
-            PriceUsd = request.PriceUsd,
-            PriceLbp = request.PriceLbp,
+            PriceUsd = priceResult.PriceUsd,
+            PriceLbp = priceResult.PriceLbp,
             IsActive = true
         };
 
@@ -63,13 +71,19 @@ public class ProductService
             return ProductServiceResult.Failure(errors);
         }
 
+        var priceResult = await TryResolvePricesAsync(request, cancellationToken);
+        if (!priceResult.Succeeded)
+        {
+            return ProductServiceResult.Failure(priceResult.Errors);
+        }
+
         product.Name = request.Name;
         product.Sku = request.Sku;
         product.Barcode = request.Barcode;
         product.Description = NormalizeOptional(request.Description);
         product.CategoryId = request.CategoryId;
-        product.PriceUsd = request.PriceUsd;
-        product.PriceLbp = request.PriceLbp;
+        product.PriceUsd = priceResult.PriceUsd;
+        product.PriceLbp = priceResult.PriceLbp;
         product.Category = category;
         product.UpdatedAt = DateTime.UtcNow;
 
@@ -126,14 +140,23 @@ public class ProductService
             request.Barcode = request.Barcode.Trim();
         }
 
-        if (request.PriceUsd < 0)
+        if (request.Price is null)
         {
-            AddError(errors, nameof(request.PriceUsd), "PriceUsd cannot be negative.");
+            AddError(errors, nameof(request.Price), "Price is required.");
+        }
+        else if (request.Price.Value < 0)
+        {
+            AddError(errors, nameof(request.Price), "Price cannot be negative.");
         }
 
-        if (request.PriceLbp < 0)
+        var currency = NormalizeCurrency(request.Currency);
+        if (currency is null)
         {
-            AddError(errors, nameof(request.PriceLbp), "PriceLbp cannot be negative.");
+            AddError(errors, nameof(request.Currency), "Currency must be either USD or LBP.");
+        }
+        else
+        {
+            request.Currency = currency;
         }
 
         if (request.CategoryId == Guid.Empty)
@@ -192,6 +215,74 @@ public class ProductService
     }
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? NormalizeCurrency(string? currency)
+    {
+        if (string.IsNullOrWhiteSpace(currency))
+        {
+            return "USD";
+        }
+
+        var trimmed = currency.Trim().ToUpperInvariant();
+        return trimmed is "USD" or "LBP" ? trimmed : null;
+    }
+
+    private async Task<PriceComputationResult> TryResolvePricesAsync(CreateProductRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Price is not decimal priceValue)
+        {
+            return PriceComputationResult.Failure(new Dictionary<string, string[]>
+            {
+                [nameof(request.Price)] = new[] { "Price is required." }
+            });
+        }
+
+        if (priceValue < 0)
+        {
+            return PriceComputationResult.Failure(new Dictionary<string, string[]>
+            {
+                [nameof(request.Price)] = new[] { "Price cannot be negative." }
+            });
+        }
+
+        try
+        {
+            var rate = await _currencyService.GetCurrentRateAsync(cancellationToken);
+            var currency = request.Currency ?? "USD";
+
+            decimal priceUsd;
+            decimal priceLbp;
+
+            if (currency == "LBP")
+            {
+                priceLbp = _currencyService.RoundLbp(priceValue);
+                priceUsd = _currencyService.ConvertLbpToUsd(priceLbp, rate.Rate);
+            }
+            else
+            {
+                priceUsd = _currencyService.RoundUsd(priceValue);
+                priceLbp = _currencyService.ConvertUsdToLbp(priceUsd, rate.Rate);
+            }
+
+            return PriceComputationResult.Success(priceUsd, priceLbp);
+        }
+        catch (InvalidOperationException)
+        {
+            return PriceComputationResult.Failure(new Dictionary<string, string[]>
+            {
+                [nameof(request.Currency)] = new[] { "Exchange rate is not configured." }
+            });
+        }
+    }
+
+    private sealed record PriceComputationResult(bool Succeeded, decimal PriceUsd, decimal PriceLbp, IDictionary<string, string[]> Errors)
+    {
+        public static PriceComputationResult Success(decimal priceUsd, decimal priceLbp) =>
+            new(true, priceUsd, priceLbp, new Dictionary<string, string[]>(StringComparer.Ordinal));
+
+        public static PriceComputationResult Failure(IDictionary<string, string[]> errors) =>
+            new(false, 0m, 0m, errors);
+    }
 }
 
 public class ProductServiceResult

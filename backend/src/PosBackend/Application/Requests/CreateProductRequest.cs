@@ -16,9 +16,10 @@ public class CreateProductRequest
 
     public string? Description { get; set; }
 
-    public decimal PriceUsd { get; set; }
+    [Required]
+    public decimal? Price { get; set; }
 
-    public decimal PriceLbp { get; set; }
+    public string? Currency { get; set; }
 
     [Required]
     public Guid CategoryId { get; set; }

@@ -19,8 +19,8 @@ export interface CreateProductInput {
   sku: string;
   name: string;
   barcode: string;
-  priceUsd: number;
-  priceLbp: number;
+  price: number;
+  currency?: 'USD' | 'LBP';
   category: string;
   description?: string;
 }
