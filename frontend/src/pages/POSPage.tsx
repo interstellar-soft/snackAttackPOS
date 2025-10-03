@@ -240,8 +240,8 @@ export function POSPage() {
           disabled={overrideRequired}
         />
       </section>
-      <div className="grid gap-4 lg:grid-cols-4">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-4">
           <form onSubmit={handleScanSubmit} className="flex items-center gap-3">
             <Input
               id="barcode-input"
@@ -254,7 +254,7 @@ export function POSPage() {
           </form>
           <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
         </div>
-        <div className="flex h-[calc(100vh-12rem)] flex-col gap-4 lg:col-span-2 lg:sticky lg:top-24">
+        <div className="flex h-[calc(100vh-12rem)] flex-col gap-4 lg:sticky lg:top-24">
           <div className="flex-1 overflow-hidden">
             <CartPanel onClear={clear} />
           </div>
