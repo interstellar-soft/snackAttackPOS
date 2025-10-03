@@ -34,8 +34,8 @@ public class ProductsControllerTests
             Name = "Potato Chips",
             Sku = "SNK-001",
             Barcode = "1234567890123",
-            PriceUsd = 2.5m,
-            PriceLbp = 225000m,
+            Price = 2.5m,
+            Currency = "USD",
             CategoryId = category.Id
         };
 
@@ -49,6 +49,8 @@ public class ProductsControllerTests
         var stored = await context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == response.Id);
         Assert.NotNull(stored);
         Assert.Equal(request.Barcode, stored!.Barcode);
+        Assert.Equal(2.5m, stored.PriceUsd);
+        Assert.Equal(225000m, stored.PriceLbp);
     }
 
     [Fact]
@@ -76,8 +78,8 @@ public class ProductsControllerTests
             Name = "Duplicate",
             Sku = "SNK-001",
             Barcode = "999888777666",
-            PriceUsd = 2m,
-            PriceLbp = 180000m,
+            Price = 2m,
+            Currency = "USD",
             CategoryId = category.Id
         };
 
@@ -115,8 +117,8 @@ public class ProductsControllerTests
             Name = "Updated",
             Sku = "SNK-002",
             Barcode = "321321321321",
-            PriceUsd = 3m,
-            PriceLbp = 270000m,
+            Price = 270000m,
+            Currency = "LBP",
             CategoryId = newCategory.Id
         };
 
@@ -130,8 +132,8 @@ public class ProductsControllerTests
         var stored = await context.Products.Include(p => p.Category).FirstAsync(p => p.Id == product.Id);
         Assert.Equal(request.Sku, stored.Sku);
         Assert.Equal(newCategory.Id, stored.CategoryId);
-        Assert.Equal(request.PriceUsd, stored.PriceUsd);
-        Assert.Equal(request.PriceLbp, stored.PriceLbp);
+        Assert.Equal(3m, stored.PriceUsd);
+        Assert.Equal(270000m, stored.PriceLbp);
     }
 
     [Fact]
@@ -148,8 +150,8 @@ public class ProductsControllerTests
             Name = "New",
             Sku = "SNK-100",
             Barcode = "000000000000",
-            PriceUsd = 1m,
-            PriceLbp = 90000m,
+            Price = 1m,
+            Currency = "USD",
             CategoryId = category.Id
         };
 
@@ -169,7 +171,8 @@ public class ProductsControllerTests
         var httpClient = new HttpClient(new FakeHttpMessageHandler());
         var mlClient = new MlClient(httpClient, configuration);
         var watchdog = new ScanWatchdog();
-        var productService = new ProductService(context);
+        var currencyService = new CurrencyService(context);
+        var productService = new ProductService(context, currencyService);
         var controller = new ProductsController(context, mlClient, watchdog, productService)
         {
             ControllerContext = new ControllerContext
@@ -189,6 +192,13 @@ public class ProductsControllerTests
 
         var context = new ApplicationDbContext(options);
         context.Database.EnsureCreated();
+        context.CurrencyRates.Add(new CurrencyRate
+        {
+            BaseCurrency = "USD",
+            QuoteCurrency = "LBP",
+            Rate = 90000m
+        });
+        context.SaveChanges();
         return context;
     }
 
