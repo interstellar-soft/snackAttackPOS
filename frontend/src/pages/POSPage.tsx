@@ -254,10 +254,10 @@ export function POSPage() {
           </form>
           <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
         </div>
-        <div className="flex h-full flex-col gap-4 lg:col-span-2 lg:sticky lg:top-24 lg:max-h-[calc(100vh-16rem)]">
-          <section className="flex-1 overflow-y-auto">
+        <div className="flex h-[calc(100vh-12rem)] flex-col gap-4 lg:col-span-2 lg:sticky lg:top-24">
+          <div className="flex-1 overflow-hidden">
             <CartPanel onClear={clear} />
-          </section>
+          </div>
           <div className="mt-auto">
             <ReceiptPreview />
           </div>
