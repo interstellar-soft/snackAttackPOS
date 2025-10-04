@@ -37,6 +37,9 @@ export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: Car
   const { items, setItemQuantity, updateDiscount, removeItem, subtotalUsd, subtotalLbp } = useCartStore();
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [draftValues, setDraftValues] = useState<Record<string, { quantity: string; discount: string }>>({});
+  const highlightedDraftQuantity = highlightedItemId
+    ? draftValues[highlightedItemId]?.quantity
+    : undefined;
 
   useEffect(() => {
     const nextDrafts = items.reduce<Record<string, { quantity: string; discount: string }>>((acc, item) => {
@@ -54,9 +57,14 @@ export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: Car
     const input = quantityInputRefs.current[highlightedItemId];
     if (input) {
       input.focus();
-      input.select();
+      const select = () => input.select();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(select);
+      } else {
+        select();
+      }
     }
-  }, [highlightedItemId, items]);
+  }, [highlightedItemId, highlightedDraftQuantity]);
 
   const commitQuantity = (productId: string, rawValue: string) => {
     const item = items.find((cartItem) => cartItem.productId === productId);
