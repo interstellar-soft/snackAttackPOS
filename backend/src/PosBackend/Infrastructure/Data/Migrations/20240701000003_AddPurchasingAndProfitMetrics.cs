@@ -14,21 +14,21 @@ namespace PosBackend.Infrastructure.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<decimal>(
-                name: "average_cost_lbp",
+                name: "AverageCostLbp",
                 table: "inventories",
                 type: "numeric(20,2)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "average_cost_usd",
+                name: "AverageCostUsd",
                 table: "inventories",
                 type: "numeric(14,4)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<DateTimeOffset>(
-                name: "last_restocked_at",
+                name: "LastRestockedAt",
                 table: "inventories",
                 type: "timestamp with time zone",
                 nullable: true);
@@ -42,82 +42,82 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 table: "purchase_orders");
 
             migrationBuilder.AddColumn<Guid>(
-                name: "created_by_user_id",
+                name: "CreatedByUserId",
                 table: "purchase_orders",
                 type: "uuid",
                 nullable: true);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "exchange_rate_used",
+                name: "ExchangeRateUsed",
                 table: "purchase_orders",
                 type: "numeric(18,4)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<string>(
-                name: "reference",
+                name: "Reference",
                 table: "purchase_orders",
                 type: "character varying(120)",
                 maxLength: 120,
                 nullable: true);
 
             migrationBuilder.AddColumn<DateTimeOffset>(
-                name: "received_at",
+                name: "ReceivedAt",
                 table: "purchase_orders",
                 type: "timestamp with time zone",
                 nullable: true);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "total_cost_lbp",
+                name: "TotalCostLbp",
                 table: "purchase_orders",
                 type: "numeric(20,2)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "total_cost_usd",
+                name: "TotalCostUsd",
                 table: "purchase_orders",
                 type: "numeric(14,2)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "base_unit_price_lbp",
+                name: "BaseUnitPriceLbp",
                 table: "transaction_lines",
                 type: "numeric(18,2)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "base_unit_price_usd",
+                name: "BaseUnitPriceUsd",
                 table: "transaction_lines",
                 type: "numeric(14,2)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "cost_lbp",
+                name: "CostLbp",
                 table: "transaction_lines",
                 type: "numeric(18,2)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "cost_usd",
+                name: "CostUsd",
                 table: "transaction_lines",
                 type: "numeric(14,4)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "profit_lbp",
+                name: "ProfitLbp",
                 table: "transaction_lines",
                 type: "numeric(18,2)",
                 nullable: false,
                 defaultValue: 0m);
 
             migrationBuilder.AddColumn<decimal>(
-                name: "profit_usd",
+                name: "ProfitUsd",
                 table: "transaction_lines",
                 type: "numeric(14,2)",
                 nullable: false,
@@ -157,9 +157,9 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_purchase_orders_created_by_user_id",
+                name: "IX_purchase_orders_CreatedByUserId",
                 table: "purchase_orders",
-                column: "created_by_user_id");
+                column: "CreatedByUserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_purchase_order_lines_ProductId",
@@ -172,9 +172,9 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 column: "PurchaseOrderId");
 
             migrationBuilder.AddForeignKey(
-                name: "FK_purchase_orders_users_created_by_user_id",
+                name: "FK_purchase_orders_users_CreatedByUserId",
                 table: "purchase_orders",
-                column: "created_by_user_id",
+                column: "CreatedByUserId",
                 principalTable: "users",
                 principalColumn: "Id");
         }
@@ -182,74 +182,74 @@ namespace PosBackend.Infrastructure.Data.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
-                name: "FK_purchase_orders_users_created_by_user_id",
+                name: "FK_purchase_orders_users_CreatedByUserId",
                 table: "purchase_orders");
 
             migrationBuilder.DropTable(
                 name: "purchase_order_lines");
 
             migrationBuilder.DropIndex(
-                name: "IX_purchase_orders_created_by_user_id",
+                name: "IX_purchase_orders_CreatedByUserId",
                 table: "purchase_orders");
 
             migrationBuilder.DropColumn(
-                name: "average_cost_lbp",
+                name: "AverageCostLbp",
                 table: "inventories");
 
             migrationBuilder.DropColumn(
-                name: "average_cost_usd",
+                name: "AverageCostUsd",
                 table: "inventories");
 
             migrationBuilder.DropColumn(
-                name: "last_restocked_at",
+                name: "LastRestockedAt",
                 table: "inventories");
 
             migrationBuilder.DropColumn(
-                name: "created_by_user_id",
+                name: "CreatedByUserId",
                 table: "purchase_orders");
 
             migrationBuilder.DropColumn(
-                name: "exchange_rate_used",
+                name: "ExchangeRateUsed",
                 table: "purchase_orders");
 
             migrationBuilder.DropColumn(
-                name: "reference",
+                name: "Reference",
                 table: "purchase_orders");
 
             migrationBuilder.DropColumn(
-                name: "received_at",
+                name: "ReceivedAt",
                 table: "purchase_orders");
 
             migrationBuilder.DropColumn(
-                name: "total_cost_lbp",
+                name: "TotalCostLbp",
                 table: "purchase_orders");
 
             migrationBuilder.DropColumn(
-                name: "total_cost_usd",
+                name: "TotalCostUsd",
                 table: "purchase_orders");
 
             migrationBuilder.DropColumn(
-                name: "base_unit_price_lbp",
+                name: "BaseUnitPriceLbp",
                 table: "transaction_lines");
 
             migrationBuilder.DropColumn(
-                name: "base_unit_price_usd",
+                name: "BaseUnitPriceUsd",
                 table: "transaction_lines");
 
             migrationBuilder.DropColumn(
-                name: "cost_lbp",
+                name: "CostLbp",
                 table: "transaction_lines");
 
             migrationBuilder.DropColumn(
-                name: "cost_usd",
+                name: "CostUsd",
                 table: "transaction_lines");
 
             migrationBuilder.DropColumn(
-                name: "profit_lbp",
+                name: "ProfitLbp",
                 table: "transaction_lines");
 
             migrationBuilder.DropColumn(
-                name: "profit_usd",
+                name: "ProfitUsd",
                 table: "transaction_lines");
 
             migrationBuilder.AddColumn<string>(
