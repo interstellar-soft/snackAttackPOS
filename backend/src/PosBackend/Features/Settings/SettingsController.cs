@@ -9,6 +9,7 @@ using PosBackend.Application.Requests;
 using PosBackend.Application.Responses;
 using PosBackend.Application.Services;
 using PosBackend.Domain.Entities;
+using PosBackend.Features.Common;
 using PosBackend.Infrastructure.Data;
 
 namespace PosBackend.Features.Settings;
@@ -51,7 +52,7 @@ public class SettingsController : ControllerBase
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult> UpdateCurrencyRate([FromBody] UpdateCurrencyRateRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         if (userId is null)
         {
             return Unauthorized();
@@ -99,7 +100,7 @@ public class SettingsController : ControllerBase
             return BadRequest("Store name is required.");
         }
 
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         if (userId is null)
         {
             return Unauthorized();
@@ -132,14 +133,4 @@ public class SettingsController : ControllerBase
         });
     }
 
-    private Guid? GetCurrentUserId()
-    {
-        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrWhiteSpace(userIdValue))
-        {
-            return null;
-        }
-
-        return Guid.TryParse(userIdValue, out var userId) ? userId : null;
-    }
 }
