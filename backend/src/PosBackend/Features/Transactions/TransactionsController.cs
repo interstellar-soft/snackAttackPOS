@@ -188,6 +188,8 @@ public class TransactionsController : ControllerBase
             Lines = lines.Select(l => new { l.ProductId, l.Quantity })
         }, cancellationToken);
 
+        var receiptBytes = await _receiptRenderer.RenderPdfAsync(transaction, lines, transaction.ExchangeRateUsed, cancellationToken);
+
         return new CheckoutResponse
         {
             TransactionId = transaction.Id,
@@ -200,7 +202,7 @@ public class TransactionsController : ControllerBase
             BalanceLbp = 0,
             ExchangeRate = transaction.ExchangeRateUsed,
             Lines = lines,
-            ReceiptPdfBase64 = Convert.ToBase64String(_receiptRenderer.RenderPdf(transaction, lines, transaction.ExchangeRateUsed))
+            ReceiptPdfBase64 = Convert.ToBase64String(receiptBytes)
         };
     }
 
@@ -235,11 +237,11 @@ public class TransactionsController : ControllerBase
             return NotFound();
         }
 
-        var pdf = _receiptRenderer.RenderPdf(transaction, transaction.Lines, transaction.ExchangeRateUsed);
+        var pdfBytes = await _receiptRenderer.RenderPdfAsync(transaction, transaction.Lines, transaction.ExchangeRateUsed, cancellationToken);
         return new ReceiptResponse
         {
             TransactionId = transaction.Id,
-            PdfBase64 = Convert.ToBase64String(pdf)
+            PdfBase64 = Convert.ToBase64String(pdfBytes)
         };
     }
 }
