@@ -1,9 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ./src/PosBackend/PosBackend.csproj ./
-RUN dotnet restore PosBackend.csproj || true
+RUN dotnet restore PosBackend.csproj
 COPY ./src/PosBackend ./
-RUN dotnet publish PosBackend.csproj -c Release -o /app/publish || true
+RUN dotnet publish PosBackend.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
