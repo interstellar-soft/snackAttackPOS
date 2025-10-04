@@ -14,6 +14,7 @@ export interface Product {
   description?: string | null;
   isFlagged?: boolean;
   flagReason?: string | null;
+  isPinned: boolean;
 }
 
 export interface CreateProductInput {
@@ -24,6 +25,7 @@ export interface CreateProductInput {
   currency?: 'USD' | 'LBP';
   categoryId: string;
   description?: string;
+  isPinned: boolean;
 }
 
 export interface UpdateProductInput extends CreateProductInput {
