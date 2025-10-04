@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ProductsService, Product } from '../../lib/ProductsService';
 import { Input } from '../ui/input';
 import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
 import { cn, formatCurrency } from '../../lib/utils';
 import { useCartStore } from '../../stores/cartStore';
 
@@ -24,7 +25,15 @@ export function ProductGrid({ onScan }: ProductGridProps) {
     return () => clearTimeout(handler);
   }, [term]);
 
-  const { data, isFetching } = ProductsService.useSearchProducts(debouncedTerm);
+  const trimmedTerm = debouncedTerm.trim();
+  const shouldShowPinnedOnly = trimmedTerm.length === 0;
+
+  const { data, isFetching } = ProductsService.useSearchProducts(debouncedTerm, {
+    pinnedOnly: shouldShowPinnedOnly
+  });
+
+  const showPinnedEmptyState =
+    shouldShowPinnedOnly && !isFetching && (data?.length ?? 0) === 0;
 
   const handleAdd = (product: Product) => {
     addItem({
@@ -60,9 +69,16 @@ export function ProductGrid({ onScan }: ProductGridProps) {
                 'hover:border-emerald-500'
               )}
             >
-              <div className="flex items-center justify-between gap-1">
-                <p className="truncate font-medium">{product.name}</p>
-                <span className="text-[0.7rem] text-slate-500">{product.sku}</span>
+              <div className="flex items-start justify-between gap-1">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{product.name}</p>
+                  <span className="text-[0.7rem] text-slate-500">{product.sku}</span>
+                </div>
+                {product.isPinned && (
+                  <Badge className="shrink-0 bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
+                    {t('pinnedBadge', 'Pinned')}
+                  </Badge>
+                )}
               </div>
               <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-300">
                 {formatCurrency(product.priceUsd, 'USD', i18n.language === 'ar' ? 'ar-LB' : 'en-US')}
@@ -70,6 +86,11 @@ export function ProductGrid({ onScan }: ProductGridProps) {
               <p className="text-[0.7rem] text-slate-500">{product.category}</p>
             </button>
           ))}
+          {showPinnedEmptyState && (
+            <Card className="col-span-full text-center text-xs text-slate-500">
+              {t('pinnedProductsEmpty', 'No curated products yet. Try searching to see the full catalog.')}
+            </Card>
+          )}
           {isFetching && <Card className="col-span-full text-center text-xs text-slate-500">Loading…</Card>}
         </div>
       </div>

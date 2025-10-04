@@ -14,7 +14,7 @@ export interface Product {
   description?: string | null;
   isFlagged?: boolean;
   flagReason?: string | null;
-  isPinned: boolean;
+  isPinned?: boolean;
 }
 
 export interface CreateProductInput {
@@ -36,20 +36,31 @@ export interface DeleteProductInput {
   id: string;
 }
 
+interface SearchProductsOptions {
+  pinnedOnly?: boolean;
+}
+
 const productsKeys = {
   all: ['products'] as const,
   list: () => ['products', 'list'] as const,
-  search: (term: string) => ['products', 'search', term] as const
+  search: (term: string, pinnedOnly: boolean) =>
+    ['products', 'search', term, pinnedOnly] as const
 };
 
 function useAuthToken() {
   return useAuthStore((state) => state.token);
 }
 
-function buildSearchPath(term: string) {
+function buildSearchPath(term: string, options: SearchProductsOptions = {}) {
   const trimmed = term.trim();
-  const query = trimmed ? `?q=${encodeURIComponent(trimmed)}` : '?q=';
-  return `/api/products/search${query}`;
+  const params = new URLSearchParams();
+  params.set('q', trimmed);
+
+  if (options.pinnedOnly) {
+    params.set('pinnedOnly', 'true');
+  }
+
+  return `/api/products/search?${params.toString()}`;
 }
 
 export const ProductsService = {
@@ -64,13 +75,18 @@ export const ProductsService = {
       enabled: !!token
     });
   },
-  useSearchProducts(term: string) {
+  useSearchProducts(term: string, options: SearchProductsOptions = {}) {
     const token = useAuthToken();
+    const pinnedOnly = options.pinnedOnly ?? false;
 
     return useQuery<Product[]>({
-      queryKey: [...productsKeys.search(term), token],
+      queryKey: [...productsKeys.search(term, pinnedOnly), token],
       queryFn: async () => {
-        return await apiFetch<Product[]>(buildSearchPath(term), {}, token ?? undefined);
+        return await apiFetch<Product[]>(
+          buildSearchPath(term, { pinnedOnly }),
+          {},
+          token ?? undefined
+        );
       },
       enabled: !!token,
       staleTime: 30_000
