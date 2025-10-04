@@ -9,7 +9,8 @@ export interface Product {
   barcode: string;
   priceUsd: number;
   priceLbp: number;
-  categoryName: string;
+  category: string;
+  categoryName?: string;
   description?: string | null;
   isFlagged?: boolean;
   flagReason?: string | null;

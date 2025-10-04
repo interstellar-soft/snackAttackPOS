@@ -155,7 +155,7 @@ export function InventoryPage() {
         name: product.name,
         sku: product.sku,
         barcode: product.barcode,
-        categoryName: product.categoryName,
+        categoryName: product.categoryName ?? product.category,
         price: product.priceUsd,
         currency: 'USD',
         isPinned: !product.isPinned
@@ -263,7 +263,10 @@ export function InventoryPage() {
                       <td className="px-4 py-3 text-sm text-slate-500">{product.barcode}</td>
                       <td className="px-4 py-3 text-sm text-slate-500">
                         <div className="flex flex-col">
-                          <span>{product.categoryName || t('inventoryCategoryUnknown')}</span>
+                          <span>{product.categoryName ?? product.category ?? t('inventoryCategoryUnknown')}</span>
+                          {product.category && product.categoryName && product.category !== product.categoryName && (
+                            <span className="text-xs text-slate-400">{product.category}</span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300">
@@ -340,7 +343,7 @@ export function InventoryPage() {
             name: dialog.product.name,
             sku: dialog.product.sku,
             barcode: dialog.product.barcode,
-            categoryName: dialog.product.categoryName ?? '',
+            categoryName: dialog.product.categoryName ?? dialog.product.category ?? '',
             price: dialog.product.priceUsd.toString(),
             currency: 'USD',
             isPinned: dialog.product.isPinned
