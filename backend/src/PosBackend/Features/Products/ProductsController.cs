@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +30,36 @@ public class ProductsController : ControllerBase
         _productService = productService;
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts(CancellationToken cancellationToken)
+    {
+        var products = await _db.Products
+            .Include(p => p.Category)
+            .AsNoTracking()
+            .OrderBy(p => p.Name)
+            .ToListAsync(cancellationToken);
+
+        var responses = products.Select(_productService.ToResponse).ToList();
+        return Ok(responses);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ProductResponse>> GetProductById(Guid id, CancellationToken cancellationToken)
+    {
+        var product = await _db.Products
+            .Include(p => p.Category)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (product is null)
+        {
+            return NotFound();
+        }
+
+        var response = _productService.ToResponse(product);
+        return Ok(response);
+    }
+
     [HttpPost]
     public async Task<ActionResult<ProductResponse>> CreateProduct([FromBody] CreateProductRequest request, CancellationToken cancellationToken)
     {
@@ -49,7 +83,7 @@ public class ProductsController : ControllerBase
         }
 
         var response = _productService.ToResponse(result.Product!);
-        return Created($"api/products/{response.Id}", response);
+        return CreatedAtAction(nameof(GetProductById), new { id = response.Id }, response);
     }
 
     [HttpPut("{id:guid}")]
@@ -88,16 +122,13 @@ public class ProductsController : ControllerBase
             query = query.Where(p => p.Name.ToLower().Contains(term) || p.Sku.ToLower().Contains(term) || p.Barcode.Contains(term));
         }
 
-        var results = await query.OrderBy(p => p.Name).Take(50).Select(p => new ProductResponse
-        {
-            Id = p.Id,
-            Sku = p.Sku,
-            Name = p.Name,
-            Barcode = p.Barcode,
-            PriceUsd = p.PriceUsd,
-            PriceLbp = p.PriceLbp,
-            Category = p.Category != null ? p.Category.Name : string.Empty
-        }).ToListAsync(cancellationToken);
+        var products = await query
+            .OrderBy(p => p.Name)
+            .Take(50)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        var results = products.Select(_productService.ToResponse).ToList();
 
         return Ok(results);
     }
@@ -127,6 +158,7 @@ public class ProductsController : ControllerBase
             Barcode = product.Barcode,
             PriceUsd = product.PriceUsd,
             PriceLbp = product.PriceLbp,
+            Description = product.Description,
             Category = product.Category?.Name ?? string.Empty,
             IsFlagged = flagged,
             FlagReason = reason

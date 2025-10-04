@@ -20,9 +20,11 @@ const initialFormState = {
   barcode: '',
   price: '',
   currency: 'USD',
-  category: '',
+  categoryId: '',
   description: ''
 };
+
+const guidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 export function InventoryPage() {
   const { t, i18n } = useTranslation();
@@ -59,7 +61,7 @@ export function InventoryPage() {
       name: form.name.trim(),
       sku: form.sku.trim(),
       barcode: form.barcode.trim(),
-      category: form.category.trim(),
+      categoryId: form.categoryId.trim(),
       description: form.description.trim() || undefined,
       price: parsedPrice,
       currency: form.currency as 'USD' | 'LBP'
@@ -69,7 +71,8 @@ export function InventoryPage() {
       !payload.name ||
       !payload.sku ||
       !payload.barcode ||
-      !payload.category ||
+      !payload.categoryId ||
+      !guidPattern.test(payload.categoryId) ||
       !Number.isFinite(parsedPrice) ||
       parsedPrice < 0
     ) {
@@ -143,14 +146,14 @@ export function InventoryPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="category">
-                  {t('inventoryCategory')}
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="categoryId">
+                  {t('inventoryCategoryId')}
                 </label>
                 <Input
-                  id="category"
-                  value={form.category}
-                  onChange={handleChange('category')}
-                  placeholder={t('inventoryCategoryPlaceholder')}
+                  id="categoryId"
+                  value={form.categoryId}
+                  onChange={handleChange('categoryId')}
+                  placeholder={t('inventoryCategoryIdPlaceholder')}
                 />
               </div>
             </div>

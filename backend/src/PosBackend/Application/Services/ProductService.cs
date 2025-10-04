@@ -102,6 +102,7 @@ public class ProductService
             Barcode = product.Barcode,
             PriceUsd = product.PriceUsd,
             PriceLbp = product.PriceLbp,
+            Description = product.Description,
             Category = product.Category?.Name ?? string.Empty
         };
     }

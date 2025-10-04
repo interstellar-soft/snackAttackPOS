@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -41,7 +42,8 @@ public class ProductsControllerTests
 
         var result = await controller.CreateProduct(request, CancellationToken.None);
 
-        var created = Assert.IsType<CreatedResult>(result.Result);
+        var created = Assert.IsType<CreatedAtActionResult>(result.Result);
+        Assert.Equal(nameof(ProductsController.GetProductById), created.ActionName);
         var response = Assert.IsType<ProductResponse>(created.Value);
         Assert.Equal(request.Name, response.Name);
         Assert.Equal(request.Sku, response.Sku);
@@ -156,6 +158,134 @@ public class ProductsControllerTests
         };
 
         var result = await controller.UpdateProduct(Guid.NewGuid(), request, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_ReturnsValidationProblem_ForDuplicateSku()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Pantry" };
+        var otherProduct = new Product
+        {
+            Category = category,
+            Name = "Other",
+            Sku = "SNK-002",
+            Barcode = "222111333444",
+            PriceUsd = 2m,
+            PriceLbp = 180000m
+        };
+
+        var product = new Product
+        {
+            Category = category,
+            Name = "Original",
+            Sku = "SNK-001",
+            Barcode = "111222333444",
+            PriceUsd = 1m,
+            PriceLbp = 90000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.AddRange(product, otherProduct);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+        var request = new CreateProductRequest
+        {
+            Name = "Updated",
+            Sku = otherProduct.Sku,
+            Barcode = "321321321321",
+            Price = 2m,
+            Currency = "USD",
+            CategoryId = category.Id
+        };
+
+        var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
+
+        var validation = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Contains(nameof(request.Sku), problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task GetProducts_ReturnsAllProducts()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var products = new[]
+        {
+            new Product
+            {
+                Category = category,
+                Name = "A",
+                Sku = "A-1",
+                Barcode = "100",
+                PriceUsd = 1m,
+                PriceLbp = 90000m
+            },
+            new Product
+            {
+                Category = category,
+                Name = "B",
+                Sku = "B-1",
+                Barcode = "200",
+                PriceUsd = 2m,
+                PriceLbp = 180000m
+            }
+        };
+
+        context.Categories.Add(category);
+        context.Products.AddRange(products);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+
+        var result = await controller.GetProducts(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsAssignableFrom<IEnumerable<ProductResponse>>(ok.Value);
+        Assert.Equal(2, response.Count());
+    }
+
+    [Fact]
+    public async Task GetProductById_ReturnsProduct()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Existing",
+            Sku = "SNK-001",
+            Barcode = "000111222333",
+            PriceUsd = 1m,
+            PriceLbp = 90000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.Add(product);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+
+        var result = await controller.GetProductById(product.Id, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ProductResponse>(ok.Value);
+        Assert.Equal(product.Name, response.Name);
+        Assert.Equal(product.Sku, response.Sku);
+    }
+
+    [Fact]
+    public async Task GetProductById_ReturnsNotFound_ForMissingProduct()
+    {
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+
+        var result = await controller.GetProductById(Guid.NewGuid(), CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result.Result);
     }
