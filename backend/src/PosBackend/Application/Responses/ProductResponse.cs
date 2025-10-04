@@ -10,6 +10,7 @@ public class ProductResponse
     public decimal PriceLbp { get; set; }
     public string? Description { get; set; }
     public string Category { get; set; } = string.Empty;
+    public bool IsPinned { get; set; }
     public bool? IsFlagged { get; set; }
     public string? FlagReason { get; set; }
 }

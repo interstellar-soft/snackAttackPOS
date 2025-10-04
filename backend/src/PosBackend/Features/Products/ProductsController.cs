@@ -90,7 +90,8 @@ public class ProductsController : ControllerBase
             CategoryId = request.CategoryId,
             PriceUsd = priceResult.PriceUsd,
             PriceLbp = priceResult.PriceLbp,
-            IsActive = true
+            IsActive = true,
+            IsPinned = request.IsPinned
         };
 
         _db.Products.Add(product);
@@ -130,6 +131,7 @@ public class ProductsController : ControllerBase
         product.CategoryId = request.CategoryId;
         product.PriceUsd = priceResult.PriceUsd;
         product.PriceLbp = priceResult.PriceLbp;
+        product.IsPinned = request.IsPinned;
         product.Category = category;
         product.UpdatedAt = DateTime.UtcNow;
 
@@ -155,13 +157,18 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("search")]
-    public async Task<ActionResult<IEnumerable<ProductResponse>>> Search([FromQuery] string? q, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<ProductResponse>>> Search([FromQuery] string? q, [FromQuery] bool? pinnedOnly, CancellationToken cancellationToken)
     {
         var query = _db.Products.Include(p => p.Category).AsQueryable();
         if (!string.IsNullOrWhiteSpace(q))
         {
             var term = q.ToLower();
             query = query.Where(p => p.Name.ToLower().Contains(term) || p.Sku.ToLower().Contains(term) || p.Barcode.Contains(term));
+        }
+
+        if (pinnedOnly == true)
+        {
+            query = query.Where(p => p.IsPinned);
         }
 
         var products = await query
@@ -202,6 +209,7 @@ public class ProductsController : ControllerBase
             PriceLbp = product.PriceLbp,
             Description = product.Description,
             Category = product.Category?.Name ?? string.Empty,
+            IsPinned = product.IsPinned,
             IsFlagged = flagged,
             FlagReason = reason
         };
@@ -218,7 +226,8 @@ public class ProductsController : ControllerBase
             PriceUsd = product.PriceUsd,
             PriceLbp = product.PriceLbp,
             Description = product.Description,
-            Category = product.Category?.Name ?? string.Empty
+            Category = product.Category?.Name ?? string.Empty,
+            IsPinned = product.IsPinned
         };
     }
 

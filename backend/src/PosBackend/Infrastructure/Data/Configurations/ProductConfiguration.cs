@@ -13,5 +13,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.HasIndex(p => p.Barcode).IsUnique();
         builder.Property(p => p.PriceUsd).HasColumnType("numeric(12,2)");
         builder.Property(p => p.PriceLbp).HasColumnType("numeric(14,2)");
+        builder.Property(p => p.IsPinned)
+            .HasColumnName("is_pinned")
+            .HasDefaultValue(false);
     }
 }
