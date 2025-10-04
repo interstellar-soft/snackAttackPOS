@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using PosBackend.Application.Services;
 using PosBackend.Infrastructure.Data;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,8 +26,28 @@ builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddScoped<CurrencyService>();
 builder.Services.AddHttpClient<MlClient>();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+var connectionString = rawConnectionString;
+var connectionHostOverridden = false;
+
+var isRunningInContainer = string.Equals(
+    Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+
+if (isRunningInContainer)
+{
+    var connectionBuilder = new NpgsqlConnectionStringBuilder(connectionString);
+    if (string.IsNullOrWhiteSpace(connectionBuilder.Host) ||
+        string.Equals(connectionBuilder.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionBuilder.Host = "db";
+        connectionString = connectionBuilder.ConnectionString;
+        connectionHostOverridden = true;
+    }
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -59,6 +81,14 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+if (connectionHostOverridden)
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogWarning(
+        "Connection string host was overridden to '{Host}' because DOTNET_RUNNING_IN_CONTAINER was set.",
+        "db");
+}
 
 using (var scope = app.Services.CreateScope())
 {
