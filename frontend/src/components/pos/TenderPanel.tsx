@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -6,10 +7,12 @@ import { Badge } from '../ui/badge';
 import { formatCurrency } from '../../lib/utils';
 
 interface TenderPanelProps {
-  paidUsd: number;
-  paidLbp: number;
-  onChangePaidUsd: (value: number) => void;
-  onChangePaidLbp: (value: number) => void;
+  paidUsdText: string;
+  paidLbpText: string;
+  onChangePaidUsdText: Dispatch<SetStateAction<string>>;
+  onChangePaidLbpText: Dispatch<SetStateAction<string>>;
+  onCommitPaidUsdAmount: Dispatch<SetStateAction<number>>;
+  onCommitPaidLbpAmount: Dispatch<SetStateAction<number>>;
   onCheckout: () => void;
   balanceUsd: number;
   balanceLbp: number;
@@ -20,10 +23,12 @@ interface TenderPanelProps {
 }
 
 export function TenderPanel({
-  paidUsd,
-  paidLbp,
-  onChangePaidUsd,
-  onChangePaidLbp,
+  paidUsdText,
+  paidLbpText,
+  onChangePaidUsdText,
+  onChangePaidLbpText,
+  onCommitPaidUsdAmount,
+  onCommitPaidLbpAmount,
   onCheckout,
   balanceUsd,
   balanceLbp,
@@ -36,6 +41,31 @@ export function TenderPanel({
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const balanceUsdText = formatCurrency(balanceUsd, 'USD', locale);
   const balanceLbpText = formatCurrency(balanceLbp, 'LBP', locale);
+
+  const parseAmount = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number(trimmed.replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const handleCommitUsd = () => {
+    const parsed = parseAmount(paidUsdText);
+    if (parsed !== null) {
+      onCommitPaidUsdAmount(parsed);
+      onChangePaidUsdText(parsed.toString());
+    }
+  };
+
+  const handleCommitLbp = () => {
+    const parsed = parseAmount(paidLbpText);
+    if (parsed !== null) {
+      onCommitPaidLbpAmount(parsed);
+      onChangePaidLbpText(parsed.toString());
+    }
+  };
 
   return (
     <Card className="bg-white dark:bg-slate-900">
@@ -50,11 +80,37 @@ export function TenderPanel({
       <CardContent className="space-y-3">
         <div>
           <label className="mb-1 block text-xs uppercase tracking-wide text-slate-500">USD</label>
-          <Input type="number" value={paidUsd} min={0} step="0.01" onChange={(event) => onChangePaidUsd(Number(event.target.value))} />
+          <Input
+            type="number"
+            value={paidUsdText}
+            min={0}
+            step="0.01"
+            onChange={(event) => onChangePaidUsdText(event.target.value)}
+            onBlur={handleCommitUsd}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                handleCommitUsd();
+              }
+            }}
+          />
         </div>
         <div>
           <label className="mb-1 block text-xs uppercase tracking-wide text-slate-500">LBP</label>
-          <Input type="number" value={paidLbp} min={0} step="1" onChange={(event) => onChangePaidLbp(Number(event.target.value))} />
+          <Input
+            type="number"
+            value={paidLbpText}
+            min={0}
+            step="1"
+            onChange={(event) => onChangePaidLbpText(event.target.value)}
+            onBlur={handleCommitLbp}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                handleCommitLbp();
+              }
+            }}
+          />
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex justify-between">
