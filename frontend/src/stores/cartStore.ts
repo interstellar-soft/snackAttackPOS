@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { playCartBeep } from '../lib/sounds';
 
 export interface CartItem {
   productId: string;
@@ -51,6 +52,7 @@ export const useCartStore = create<CartState>()(
             lastAddedItemId: item.productId
           }));
         }
+        void playCartBeep();
       },
       updateQuantity: (productId, quantity) => get().setItemQuantity(productId, quantity),
       setItemQuantity: (productId, quantity) =>

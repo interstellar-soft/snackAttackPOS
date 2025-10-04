@@ -41,6 +41,7 @@ public class ProductsController : ControllerBase
     {
         var products = await _db.Products
             .Include(p => p.Category)
+            .Include(p => p.Inventory)
             .AsNoTracking()
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
@@ -54,6 +55,7 @@ public class ProductsController : ControllerBase
     {
         var product = await _db.Products
             .Include(p => p.Category)
+            .Include(p => p.Inventory)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
@@ -185,7 +187,10 @@ public class ProductsController : ControllerBase
     [HttpGet("search")]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> Search([FromQuery] string? q, [FromQuery] bool? pinnedOnly, CancellationToken cancellationToken)
     {
-        var query = _db.Products.Include(p => p.Category).AsQueryable();
+        var query = _db.Products
+            .Include(p => p.Category)
+            .Include(p => p.Inventory)
+            .AsQueryable();
         if (!string.IsNullOrWhiteSpace(q))
         {
             var term = q.ToLower();
@@ -211,7 +216,7 @@ public class ProductsController : ControllerBase
     [HttpPost("scan")]
     public async Task<ActionResult<ProductResponse>> Scan([FromBody] ScanRequest request, CancellationToken cancellationToken)
     {
-        var product = await _db.Products.Include(p => p.Category)
+        var product = await _db.Products.Include(p => p.Category).Include(p => p.Inventory)
             .FirstOrDefaultAsync(p => p.Barcode == request.Barcode, cancellationToken);
         if (product is null)
         {
@@ -237,7 +242,9 @@ public class ProductsController : ControllerBase
             CategoryName = product.Category?.Name ?? string.Empty,
             IsPinned = product.IsPinned,
             IsFlagged = flagged,
-            FlagReason = reason
+            FlagReason = reason,
+            QuantityOnHand = product.Inventory?.QuantityOnHand ?? 0,
+            AverageCostUsd = product.Inventory?.AverageCostUsd ?? 0
         };
     }
 
@@ -253,7 +260,9 @@ public class ProductsController : ControllerBase
             PriceLbp = product.PriceLbp,
             Description = product.Description,
             CategoryName = product.Category?.Name ?? string.Empty,
-            IsPinned = product.IsPinned
+            IsPinned = product.IsPinned,
+            QuantityOnHand = product.Inventory?.QuantityOnHand ?? 0,
+            AverageCostUsd = product.Inventory?.AverageCostUsd ?? 0
         };
     }
 

@@ -101,7 +101,10 @@ public static class SeedData
                         Product = product,
                         QuantityOnHand = random.Next(10, 120),
                         ReorderPoint = 15,
-                        ReorderQuantity = 50
+                        ReorderQuantity = 50,
+                        AverageCostUsd = Math.Round(priceUsd * 0.6m, 2),
+                        AverageCostLbp = Math.Round(priceUsd * 0.6m * 90000m, 2),
+                        LastRestockedAt = DateTimeOffset.UtcNow.AddDays(-random.Next(1, 30))
                     });
                 }
             }

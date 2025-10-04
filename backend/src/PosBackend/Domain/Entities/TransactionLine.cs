@@ -9,9 +9,15 @@ public class TransactionLine : BaseEntity
     public Guid? PriceRuleId { get; set; }
     public PriceRule? PriceRule { get; set; }
     public decimal Quantity { get; set; }
+    public decimal BaseUnitPriceUsd { get; set; }
+    public decimal BaseUnitPriceLbp { get; set; }
     public decimal UnitPriceUsd { get; set; }
     public decimal UnitPriceLbp { get; set; }
     public decimal DiscountPercent { get; set; }
     public decimal TotalUsd { get; set; }
     public decimal TotalLbp { get; set; }
+    public decimal CostUsd { get; set; }
+    public decimal CostLbp { get; set; }
+    public decimal ProfitUsd { get; set; }
+    public decimal ProfitLbp { get; set; }
 }

@@ -18,6 +18,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PriceRule> PriceRules => Set<PriceRule>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
     public DbSet<User> Users => Set<User>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CurrencyRate> CurrencyRates => Set<CurrencyRate>();

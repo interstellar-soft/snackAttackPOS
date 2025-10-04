@@ -7,4 +7,7 @@ public class Inventory : BaseEntity
     public decimal QuantityOnHand { get; set; }
     public decimal ReorderPoint { get; set; }
     public decimal ReorderQuantity { get; set; }
+    public decimal AverageCostUsd { get; set; }
+    public decimal AverageCostLbp { get; set; }
+    public DateTimeOffset? LastRestockedAt { get; set; }
 }
