@@ -7,7 +7,14 @@ public static class SeedData
 {
     public static async Task InitializeAsync(ApplicationDbContext db, CancellationToken cancellationToken = default)
     {
-        await db.Database.MigrateAsync(cancellationToken);
+        if (db.Database.IsRelational())
+        {
+            await db.Database.MigrateAsync(cancellationToken);
+        }
+        else
+        {
+            await db.Database.EnsureCreatedAsync(cancellationToken);
+        }
 
         if (!await db.Users.AnyAsync(cancellationToken))
         {

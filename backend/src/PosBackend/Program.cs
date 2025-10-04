@@ -83,3 +83,5 @@ app.MapGet("/seed", async (ApplicationDbContext db, CancellationToken cancellati
 });
 
 app.Run();
+
+public partial class Program;

@@ -1,4 +1,5 @@
 using System;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -50,19 +51,23 @@ public class SettingsController : ControllerBase
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult> UpdateCurrencyRate([FromBody] UpdateCurrencyRateRequest request, CancellationToken cancellationToken)
     {
-        var userId = Guid.Parse(User.FindFirst("sub")?.Value ?? throw new InvalidOperationException("Missing user id"));
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
         var rate = new CurrencyRate
         {
             Rate = request.Rate,
             Notes = request.Notes,
             BaseCurrency = "USD",
             QuoteCurrency = "LBP",
-            UserId = userId
+            UserId = userId.Value
         };
         await _db.CurrencyRates.AddAsync(rate, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
-        await _auditLogger.LogAsync(userId, "UpdateCurrencyRate", nameof(CurrencyRate), rate.Id, new
+        await _auditLogger.LogAsync(userId.Value, "UpdateCurrencyRate", nameof(CurrencyRate), rate.Id, new
         {
             rate.Rate,
             rate.Notes
@@ -94,6 +99,12 @@ public class SettingsController : ControllerBase
             return BadRequest("Store name is required.");
         }
 
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
         var profile = await _db.StoreProfiles.FirstOrDefaultAsync(cancellationToken);
         if (profile is null)
         {
@@ -107,9 +118,7 @@ public class SettingsController : ControllerBase
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-
-        var userId = Guid.Parse(User.FindFirst("sub")?.Value ?? throw new InvalidOperationException("Missing user id"));
-        await _auditLogger.LogAsync(userId, "UpdateStoreProfile", nameof(StoreProfile), profile.Id, new
+        await _auditLogger.LogAsync(userId.Value, "UpdateStoreProfile", nameof(StoreProfile), profile.Id, new
         {
             profile.Name
         }, cancellationToken);
@@ -121,5 +130,16 @@ public class SettingsController : ControllerBase
             CreatedAt = profile.CreatedAt,
             UpdatedAt = profile.UpdatedAt
         });
+    }
+
+    private Guid? GetCurrentUserId()
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userIdValue))
+        {
+            return null;
+        }
+
+        return Guid.TryParse(userIdValue, out var userId) ? userId : null;
     }
 }
