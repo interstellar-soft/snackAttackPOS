@@ -23,7 +23,7 @@ export interface ProductResponseDto {
   priceUsd: number;
   priceLbp: number;
   description?: string | null;
-  category: string;
+  categoryName: string;
   isFlagged?: boolean | null;
   flagReason?: string | null;
 }
@@ -34,7 +34,7 @@ export interface ProductMutationPayload {
   barcode: string;
   price: number;
   currency?: ProductCurrency;
-  categoryId: string;
+  categoryName: string;
   description?: string | null;
 }
 
