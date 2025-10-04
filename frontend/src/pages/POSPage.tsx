@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -51,13 +51,15 @@ export function POSPage() {
   const token = useAuthStore((state) => state.token);
   const role = useAuthStore((state) => state.role);
   const logout = useAuthStore((state) => state.logout);
-  const { addItem, clear, items, subtotalUsd, rate, setRate } = useCartStore((state) => ({
+  const { addItem, clear, items, subtotalUsd, rate, setRate, lastAddedItemId, setLastAddedItemId } = useCartStore((state) => ({
     addItem: state.addItem,
     clear: state.clear,
     items: state.items,
     subtotalUsd: state.subtotalUsd,
     rate: state.rate,
-    setRate: state.setRate
+    setRate: state.setRate,
+    lastAddedItemId: state.lastAddedItemId,
+    setLastAddedItemId: state.setLastAddedItemId
   }));
   const [barcode, setBarcode] = useState('');
   const [lastScan, setLastScan] = useState<string | undefined>();
@@ -67,6 +69,7 @@ export function POSPage() {
   const [rateModalOpen, setRateModalOpen] = useState(false);
   const [overrideRequired, setOverrideRequired] = useState(false);
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
+  const barcodeInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -103,6 +106,7 @@ export function POSPage() {
         quantity: 1,
         discountPercent: 0
       });
+      setLastAddedItemId(product.id);
       setLastScan(`${product.name} (${product.sku})`);
       setBarcode('');
       if (product.isFlagged) {
@@ -237,6 +241,7 @@ export function POSPage() {
           <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
             <Input
               id="barcode-input"
+              ref={barcodeInputRef}
               value={barcode}
               onChange={(event) => setBarcode(event.target.value)}
               placeholder={t('barcodePlaceholder')}
@@ -267,7 +272,14 @@ export function POSPage() {
             />
           </div>
           <div className="flex-1 overflow-hidden">
-            <CartPanel onClear={clear} />
+            <CartPanel
+              onClear={clear}
+              highlightedItemId={lastAddedItemId}
+              onQuantityConfirm={() => {
+                setLastAddedItemId(null);
+                barcodeInputRef.current?.focus();
+              }}
+            />
           </div>
           <div className="mt-auto pt-1">
             <ReceiptPreview />

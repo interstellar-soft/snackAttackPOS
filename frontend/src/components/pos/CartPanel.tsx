@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SVGProps } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -20,11 +21,38 @@ function TrashIcon(props: SVGProps<SVGSVGElement>) {
 
 interface CartPanelProps {
   onClear: () => void;
+  highlightedItemId?: string | null;
+  onQuantityConfirm?: () => void;
 }
 
-export function CartPanel({ onClear }: CartPanelProps) {
+const clampQuantity = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.max(1, Math.floor(value));
+};
+
+export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: CartPanelProps) {
   const { t, i18n } = useTranslation();
-  const { items, updateQuantity, updateDiscount, removeItem, subtotalUsd, subtotalLbp } = useCartStore();
+  const { items, setItemQuantity, updateDiscount, removeItem, subtotalUsd, subtotalLbp } = useCartStore();
+  const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  useEffect(() => {
+    if (!highlightedItemId) return;
+    const input = quantityInputRefs.current[highlightedItemId];
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }, [highlightedItemId, items]);
+
+  const commitQuantity = (productId: string, rawValue: string) => {
+    const next = clampQuantity(Number(rawValue));
+    setItemQuantity(productId, next);
+    if (highlightedItemId === productId) {
+      onQuantityConfirm?.();
+    }
+  };
 
   return (
     <Card className="flex h-full flex-col bg-slate-50 dark:bg-slate-900">
@@ -36,11 +64,15 @@ export function CartPanel({ onClear }: CartPanelProps) {
       </CardHeader>
       <CardContent className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-          {items.map((item) => (
-            <div
-              key={item.productId}
-              className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-            >
+          {items.map((item) => {
+            const isHighlighted = highlightedItemId === item.productId;
+            const containerClasses = `rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-shadow dark:border-slate-700 dark:bg-slate-800 ${
+              isHighlighted
+                ? 'border-indigo-400 shadow-lg ring-2 ring-indigo-200 dark:border-indigo-500/70 dark:ring-indigo-500/30'
+                : ''
+            }`;
+            return (
+              <div key={item.productId} className={containerClasses}>
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold">{item.name}</p>
@@ -60,9 +92,22 @@ export function CartPanel({ onClear }: CartPanelProps) {
                     <span>{t('quantity')}</span>
                     <Input
                       type="number"
-                      min={0}
+                      min={1}
+                      ref={(element) => {
+                        quantityInputRefs.current[item.productId] = element;
+                      }}
                       value={item.quantity}
-                      onChange={(event) => updateQuantity(item.productId, Number(event.target.value))}
+                      onChange={(event) =>
+                        setItemQuantity(item.productId, clampQuantity(Number(event.target.value)))
+                      }
+                      onBlur={(event) => commitQuantity(item.productId, event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          commitQuantity(item.productId, event.currentTarget.value);
+                        }
+                      }}
+                      inputMode="numeric"
                     />
                   </label>
                   <label className="space-y-1">
@@ -87,9 +132,10 @@ export function CartPanel({ onClear }: CartPanelProps) {
                   </div>
                 </div>
               </div>
-            ))}
-            {items.length === 0 && <p className="text-center text-sm text-slate-500">Cart empty</p>}
-          </div>
+            );
+          })}
+          {items.length === 0 && <p className="text-center text-sm text-slate-500">Cart empty</p>}
+        </div>
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex justify-between">
             <span>{t('total')} USD</span>
