@@ -106,6 +106,16 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.ToTable("price_rules", (string)null);
             });
 
+            modelBuilder.Entity("PosBackend.Domain.Entities.StoreProfile", b =>
+            {
+                b.Property<Guid>("Id").HasColumnType("uuid");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("Name").HasMaxLength(200).HasColumnType("character varying(200)");
+                b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.HasKey("Id");
+                b.ToTable("store_profiles", (string)null);
+            });
+
             modelBuilder.Entity("PosBackend.Domain.Entities.Product", b =>
             {
                 b.Property<Guid>("Id").HasColumnType("uuid");

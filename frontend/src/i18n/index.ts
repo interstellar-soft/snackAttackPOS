@@ -4,11 +4,12 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   en: {
     translation: {
-      welcome: 'Aurora POS',
+      welcome: '{{storeName}} POS',
       login: 'Login',
       username: 'Username',
       password: 'Password',
       logout: 'Logout',
+      retry: 'Retry',
       searchProducts: 'Search products or scan barcode',
       barcodePlaceholder: 'Scan or type barcode',
       cart: 'Cart',
@@ -45,7 +46,7 @@ const resources = {
       inventoryAddTitle: 'Add product',
       inventoryAddSubtitle: 'Enter the product details to update the catalog.',
       inventoryName: 'Product name',
-      inventoryNamePlaceholder: 'e.g. Aurora Granola Bar',
+      inventoryNamePlaceholder: 'e.g. {{storeName}} Granola Bar',
       inventorySku: 'SKU',
       inventorySkuPlaceholder: 'SKU-12345',
       inventoryBarcode: 'Barcode',
@@ -82,16 +83,25 @@ const resources = {
       inventoryUpdateError: 'Unable to update product.',
       inventoryDeleteSuccess: 'Product deleted successfully.',
       inventoryDeleteError: 'Unable to delete product.',
-      inventoryDeleting: 'Deleting…'
+      inventoryDeleting: 'Deleting…',
+      settings: 'Settings',
+      settingsIntro: 'Update store-wide preferences like the display name.',
+      storeNameLabel: 'Store name',
+      storeNamePlaceholder: 'e.g. {{storeName}} Market',
+      settingsSave: 'Save changes',
+      settingsSaving: 'Saving…',
+      settingsSuccess: 'Store details updated.',
+      settingsError: 'Unable to update store details.'
     }
   },
   ar: {
     translation: {
-      welcome: 'أورورا لنقاط البيع',
+      welcome: '{{storeName}} لنقطة البيع',
       login: 'تسجيل الدخول',
       username: 'اسم المستخدم',
       password: 'كلمة المرور',
       logout: 'تسجيل الخروج',
+      retry: 'أعد المحاولة',
       searchProducts: 'ابحث عن المنتجات أو امسح الباركود',
       barcodePlaceholder: 'امسح أو اكتب الباركود',
       cart: 'السلة',
@@ -128,7 +138,7 @@ const resources = {
       inventoryAddTitle: 'إضافة منتج',
       inventoryAddSubtitle: 'أدخل تفاصيل المنتج لتحديث الكتالوج.',
       inventoryName: 'اسم المنتج',
-      inventoryNamePlaceholder: 'مثال: لوح جرانولا أورورا',
+      inventoryNamePlaceholder: 'مثال: لوح جرانولا {{storeName}}',
       inventorySku: 'رمز المخزون (SKU)',
       inventorySkuPlaceholder: 'SKU-12345',
       inventoryBarcode: 'الباركود',
@@ -165,7 +175,15 @@ const resources = {
       inventoryUpdateError: 'تعذر تحديث المنتج.',
       inventoryDeleteSuccess: 'تم حذف المنتج بنجاح.',
       inventoryDeleteError: 'تعذر حذف المنتج.',
-      inventoryDeleting: 'جاري الحذف…'
+      inventoryDeleting: 'جاري الحذف…',
+      settings: 'الإعدادات',
+      settingsIntro: 'حدّث إعدادات المتجر العامة مثل اسم العرض.',
+      storeNameLabel: 'اسم المتجر',
+      storeNamePlaceholder: 'مثال: سوق {{storeName}}',
+      settingsSave: 'حفظ التعديلات',
+      settingsSaving: 'جاري الحفظ…',
+      settingsSuccess: 'تم تحديث بيانات المتجر.',
+      settingsError: 'تعذر تحديث بيانات المتجر.'
     }
   }
 };

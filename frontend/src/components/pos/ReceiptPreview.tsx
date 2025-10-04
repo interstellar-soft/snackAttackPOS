@@ -2,11 +2,13 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { useCartStore } from '../../stores/cartStore';
 import { formatCurrency } from '../../lib/utils';
+import { useStoreProfileStore } from '../../stores/storeProfileStore';
 
 export function ReceiptPreview() {
   const { t, i18n } = useTranslation();
   const { items, subtotalUsd, subtotalLbp, removeItem } = useCartStore();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
+  const storeName = useStoreProfileStore((state) => state.name);
 
   return (
     <Card className="bg-slate-50 text-sm dark:bg-slate-900">
@@ -16,6 +18,9 @@ export function ReceiptPreview() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          {storeName}
+        </div>
         <div className="max-h-32 space-y-2 overflow-y-auto pr-1">
           {items.length > 0 ? (
             items.map((item) => (

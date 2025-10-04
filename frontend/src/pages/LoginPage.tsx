@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuthStore } from '../stores/authStore';
+import { useStoreProfileStore } from '../stores/storeProfileStore';
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -13,6 +14,7 @@ export function LoginPage() {
   const isLoading = useAuthStore((state) => state.isLoading);
   const error = useAuthStore((state) => state.error);
   const token = useAuthStore((state) => state.token);
+  const storeName = useStoreProfileStore((state) => state.name);
   const [username, setUsername] = useState('cashier');
   const [password, setPassword] = useState('ChangeMe123!');
 
@@ -31,7 +33,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6 dark:bg-slate-950">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-semibold text-emerald-600 dark:text-emerald-300">{t('welcome')}</CardTitle>
+          <CardTitle className="text-center text-2xl font-semibold text-emerald-600 dark:text-emerald-300">{t('welcome', { storeName })}</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>

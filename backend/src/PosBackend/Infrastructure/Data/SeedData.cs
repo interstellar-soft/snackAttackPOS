@@ -114,6 +114,14 @@ public static class SeedData
             }, cancellationToken);
         }
 
+        if (!await db.StoreProfiles.AnyAsync(cancellationToken))
+        {
+            await db.StoreProfiles.AddAsync(new StoreProfile
+            {
+                Name = "Aurora Market"
+            }, cancellationToken);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
     }
 }
