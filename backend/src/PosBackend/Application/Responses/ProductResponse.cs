@@ -8,6 +8,7 @@ public class ProductResponse
     public string Barcode { get; set; } = string.Empty;
     public decimal PriceUsd { get; set; }
     public decimal PriceLbp { get; set; }
+    public string? Description { get; set; }
     public string Category { get; set; } = string.Empty;
     public bool? IsFlagged { get; set; }
     public string? FlagReason { get; set; }
