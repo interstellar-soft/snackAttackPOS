@@ -30,6 +30,8 @@ interface CheckoutResponse extends BalanceResponse {
   transactionId: string;
   transactionNumber: string;
   receiptPdfBase64: string;
+  requiresOverride: boolean;
+  overrideReason?: string | null;
 }
 
 interface ProductResponse {
@@ -240,6 +242,8 @@ export function POSPage() {
       return;
     }
 
+    setOverrideRequired(false);
+    setOverrideReason(null);
     setBalance(response);
     clear();
     setPaidUsdText('');
