@@ -224,7 +224,7 @@ export function POSPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col gap-4 bg-slate-100 p-4 dark:bg-slate-950">
+    <div className="flex min-h-screen flex-col gap-3 bg-slate-100 p-4 lg:p-6 dark:bg-slate-950">
       <TopBar
         onLogout={logout}
         lastScan={lastScan}
@@ -232,21 +232,25 @@ export function POSPage() {
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
       />
-      <div className="grid gap-4 lg:grid-cols-[2.5fr_1fr]">
-        <div className="space-y-4">
-          <form onSubmit={handleScanSubmit} className="flex items-center gap-3">
+      <div className="grid gap-3 lg:grid-cols-[1.75fr_1fr] xl:grid-cols-[1.65fr_1fr]">
+        <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
+          <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
             <Input
               id="barcode-input"
               value={barcode}
               onChange={(event) => setBarcode(event.target.value)}
               placeholder={t('barcodePlaceholder')}
-              className="text-lg"
+              className="text-base"
             />
-            <Button type="submit">Scan</Button>
+            <Button type="submit" size="sm">
+              Scan
+            </Button>
           </form>
-          <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
+          <div className="flex-1 overflow-hidden">
+            <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
+          </div>
         </div>
-        <div className="flex h-[calc(100vh-12rem)] max-w-sm flex-col gap-4 lg:justify-between">
+        <div className="flex h-[calc(100vh-11rem)] max-w-md flex-col gap-3 lg:justify-between">
           <div className="lg:sticky lg:top-24">
             <TenderPanel
               paidUsd={paidUsd}
@@ -265,7 +269,7 @@ export function POSPage() {
           <div className="flex-1 overflow-hidden">
             <CartPanel onClear={clear} />
           </div>
-          <div className="mt-auto">
+          <div className="mt-auto pt-1">
             <ReceiptPreview />
           </div>
         </div>
