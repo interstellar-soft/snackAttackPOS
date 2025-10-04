@@ -52,6 +52,8 @@ const resources = {
       inventoryBarcodePlaceholder: 'EAN or internal barcode',
       inventoryCategoryId: 'Category ID',
       inventoryCategoryIdPlaceholder: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      inventoryCategory: 'Category',
+      inventoryCategoryUnknown: 'Uncategorized',
       inventoryPrice: 'Price',
       inventoryCurrency: 'Currency',
       inventoryPriceUsd: 'Price (USD)',
@@ -68,7 +70,19 @@ const resources = {
       inventoryEmpty: 'No products yet. Create your first item above.',
       inventoryFormIncomplete: 'Please fill in all required fields.',
       inventoryCreateSuccess: 'Product created successfully.',
-      inventoryCreateError: 'Unable to create product.'
+      inventoryCreateError: 'Unable to create product.',
+      inventoryActions: 'Actions',
+      inventoryUpdateTitle: 'Edit product',
+      inventoryUpdateAction: 'Update product',
+      inventoryDeleteTitle: 'Delete product',
+      inventoryDeleteConfirm: 'Are you sure you want to delete {{name}}? This action cannot be undone.',
+      inventoryCancel: 'Cancel',
+      inventoryConfirm: 'Confirm',
+      inventoryUpdateSuccess: 'Product updated successfully.',
+      inventoryUpdateError: 'Unable to update product.',
+      inventoryDeleteSuccess: 'Product deleted successfully.',
+      inventoryDeleteError: 'Unable to delete product.',
+      inventoryDeleting: 'Deleting…'
     }
   },
   ar: {
@@ -121,6 +135,8 @@ const resources = {
       inventoryBarcodePlaceholder: 'الباركود الأوروبي أو الداخلي',
       inventoryCategoryId: 'معرّف الفئة',
       inventoryCategoryIdPlaceholder: 'مثال: 3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      inventoryCategory: 'الفئة',
+      inventoryCategoryUnknown: 'بدون فئة',
       inventoryPrice: 'السعر',
       inventoryCurrency: 'العملة',
       inventoryPriceUsd: 'السعر (دولار)',
@@ -137,7 +153,19 @@ const resources = {
       inventoryEmpty: 'لا توجد منتجات بعد. أضف أول منتج من الأعلى.',
       inventoryFormIncomplete: 'يرجى تعبئة جميع الحقول المطلوبة.',
       inventoryCreateSuccess: 'تم إنشاء المنتج بنجاح.',
-      inventoryCreateError: 'تعذر إنشاء المنتج.'
+      inventoryCreateError: 'تعذر إنشاء المنتج.',
+      inventoryActions: 'إجراءات',
+      inventoryUpdateTitle: 'تعديل المنتج',
+      inventoryUpdateAction: 'تحديث المنتج',
+      inventoryDeleteTitle: 'حذف المنتج',
+      inventoryDeleteConfirm: 'هل أنت متأكد أنك تريد حذف {{name}}؟ لا يمكن التراجع عن هذا الإجراء.',
+      inventoryCancel: 'إلغاء',
+      inventoryConfirm: 'تأكيد',
+      inventoryUpdateSuccess: 'تم تحديث المنتج بنجاح.',
+      inventoryUpdateError: 'تعذر تحديث المنتج.',
+      inventoryDeleteSuccess: 'تم حذف المنتج بنجاح.',
+      inventoryDeleteError: 'تعذر حذف المنتج.',
+      inventoryDeleting: 'جاري الحذف…'
     }
   }
 };

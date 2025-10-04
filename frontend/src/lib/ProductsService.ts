@@ -10,6 +10,7 @@ export interface Product {
   priceUsd: number;
   priceLbp: number;
   category: string;
+  categoryId?: string;
   description?: string | null;
   isFlagged?: boolean;
   flagReason?: string | null;
@@ -23,6 +24,14 @@ export interface CreateProductInput {
   currency?: 'USD' | 'LBP';
   categoryId: string;
   description?: string;
+}
+
+export interface UpdateProductInput extends CreateProductInput {
+  id: string;
+}
+
+export interface DeleteProductInput {
+  id: string;
 }
 
 const productsKeys = {
@@ -76,6 +85,45 @@ export const ProductsService = {
           {
             method: 'POST',
             body: JSON.stringify(input)
+          },
+          token ?? undefined
+        );
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: productsKeys.all });
+      }
+    });
+  },
+  useUpdateProduct() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+
+    return useMutation<Product, Error, UpdateProductInput>({
+      mutationFn: async ({ id, ...input }) => {
+        return await apiFetch<Product>(
+          `/api/products/${id}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify(input)
+          },
+          token ?? undefined
+        );
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: productsKeys.all });
+      }
+    });
+  },
+  useDeleteProduct() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+
+    return useMutation<void, Error, DeleteProductInput>({
+      mutationFn: async ({ id }) => {
+        await apiFetch<void>(
+          `/api/products/${id}`,
+          {
+            method: 'DELETE'
           },
           token ?? undefined
         );
