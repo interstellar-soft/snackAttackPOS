@@ -25,9 +25,6 @@ public class ProductsControllerTests
     public async Task CreateProduct_PersistsProduct()
     {
         await using var context = CreateContext();
-        var category = new Category { Name = "Snacks" };
-        context.Categories.Add(category);
-        context.SaveChanges();
 
         var controller = CreateController(context);
         var request = new CreateProductRequest
@@ -37,7 +34,7 @@ public class ProductsControllerTests
             Barcode = "1234567890123",
             Price = 2.5m,
             Currency = "USD",
-            CategoryId = category.Id
+            CategoryName = "Snacks"
         };
 
         var result = await controller.CreateProduct(request, CancellationToken.None);
@@ -47,12 +44,17 @@ public class ProductsControllerTests
         var response = Assert.IsType<ProductResponse>(created.Value);
         Assert.Equal(request.Name, response.Name);
         Assert.Equal(request.Sku, response.Sku);
+        Assert.Equal(request.CategoryName, response.CategoryName);
 
         var stored = await context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == response.Id);
         Assert.NotNull(stored);
         Assert.Equal(request.Barcode, stored!.Barcode);
         Assert.Equal(2.5m, stored.PriceUsd);
         Assert.Equal(225000m, stored.PriceLbp);
+
+        var category = await context.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == stored.CategoryId);
+        Assert.NotNull(category);
+        Assert.Equal(request.CategoryName, category!.Name);
     }
 
     [Fact]
@@ -82,7 +84,7 @@ public class ProductsControllerTests
             Barcode = "999888777666",
             Price = 2m,
             Currency = "USD",
-            CategoryId = category.Id
+            CategoryName = category.Name
         };
 
         var result = await controller.CreateProduct(request, CancellationToken.None);
@@ -121,7 +123,7 @@ public class ProductsControllerTests
             Barcode = "321321321321",
             Price = 270000m,
             Currency = "LBP",
-            CategoryId = newCategory.Id
+            CategoryName = newCategory.Name
         };
 
         var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
@@ -129,7 +131,7 @@ public class ProductsControllerTests
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ProductResponse>(ok.Value);
         Assert.Equal(request.Name, response.Name);
-        Assert.Equal(newCategory.Name, response.Category);
+        Assert.Equal(newCategory.Name, response.CategoryName);
 
         var stored = await context.Products.Include(p => p.Category).FirstAsync(p => p.Id == product.Id);
         Assert.Equal(request.Sku, stored.Sku);
@@ -154,7 +156,7 @@ public class ProductsControllerTests
             Barcode = "000000000000",
             Price = 1m,
             Currency = "USD",
-            CategoryId = category.Id
+            CategoryName = category.Name
         };
 
         var result = await controller.UpdateProduct(Guid.NewGuid(), request, CancellationToken.None);
@@ -199,7 +201,7 @@ public class ProductsControllerTests
             Barcode = "321321321321",
             Price = 2m,
             Currency = "USD",
-            CategoryId = category.Id
+            CategoryName = category.Name
         };
 
         var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
