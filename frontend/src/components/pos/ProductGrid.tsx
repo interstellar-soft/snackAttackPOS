@@ -41,35 +41,37 @@ export function ProductGrid({ onScan }: ProductGridProps) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full flex-col gap-2.5">
       <Input
         placeholder={t('searchProducts')}
         value={term}
         onChange={(event) => setTerm(event.target.value)}
         autoFocus
-        className="text-lg"
+        className="text-base"
       />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-        {data?.map((product) => (
-          <button
-            key={product.id}
-            onClick={() => handleAdd(product)}
-            className={cn(
-              'rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800',
-              'hover:border-emerald-500'
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <p className="font-semibold">{product.name}</p>
-              <span className="text-xs text-slate-500">{product.sku}</span>
-            </div>
-            <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">
-              {formatCurrency(product.priceUsd, 'USD', i18n.language === 'ar' ? 'ar-LB' : 'en-US')}
-            </p>
-            <p className="text-xs text-slate-500">{product.category}</p>
-          </button>
-        ))}
-        {isFetching && <Card className="col-span-full text-center text-sm text-slate-500">Loading…</Card>}
+      <div className="relative flex-1 overflow-hidden">
+        <div className="grid max-h-[26rem] grid-cols-2 gap-2.5 overflow-y-auto pr-1 sm:max-h-[30rem] sm:grid-cols-2 md:grid-cols-3 lg:max-h-[32rem] lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {data?.map((product) => (
+            <button
+              key={product.id}
+              onClick={() => handleAdd(product)}
+              className={cn(
+                'rounded-md border border-slate-200 bg-white p-2.5 text-left text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800',
+                'hover:border-emerald-500'
+              )}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <p className="truncate font-medium">{product.name}</p>
+                <span className="text-[0.7rem] text-slate-500">{product.sku}</span>
+              </div>
+              <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-300">
+                {formatCurrency(product.priceUsd, 'USD', i18n.language === 'ar' ? 'ar-LB' : 'en-US')}
+              </p>
+              <p className="text-[0.7rem] text-slate-500">{product.category}</p>
+            </button>
+          ))}
+          {isFetching && <Card className="col-span-full text-center text-xs text-slate-500">Loading…</Card>}
+        </div>
       </div>
     </div>
   );
