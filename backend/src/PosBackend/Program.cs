@@ -54,6 +54,16 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
 
+const int MinimumJwtKeyLengthBytes = 16;
+if (string.IsNullOrWhiteSpace(jwtOptions.Key) ||
+    Encoding.UTF8.GetByteCount(jwtOptions.Key) < MinimumJwtKeyLengthBytes)
+{
+    throw new InvalidOperationException(
+        "JWT signing key is missing or invalid. Ensure ConnectionStrings__DefaultConnection and Jwt__Key are set to secure values.");
+}
+
+var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key));
+
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -69,7 +79,7 @@ builder.Services.AddAuthentication(options =>
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtOptions.Issuer,
             ValidAudience = jwtOptions.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key))
+            IssuerSigningKey = signingKey
         };
     });
 
