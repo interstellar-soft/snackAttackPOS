@@ -10,7 +10,7 @@ export interface Product {
   priceUsd: number;
   priceLbp: number;
   category: string;
-  categoryId?: string;
+  categoryName?: string;
   description?: string | null;
   isFlagged?: boolean;
   flagReason?: string | null;
@@ -23,7 +23,7 @@ export interface CreateProductInput {
   barcode: string;
   price: number;
   currency?: 'USD' | 'LBP';
-  categoryId: string;
+  categoryName: string;
   description?: string;
   isPinned: boolean;
 }

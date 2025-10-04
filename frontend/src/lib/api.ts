@@ -34,7 +34,7 @@ export interface ProductMutationPayload {
   barcode: string;
   price: number;
   currency?: ProductCurrency;
-  categoryId: string;
+  categoryName: string;
   description?: string | null;
 }
 

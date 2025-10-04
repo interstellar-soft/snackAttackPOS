@@ -22,19 +22,17 @@ type ProductFormValues = {
   name: string;
   sku: string;
   barcode: string;
-  categoryId: string;
+  categoryName: string;
   price: string;
   currency: 'USD' | 'LBP';
   isPinned: boolean;
 };
 
-const guidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
 const emptyValues: ProductFormValues = {
   name: '',
   sku: '',
   barcode: '',
-  categoryId: '',
+  categoryName: '',
   price: '',
   currency: 'USD',
   isPinned: false
@@ -89,15 +87,14 @@ export function InventoryPage() {
     const name = values.name.trim();
     const sku = values.sku.trim();
     const barcode = values.barcode.trim();
-    const categoryId = values.categoryId.trim();
+    const categoryName = values.categoryName.trim();
     const parsedPrice = Number(values.price);
 
     if (
       !name ||
       !sku ||
       !barcode ||
-      !categoryId ||
-      !guidPattern.test(categoryId) ||
+      !categoryName ||
       !Number.isFinite(parsedPrice) ||
       parsedPrice < 0
     ) {
@@ -109,7 +106,7 @@ export function InventoryPage() {
         name,
         sku,
         barcode,
-        categoryId,
+        categoryName,
         price: parsedPrice,
         currency: values.currency,
         isPinned: values.isPinned
@@ -152,18 +149,13 @@ export function InventoryPage() {
   };
 
   const handleTogglePinned = async (product: Product) => {
-    if (!product.categoryId) {
-      setBanner({ type: 'error', message: t('inventoryPinToggleError') });
-      return;
-    }
-
     try {
       await togglePinnedProduct.mutateAsync({
         id: product.id,
         name: product.name,
         sku: product.sku,
         barcode: product.barcode,
-        categoryId: product.categoryId,
+        categoryName: product.categoryName ?? product.category,
         price: product.priceUsd,
         currency: 'USD',
         isPinned: !product.isPinned
@@ -271,9 +263,9 @@ export function InventoryPage() {
                       <td className="px-4 py-3 text-sm text-slate-500">{product.barcode}</td>
                       <td className="px-4 py-3 text-sm text-slate-500">
                         <div className="flex flex-col">
-                          <span>{product.category || t('inventoryCategoryUnknown')}</span>
-                          {product.categoryId && (
-                            <span className="font-mono text-xs text-slate-400">{product.categoryId}</span>
+                          <span>{product.categoryName ?? product.category ?? t('inventoryCategoryUnknown')}</span>
+                          {product.category && product.categoryName && product.category !== product.categoryName && (
+                            <span className="text-xs text-slate-400">{product.category}</span>
                           )}
                         </div>
                       </td>
@@ -351,7 +343,7 @@ export function InventoryPage() {
             name: dialog.product.name,
             sku: dialog.product.sku,
             barcode: dialog.product.barcode,
-            categoryId: dialog.product.categoryId ?? '',
+            categoryName: dialog.product.categoryName ?? dialog.product.category ?? '',
             price: dialog.product.priceUsd.toString(),
             currency: 'USD',
             isPinned: dialog.product.isPinned
@@ -462,13 +454,13 @@ function ProductFormDialog({
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-category">
-              {t('inventoryCategoryId')}
+              {t('inventoryCategoryName')}
             </label>
             <Input
               id="product-category"
-              value={formValues.categoryId}
-              onChange={handleChange('categoryId')}
-              placeholder={t('inventoryCategoryIdPlaceholder')}
+              value={formValues.categoryName}
+              onChange={handleChange('categoryName')}
+              placeholder={t('inventoryCategoryNamePlaceholder')}
               required
             />
           </div>
