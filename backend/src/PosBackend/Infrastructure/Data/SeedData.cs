@@ -72,7 +72,8 @@ public static class SeedData
                         Barcode = random.NextInt64(1000000000000, 9999999999999).ToString(),
                         PriceUsd = priceUsd,
                         PriceLbp = priceUsd * 90000m,
-                        Description = $"Sample {category.Name} product {i}"
+                        Description = $"Sample {category.Name} product {i}",
+                        IsPinned = i == 1
                     };
                     products.Add(product);
 

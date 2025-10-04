@@ -23,4 +23,6 @@ public abstract class ProductMutationRequestBase
 
     [Required]
     public Guid CategoryId { get; set; }
+
+    public bool IsPinned { get; set; }
 }
