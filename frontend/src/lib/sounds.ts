@@ -1,66 +1,28 @@
-let audioContext: AudioContext | null = null;
+let cartBeepAudio: HTMLAudioElement | null = null;
 
-function resolveAudioContextConstructor(): typeof AudioContext | null {
+function getCartBeepAudio(): HTMLAudioElement | null {
   if (typeof window === 'undefined') {
     return null;
   }
 
-  const ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  return ctor ?? null;
-}
-
-function getAudioContext(): AudioContext | null {
-  const AudioContextConstructor = resolveAudioContextConstructor();
-  if (!AudioContextConstructor) {
-    return null;
+  if (!cartBeepAudio) {
+    cartBeepAudio = new Audio('/sounds/barcode-scanner-beep.mp3');
+    cartBeepAudio.preload = 'auto';
   }
 
-  if (!audioContext) {
-    try {
-      audioContext = new AudioContextConstructor();
-    } catch (error) {
-      console.error('Failed to create AudioContext', error);
-      return null;
-    }
-  }
-
-  return audioContext;
+  return cartBeepAudio;
 }
 
 export async function playCartBeep() {
-  const context = getAudioContext();
-  if (!context) {
+  const audio = getCartBeepAudio();
+  if (!audio) {
     return;
   }
 
-  if (context.state === 'suspended') {
-    try {
-      await context.resume();
-    } catch (error) {
-      console.error('Failed to resume AudioContext', error);
-      return;
-    }
+  try {
+    audio.currentTime = 0;
+    await audio.play();
+  } catch (error) {
+    console.error('Failed to play cart beep audio', error);
   }
-
-  const duration = 0.18;
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-
-  oscillator.type = 'square';
-  oscillator.frequency.value = 880;
-
-  gain.gain.setValueAtTime(0.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.1, context.currentTime + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
-
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-
-  oscillator.start();
-  oscillator.stop(context.currentTime + duration);
-
-  oscillator.addEventListener('ended', () => {
-    oscillator.disconnect();
-    gain.disconnect();
-  });
 }
