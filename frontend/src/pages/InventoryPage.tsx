@@ -25,6 +25,7 @@ type ProductFormValues = {
   categoryId: string;
   price: string;
   currency: 'USD' | 'LBP';
+  isPinned: boolean;
 };
 
 const guidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -35,7 +36,8 @@ const emptyValues: ProductFormValues = {
   barcode: '',
   categoryId: '',
   price: '',
-  currency: 'USD'
+  currency: 'USD',
+  isPinned: false
 };
 
 export function InventoryPage() {
@@ -49,6 +51,7 @@ export function InventoryPage() {
   const productsQuery = ProductsService.useInventoryProducts();
   const createProduct = ProductsService.useCreateProduct();
   const updateProduct = ProductsService.useUpdateProduct();
+  const togglePinnedProduct = ProductsService.useUpdateProduct();
   const deleteProduct = ProductsService.useDeleteProduct();
 
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -108,7 +111,8 @@ export function InventoryPage() {
         barcode,
         categoryId,
         price: parsedPrice,
-        currency: values.currency
+        currency: values.currency,
+        isPinned: values.isPinned
       }
     };
   };
@@ -144,6 +148,33 @@ export function InventoryPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : t('inventoryUpdateError');
       setDialogError(message);
+    }
+  };
+
+  const handleTogglePinned = async (product: Product) => {
+    if (!product.categoryId) {
+      setBanner({ type: 'error', message: t('inventoryPinToggleError') });
+      return;
+    }
+
+    try {
+      await togglePinnedProduct.mutateAsync({
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        barcode: product.barcode,
+        categoryId: product.categoryId,
+        price: product.priceUsd,
+        currency: 'USD',
+        isPinned: !product.isPinned
+      });
+      setBanner({
+        type: 'success',
+        message: product.isPinned ? t('inventoryUnpinnedSuccess') : t('inventoryPinnedSuccess')
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('inventoryPinToggleError');
+      setBanner({ type: 'error', message });
     }
   };
 
@@ -224,6 +255,9 @@ export function InventoryPage() {
                     {t('inventoryPriceLbp')}
                   </th>
                   <th scope="col" className="px-4 py-3 font-medium">
+                    {t('inventoryPinned')}
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
                     {t('inventoryActions')}
                   </th>
                 </tr>
@@ -250,6 +284,21 @@ export function InventoryPage() {
                         {formatCurrency(product.priceLbp, 'LBP', currencyLocale)}
                       </td>
                       <td className="px-4 py-3">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed dark:border-slate-600 dark:bg-slate-800"
+                            checked={product.isPinned}
+                            onChange={() => handleTogglePinned(product)}
+                            disabled={togglePinnedProduct.isPending}
+                            aria-label={t('inventoryPinToPos')}
+                          />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            {product.isPinned ? t('inventoryPinnedYes') : t('inventoryPinnedNo')}
+                          </span>
+                        </label>
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
@@ -271,7 +320,7 @@ export function InventoryPage() {
                   ))
                 ) : (
                   <tr>
-                    <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={7}>
+                    <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={8}>
                       {t('inventoryEmpty')}
                     </td>
                   </tr>
@@ -291,6 +340,7 @@ export function InventoryPage() {
           onSubmit={handleCreateSubmit}
           isSubmitting={createProduct.isPending}
           errorMessage={dialog.error ?? (createProduct.error ? createProduct.error.message : undefined)}
+          storeName={storeName}
         />
       )}
       {dialog?.type === 'edit' && (
@@ -303,12 +353,14 @@ export function InventoryPage() {
             barcode: dialog.product.barcode,
             categoryId: dialog.product.categoryId ?? '',
             price: dialog.product.priceUsd.toString(),
-            currency: 'USD'
+            currency: 'USD',
+            isPinned: dialog.product.isPinned
           }}
           onClose={closeDialog}
           onSubmit={(nextValues) => handleEditSubmit(nextValues, dialog.product)}
           isSubmitting={updateProduct.isPending}
           errorMessage={dialog.error ?? (updateProduct.error ? updateProduct.error.message : undefined)}
+          storeName={storeName}
         />
       )}
       {dialog?.type === 'delete' && (
@@ -332,6 +384,7 @@ interface ProductFormDialogProps {
   onSubmit: (values: ProductFormValues) => void | Promise<void>;
   isSubmitting: boolean;
   errorMessage?: string;
+  storeName?: string;
 }
 
 function ProductFormDialog({
@@ -341,7 +394,8 @@ function ProductFormDialog({
   onClose,
   onSubmit,
   isSubmitting,
-  errorMessage
+  errorMessage,
+  storeName
 }: ProductFormDialogProps) {
   const { t } = useTranslation();
   const [formValues, setFormValues] = useState<ProductFormValues>(values);
@@ -350,10 +404,14 @@ function ProductFormDialog({
     setFormValues(values);
   }, [values]);
 
-  const handleChange = (field: keyof ProductFormValues) =>
+  const handleChange = (field: Exclude<keyof ProductFormValues, 'isPinned'>) =>
     (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       setFormValues((previous) => ({ ...previous, [field]: event.target.value }));
     };
+
+  const handlePinnedChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setFormValues((previous) => ({ ...previous, isPinned: event.target.checked }));
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -443,6 +501,23 @@ function ProductFormDialog({
               <option value="USD">USD</option>
               <option value="LBP">LBP</option>
             </select>
+          </div>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+          <div className="flex items-start gap-3">
+            <input
+              id="product-pinned"
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-800"
+              checked={formValues.isPinned}
+              onChange={handlePinnedChange}
+            />
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="product-pinned">
+                {t('inventoryPinToPos')}
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('inventoryPinToPosDescription')}</p>
+            </div>
           </div>
         </div>
         {errorMessage && (

@@ -25,6 +25,7 @@ export interface CreateProductInput {
   currency?: 'USD' | 'LBP';
   categoryId: string;
   description?: string;
+  isPinned: boolean;
 }
 
 export interface UpdateProductInput extends CreateProductInput {

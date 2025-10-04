@@ -11,6 +11,7 @@ public class Product : BaseEntity
     public decimal PriceUsd { get; set; }
     public decimal PriceLbp { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsPinned { get; set; }
     public ICollection<ExpirationBatch> ExpirationBatches { get; set; } = new List<ExpirationBatch>();
     public Inventory? Inventory { get; set; }
     public ICollection<PriceRule> PriceRules { get; set; } = new List<PriceRule>();
