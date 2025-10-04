@@ -236,22 +236,20 @@ export function POSPage() {
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
       />
-      <div className="mt-3 flex w-full justify-center lg:mt-4 lg:justify-end">
-        <div className="w-full max-w-md">
-          <TenderPanel
-            paidUsd={paidUsd}
-            paidLbp={paidLbp}
-            onChangePaidUsd={setPaidUsd}
-            onChangePaidLbp={setPaidLbp}
-            onCheckout={handleCheckout}
-            balanceUsd={balance?.balanceUsd ?? 0}
-            balanceLbp={balance?.balanceLbp ?? 0}
-            exchangeRate={rate}
-            onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
-            canEditRate={canEditRate}
-            disabled={overrideRequired}
-          />
-        </div>
+      <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
+        <TenderPanel
+          paidUsd={paidUsd}
+          paidLbp={paidLbp}
+          onChangePaidUsd={setPaidUsd}
+          onChangePaidLbp={setPaidLbp}
+          onCheckout={handleCheckout}
+          balanceUsd={balance?.balanceUsd ?? 0}
+          balanceLbp={balance?.balanceLbp ?? 0}
+          exchangeRate={rate}
+          onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
+          canEditRate={canEditRate}
+          disabled={overrideRequired}
+        />
       </div>
       <div className="grid gap-3 lg:grid-cols-[1.75fr_1fr] xl:grid-cols-[1.65fr_1fr]">
         <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
