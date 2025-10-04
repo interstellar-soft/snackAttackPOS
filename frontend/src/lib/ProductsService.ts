@@ -15,6 +15,8 @@ export interface Product {
   isFlagged?: boolean;
   flagReason?: string | null;
   isPinned?: boolean;
+  quantityOnHand?: number;
+  averageCostUsd?: number;
 }
 
 export interface CreateProductInput {

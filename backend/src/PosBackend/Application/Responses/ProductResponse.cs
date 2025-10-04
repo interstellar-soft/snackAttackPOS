@@ -13,4 +13,6 @@ public class ProductResponse
     public bool IsPinned { get; set; }
     public bool? IsFlagged { get; set; }
     public string? FlagReason { get; set; }
+    public decimal QuantityOnHand { get; set; }
+    public decimal AverageCostUsd { get; set; }
 }

@@ -15,4 +15,5 @@ public class User : BaseEntity
     public UserRole Role { get; set; } = UserRole.Cashier;
     public ICollection<PosTransaction> Transactions { get; set; } = new List<PosTransaction>();
     public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
+    public ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
 }

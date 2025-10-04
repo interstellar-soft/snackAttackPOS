@@ -79,6 +79,9 @@ namespace PosBackend.Infrastructure.Data.Migrations
             {
                 b.Property<Guid>("Id").HasColumnType("uuid");
                 b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<decimal>("AverageCostLbp").HasColumnType("numeric(20,2)");
+                b.Property<decimal>("AverageCostUsd").HasColumnType("numeric(14,4)");
+                b.Property<DateTimeOffset?>("LastRestockedAt").HasColumnType("timestamp with time zone");
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
                 b.Property<decimal>("QuantityOnHand").HasColumnType("numeric(14,2)");
                 b.Property<decimal>("ReorderPoint").HasColumnType("numeric(18,2)");
@@ -140,25 +143,55 @@ namespace PosBackend.Infrastructure.Data.Migrations
             modelBuilder.Entity("PosBackend.Domain.Entities.PurchaseOrder", b =>
             {
                 b.Property<Guid>("Id").HasColumnType("uuid");
+                b.Property<Guid?>("CreatedByUserId").HasColumnType("uuid");
                 b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
-                b.Property<string>("Currency").HasMaxLength(3).HasColumnType("character varying(3)");
+                b.Property<decimal>("ExchangeRateUsed").HasColumnType("numeric(18,4)");
                 b.Property<DateTimeOffset?>("ExpectedAt").HasColumnType("timestamp with time zone");
                 b.Property<DateTimeOffset>("OrderedAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("Reference").HasMaxLength(120).HasColumnType("character varying(120)");
+                b.Property<DateTimeOffset?>("ReceivedAt").HasColumnType("timestamp with time zone");
                 b.Property<int>("Status").HasColumnType("integer");
-                b.Property<decimal>("TotalCost").HasColumnType("numeric(14,2)");
+                b.Property<decimal>("TotalCostLbp").HasColumnType("numeric(20,2)");
+                b.Property<decimal>("TotalCostUsd").HasColumnType("numeric(14,2)");
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
                 b.Property<Guid>("SupplierId").HasColumnType("uuid");
                 b.HasKey("Id");
+                b.HasIndex("CreatedByUserId");
                 b.HasIndex("SupplierId");
                 b.ToTable("purchase_orders", (string)null);
+            });
+
+            modelBuilder.Entity("PosBackend.Domain.Entities.PurchaseOrderLine", b =>
+            {
+                b.Property<Guid>("Id").HasColumnType("uuid");
+                b.Property<string>("Barcode").HasMaxLength(128).HasColumnType("character varying(128)");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<Guid>("ProductId").HasColumnType("uuid");
+                b.Property<Guid>("PurchaseOrderId").HasColumnType("uuid");
+                b.Property<decimal>("Quantity").HasColumnType("numeric(14,2)");
+                b.Property<decimal>("TotalCostLbp").HasColumnType("numeric(20,2)");
+                b.Property<decimal>("TotalCostUsd").HasColumnType("numeric(14,2)");
+                b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.Property<decimal>("UnitCostLbp").HasColumnType("numeric(20,2)");
+                b.Property<decimal>("UnitCostUsd").HasColumnType("numeric(14,4)");
+                b.HasKey("Id");
+                b.HasIndex("ProductId");
+                b.HasIndex("PurchaseOrderId");
+                b.ToTable("purchase_order_lines", (string)null);
             });
 
             modelBuilder.Entity("PosBackend.Domain.Entities.TransactionLine", b =>
             {
                 b.Property<Guid>("Id").HasColumnType("uuid");
+                b.Property<decimal>("BaseUnitPriceLbp").HasColumnType("numeric(18,2)");
+                b.Property<decimal>("BaseUnitPriceUsd").HasColumnType("numeric(14,2)");
+                b.Property<decimal>("CostLbp").HasColumnType("numeric(18,2)");
+                b.Property<decimal>("CostUsd").HasColumnType("numeric(14,4)");
                 b.Property<decimal>("DiscountPercent").HasColumnType("numeric(5,2)");
                 b.Property<Guid?>("PriceRuleId").HasColumnType("uuid");
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
+                b.Property<decimal>("ProfitLbp").HasColumnType("numeric(18,2)");
+                b.Property<decimal>("ProfitUsd").HasColumnType("numeric(14,2)");
                 b.Property<decimal>("Quantity").HasColumnType("numeric(18,2)");
                 b.Property<Guid>("TransactionId").HasColumnType("uuid");
                 b.Property<decimal>("TotalLbp").HasColumnType("numeric(18,2)");
@@ -265,13 +298,36 @@ namespace PosBackend.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("PosBackend.Domain.Entities.PurchaseOrder", b =>
             {
+                b.HasOne("PosBackend.Domain.Entities.User", "CreatedByUser")
+                    .WithMany("PurchaseOrders")
+                    .HasForeignKey("CreatedByUserId");
+
                 b.HasOne("PosBackend.Domain.Entities.Supplier", "Supplier")
                     .WithMany("PurchaseOrders")
                     .HasForeignKey("SupplierId")
                     .OnDelete(DeleteBehavior.Cascade)
                     .IsRequired();
 
+                b.Navigation("CreatedByUser");
                 b.Navigation("Supplier");
+            });
+
+            modelBuilder.Entity("PosBackend.Domain.Entities.PurchaseOrderLine", b =>
+            {
+                b.HasOne("PosBackend.Domain.Entities.Product", "Product")
+                    .WithMany()
+                    .HasForeignKey("ProductId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("PosBackend.Domain.Entities.PurchaseOrder", "PurchaseOrder")
+                    .WithMany("Lines")
+                    .HasForeignKey("PurchaseOrderId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("Product");
+                b.Navigation("PurchaseOrder");
             });
 
             modelBuilder.Entity("PosBackend.Domain.Entities.TransactionLine", b =>
@@ -325,6 +381,13 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Navigation("PriceRules");
             });
 
+            modelBuilder.Entity("PosBackend.Domain.Entities.PurchaseOrder", b =>
+            {
+                b.Navigation("CreatedByUser");
+                b.Navigation("Lines");
+                b.Navigation("Supplier");
+            });
+
             modelBuilder.Entity("PosBackend.Domain.Entities.Supplier", b =>
             {
                 b.Navigation("PurchaseOrders");
@@ -333,6 +396,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
             modelBuilder.Entity("PosBackend.Domain.Entities.User", b =>
             {
                 b.Navigation("AuditLogs");
+                b.Navigation("PurchaseOrders");
                 b.Navigation("Transactions");
             });
 #pragma warning restore 612, 618

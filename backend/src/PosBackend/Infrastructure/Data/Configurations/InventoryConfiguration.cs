@@ -11,5 +11,7 @@ public class InventoryConfiguration : IEntityTypeConfiguration<Inventory>
         builder.ToTable("inventories");
         builder.HasIndex(i => i.ProductId).IsUnique();
         builder.Property(i => i.QuantityOnHand).HasColumnType("numeric(14,2)");
+        builder.Property(i => i.AverageCostUsd).HasColumnType("numeric(14,4)");
+        builder.Property(i => i.AverageCostLbp).HasColumnType("numeric(20,2)");
     }
 }
