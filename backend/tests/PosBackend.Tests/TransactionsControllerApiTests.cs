@@ -1,14 +1,19 @@
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using PosBackend.Application.Requests;
 using PosBackend.Application.Responses;
 using PosBackend.Application.Services;
@@ -69,6 +74,66 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
         Assert.NotNull(persisted);
         Assert.Equal(user.Id, persisted!.UserId);
         Assert.Single(persisted.Lines);
+    }
+
+    [Fact]
+    public async Task Checkout_WithTokenContainingOnlySubClaim_Succeeds()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var jwtOptions = scope.ServiceProvider.GetRequiredService<IOptions<JwtOptions>>().Value;
+
+        var user = await context.Users.FirstAsync(u => u.Username == "cashier");
+        var product = await context.Products.AsNoTracking().FirstAsync();
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var securityToken = tokenHandler.CreateToken(new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString())
+            }),
+            Expires = DateTime.UtcNow.AddMinutes(jwtOptions.ExpiryMinutes),
+            Issuer = jwtOptions.Issuer,
+            Audience = jwtOptions.Audience,
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
+                SecurityAlgorithms.HmacSha256)
+        });
+
+        var token = tokenHandler.WriteToken(securityToken);
+
+        var originalMapInboundClaims = JwtSecurityTokenHandler.DefaultMapInboundClaims;
+        JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
+
+        try
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var request = new CheckoutRequest
+            {
+                ExchangeRate = 90000m,
+                PaidUsd = product.PriceUsd * 2,
+                Items = new[]
+                {
+                    new CartItemRequest(product.Id, 2, null, null)
+                }
+            };
+
+            var response = await client.PostAsJsonAsync("/api/transactions/checkout", request);
+
+            response.EnsureSuccessStatusCode();
+
+            var body = await response.Content.ReadFromJsonAsync<CheckoutResponse>();
+            Assert.NotNull(body);
+            Assert.NotEqual(Guid.Empty, body!.TransactionId);
+        }
+        finally
+        {
+            JwtSecurityTokenHandler.DefaultMapInboundClaims = originalMapInboundClaims;
+        }
     }
 }
 

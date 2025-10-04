@@ -1,4 +1,5 @@
 using System;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace PosBackend.Features.Common;
@@ -13,6 +14,10 @@ internal static class UserClaimsExtensions
         }
 
         var userIdValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userIdValue))
+        {
+            userIdValue = user.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        }
         if (string.IsNullOrWhiteSpace(userIdValue))
         {
             return null;
