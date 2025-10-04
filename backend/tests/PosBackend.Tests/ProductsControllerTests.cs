@@ -114,7 +114,7 @@ public class ProductsControllerTests
         context.SaveChanges();
 
         var controller = CreateController(context);
-        var request = new CreateProductRequest
+        var request = new UpdateProductRequest
         {
             Name = "Updated",
             Sku = "SNK-002",
@@ -147,7 +147,7 @@ public class ProductsControllerTests
         context.SaveChanges();
 
         var controller = CreateController(context);
-        var request = new CreateProductRequest
+        var request = new UpdateProductRequest
         {
             Name = "New",
             Sku = "SNK-100",
@@ -192,7 +192,7 @@ public class ProductsControllerTests
         context.SaveChanges();
 
         var controller = CreateController(context);
-        var request = new CreateProductRequest
+        var request = new UpdateProductRequest
         {
             Name = "Updated",
             Sku = otherProduct.Sku,
@@ -290,6 +290,44 @@ public class ProductsControllerTests
         Assert.IsType<NotFoundResult>(result.Result);
     }
 
+    [Fact]
+    public async Task DeleteProduct_RemovesEntity()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "To Delete",
+            Sku = "DEL-001",
+            Barcode = "555444333222",
+            PriceUsd = 1m,
+            PriceLbp = 90000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.Add(product);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+
+        var result = await controller.DeleteProduct(product.Id, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.False(await context.Products.AnyAsync(p => p.Id == product.Id));
+    }
+
+    [Fact]
+    public async Task DeleteProduct_ReturnsNotFound_ForMissingProduct()
+    {
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+
+        var result = await controller.DeleteProduct(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
     private static ProductsController CreateController(ApplicationDbContext context)
     {
         var settings = new Dictionary<string, string?>
@@ -302,8 +340,7 @@ public class ProductsControllerTests
         var mlClient = new MlClient(httpClient, configuration);
         var watchdog = new ScanWatchdog();
         var currencyService = new CurrencyService(context);
-        var productService = new ProductService(context, currencyService);
-        var controller = new ProductsController(context, mlClient, watchdog, productService)
+        var controller = new ProductsController(context, mlClient, watchdog, currencyService)
         {
             ControllerContext = new ControllerContext
             {
