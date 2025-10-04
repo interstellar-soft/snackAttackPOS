@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PosBackend.Application.Requests;
 using PosBackend.Application.Responses;
 using PosBackend.Application.Services;
+using PosBackend.Features.Common;
 using PosBackend.Domain.Entities;
 using PosBackend.Infrastructure.Data;
 
@@ -38,7 +40,11 @@ public class TransactionsController : ControllerBase
     [HttpPost("checkout")]
     public async Task<ActionResult<CheckoutResponse>> Checkout([FromBody] CheckoutRequest request, CancellationToken cancellationToken)
     {
-        var userId = Guid.Parse(User.FindFirst("sub")?.Value ?? throw new InvalidOperationException("Missing user id"));
+        var userId = User.GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
         var currentRate = request.ExchangeRate > 0
             ? request.ExchangeRate
             : (await _currencyService.GetCurrentRateAsync(cancellationToken)).Rate;
@@ -50,7 +56,7 @@ public class TransactionsController : ControllerBase
         var transaction = new PosTransaction
         {
             TransactionNumber = $"TX-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
-            UserId = userId,
+            UserId = userId.Value,
             TotalUsd = balance.totalUsd,
             TotalLbp = balance.totalLbp,
             PaidUsd = _currencyService.RoundUsd(request.PaidUsd),
@@ -102,7 +108,7 @@ public class TransactionsController : ControllerBase
                 transaction.TotalLbp
             }));
 
-            await _auditLogger.LogAsync(userId, "Checkout", nameof(PosTransaction), transaction.Id, new
+            await _auditLogger.LogAsync(userId.Value, "Checkout", nameof(PosTransaction), transaction.Id, new
             {
                 transaction.TransactionNumber,
                 transaction.TotalUsd,
