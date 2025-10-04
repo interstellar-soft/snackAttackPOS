@@ -69,7 +69,7 @@ public class ProductsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProductResponse>> CreateProduct([FromBody] CreateProductRequest request, CancellationToken cancellationToken)
     {
-        var (errors, category) = await ValidateAsync(request, null, cancellationToken);
+        var (errors, category, categoryWasAdded) = await ValidateAsync(request, null, cancellationToken);
         if (errors.Count > 0)
         {
             return CreateValidationProblem(errors);
@@ -81,23 +81,36 @@ public class ProductsController : ControllerBase
             return CreateValidationProblem(priceResult.Errors);
         }
 
+        if (category is null)
+        {
+            return CreateValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.CategoryName)] = new[] { "Category could not be resolved." }
+            });
+        }
+
+        if (categoryWasAdded)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
         var product = new Product
         {
             Name = request.Name!,
             Sku = request.Sku!,
             Barcode = request.Barcode!,
             Description = NormalizeOptional(request.Description),
-            CategoryId = request.CategoryId,
+            CategoryId = category.Id,
             PriceUsd = priceResult.PriceUsd,
             PriceLbp = priceResult.PriceLbp,
             IsActive = true,
-            IsPinned = request.IsPinned
+            IsPinned = request.IsPinned,
+            Category = category
         };
 
         _db.Products.Add(product);
         await _db.SaveChangesAsync(cancellationToken);
 
-        product.Category = category;
         var response = ToResponse(product);
         return CreatedAtAction(nameof(GetProductById), new { id = response.Id }, response);
     }
@@ -112,7 +125,7 @@ public class ProductsController : ControllerBase
             return NotFound();
         }
 
-        var (errors, category) = await ValidateAsync(request, id, cancellationToken);
+        var (errors, category, categoryWasAdded) = await ValidateAsync(request, id, cancellationToken);
         if (errors.Count > 0)
         {
             return CreateValidationProblem(errors);
@@ -124,11 +137,24 @@ public class ProductsController : ControllerBase
             return CreateValidationProblem(priceResult.Errors);
         }
 
+        if (category is null)
+        {
+            return CreateValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.CategoryName)] = new[] { "Category could not be resolved." }
+            });
+        }
+
+        if (categoryWasAdded)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
         product.Name = request.Name!;
         product.Sku = request.Sku!;
         product.Barcode = request.Barcode!;
         product.Description = NormalizeOptional(request.Description);
-        product.CategoryId = request.CategoryId;
+        product.CategoryId = category.Id;
         product.PriceUsd = priceResult.PriceUsd;
         product.PriceLbp = priceResult.PriceLbp;
         product.IsPinned = request.IsPinned;
@@ -208,7 +234,7 @@ public class ProductsController : ControllerBase
             PriceUsd = product.PriceUsd,
             PriceLbp = product.PriceLbp,
             Description = product.Description,
-            Category = product.Category?.Name ?? string.Empty,
+            CategoryName = product.Category?.Name ?? string.Empty,
             IsPinned = product.IsPinned,
             IsFlagged = flagged,
             FlagReason = reason
@@ -226,12 +252,12 @@ public class ProductsController : ControllerBase
             PriceUsd = product.PriceUsd,
             PriceLbp = product.PriceLbp,
             Description = product.Description,
-            Category = product.Category?.Name ?? string.Empty,
+            CategoryName = product.Category?.Name ?? string.Empty,
             IsPinned = product.IsPinned
         };
     }
 
-    private async Task<(Dictionary<string, string[]>, Category?)> ValidateAsync(
+    private async Task<(Dictionary<string, string[]>, Category?, bool)> ValidateAsync(
         ProductMutationRequestBase request,
         Guid? existingProductId,
         CancellationToken cancellationToken)
@@ -284,9 +310,13 @@ public class ProductsController : ControllerBase
             request.Currency = currency;
         }
 
-        if (request.CategoryId == Guid.Empty)
+        if (string.IsNullOrWhiteSpace(request.CategoryName))
         {
-            AddError(errors, nameof(request.CategoryId), "CategoryId is required.");
+            AddError(errors, nameof(request.CategoryName), "Category name is required.");
+        }
+        else
+        {
+            request.CategoryName = request.CategoryName.Trim();
         }
 
         if (!errors.ContainsKey(nameof(request.Sku)))
@@ -310,14 +340,30 @@ public class ProductsController : ControllerBase
         }
 
         Category? category = null;
-        if (!errors.ContainsKey(nameof(request.CategoryId)))
+        var categoryWasAdded = false;
+        if (!errors.ContainsKey(nameof(request.CategoryName)) && errors.Count == 0)
         {
+            var normalizedName = request.CategoryName;
+            var normalizedLower = normalizedName.ToLower();
+
             category = await _db.Categories
-                .FirstOrDefaultAsync(c => c.Id == request.CategoryId, cancellationToken);
+                .FirstOrDefaultAsync(c => c.Name.ToLower() == normalizedLower, cancellationToken);
+
             if (category is null)
             {
-                AddError(errors, nameof(request.CategoryId), "Category not found.");
+                category = new Category
+                {
+                    Name = normalizedName
+                };
+
+                await _db.Categories.AddAsync(category, cancellationToken);
+                categoryWasAdded = true;
             }
+        }
+
+        if (category is null && errors.Count == 0)
+        {
+            AddError(errors, nameof(request.CategoryName), "Category could not be resolved.");
         }
 
         var materialized = errors.ToDictionary(
@@ -325,7 +371,7 @@ public class ProductsController : ControllerBase
             pair => pair.Value.ToArray(),
             StringComparer.Ordinal);
 
-        return (materialized, category);
+        return (materialized, category, categoryWasAdded);
     }
 
     private async Task<PriceComputationResult> TryResolvePricesAsync(ProductMutationRequestBase request, CancellationToken cancellationToken)

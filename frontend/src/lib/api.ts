@@ -23,7 +23,7 @@ export interface ProductResponseDto {
   priceUsd: number;
   priceLbp: number;
   description?: string | null;
-  category: string;
+  categoryName: string;
   isFlagged?: boolean | null;
   flagReason?: string | null;
 }

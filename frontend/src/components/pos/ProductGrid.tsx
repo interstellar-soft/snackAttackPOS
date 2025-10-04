@@ -83,7 +83,7 @@ export function ProductGrid({ onScan }: ProductGridProps) {
               <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-300">
                 {formatCurrency(product.priceUsd, 'USD', i18n.language === 'ar' ? 'ar-LB' : 'en-US')}
               </p>
-              <p className="text-[0.7rem] text-slate-500">{product.category}</p>
+              <p className="text-[0.7rem] text-slate-500">{product.categoryName}</p>
             </button>
           ))}
           {showPinnedEmptyState && (
