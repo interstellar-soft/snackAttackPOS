@@ -187,6 +187,7 @@ export function InventoryPage() {
         onLogout={logout}
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
+        onNavigatePurchases={canSeeAnalytics ? () => navigate('/purchases') : undefined}
         onNavigateSettings={canSeeAnalytics ? () => navigate('/settings') : undefined}
         isInventory
       />
@@ -247,6 +248,12 @@ export function InventoryPage() {
                     {t('inventoryPriceLbp')}
                   </th>
                   <th scope="col" className="px-4 py-3 font-medium">
+                    {t('inventoryOnHand')}
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    {t('inventoryAvgCost')}
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
                     {t('inventoryPinned')}
                   </th>
                   <th scope="col" className="px-4 py-3 font-medium">
@@ -274,6 +281,12 @@ export function InventoryPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-500">
                         {formatCurrency(product.priceLbp, 'LBP', currencyLocale)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-500">
+                        {product.quantityOnHand?.toLocaleString() ?? '0'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-500">
+                        {formatCurrency(product.averageCostUsd ?? 0, 'USD', currencyLocale)}
                       </td>
                       <td className="px-4 py-3">
                         <label className="flex items-center gap-2">
@@ -312,7 +325,7 @@ export function InventoryPage() {
                   ))
                 ) : (
                   <tr>
-                    <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={8}>
+                    <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={10}>
                       {t('inventoryEmpty')}
                     </td>
                   </tr>

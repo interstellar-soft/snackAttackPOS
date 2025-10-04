@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PosBackend.Application.Responses;
+using PosBackend.Domain.Entities;
 using PosBackend.Infrastructure.Data;
 
 namespace PosBackend.Features.Analytics;
@@ -19,6 +20,34 @@ public class AnalyticsController : ControllerBase
     public AnalyticsController(ApplicationDbContext db)
     {
         _db = db;
+    }
+
+    [HttpGet("profit")]
+    public async Task<ActionResult<ProfitSummaryResponse>> GetProfitSummary(CancellationToken cancellationToken)
+    {
+        var lookbackStart = DateTime.UtcNow.AddYears(-3);
+        var lines = await _db.TransactionLines
+            .Include(l => l.Transaction)
+            .Where(l => l.Transaction != null && l.Transaction.CreatedAt >= lookbackStart)
+            .ToListAsync(cancellationToken);
+
+        if (lines.Count == 0)
+        {
+            return new ProfitSummaryResponse();
+        }
+
+        var daily = BuildSeries(lines, date => date.Date);
+        var weekly = BuildSeries(lines, StartOfWeek);
+        var monthly = BuildSeries(lines, date => new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc));
+        var yearly = BuildSeries(lines, date => new DateTime(date.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        return new ProfitSummaryResponse
+        {
+            Daily = new ProfitSeries { Points = daily },
+            Weekly = new ProfitSeries { Points = weekly },
+            Monthly = new ProfitSeries { Points = monthly },
+            Yearly = new ProfitSeries { Points = yearly }
+        };
     }
 
     [HttpGet("dashboard")]
@@ -102,15 +131,13 @@ public class AnalyticsController : ControllerBase
 
         var transactionLines = transactions.SelectMany(t => t.Lines).ToList();
 
-        const decimal assumedCostFactor = 0.62m;
-
         var profitability = transactionLines
             .GroupBy(l => l.Product?.Name ?? "Unknown")
             .Select(g =>
             {
                 var revenue = g.Sum(l => l.TotalUsd);
-                var cost = g.Sum(l => l.Quantity * (l.Product?.PriceUsd ?? l.UnitPriceUsd) * assumedCostFactor);
-                var grossProfit = revenue - cost;
+                var cost = g.Sum(l => l.CostUsd);
+                var grossProfit = g.Sum(l => l.ProfitUsd);
                 var marginPercent = revenue == 0 ? 0 : Math.Round((grossProfit / revenue) * 100, 2);
                 return new
                 {
@@ -143,7 +170,7 @@ public class AnalyticsController : ControllerBase
         var markdownRecovery = transactions
             .SelectMany(t => t.Lines)
             .GroupBy(l => l.Product?.Category?.Name ?? "General")
-            .Select(g => new MetricValue(g.Key, g.Sum(l => (l.UnitPriceUsd * l.Quantity) - l.TotalUsd)))
+            .Select(g => new MetricValue(g.Key, g.Sum(l => (l.BaseUnitPriceUsd - l.UnitPriceUsd) * l.Quantity)))
             .OrderByDescending(m => m.Value)
             .ToList();
 
@@ -231,5 +258,35 @@ public class AnalyticsController : ControllerBase
             CurrencyMixTrend = currencyMixTrend,
             ChangeIssuanceTrend = changeIssuanceTrend
         };
+    }
+
+    private static List<ProfitPoint> BuildSeries(IEnumerable<TransactionLine> lines, Func<DateTime, DateTime> bucketSelector)
+    {
+        return lines
+            .Where(l => l.Transaction is not null)
+            .GroupBy(l => bucketSelector(DateTime.SpecifyKind(l.Transaction!.CreatedAt, DateTimeKind.Utc)))
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var revenue = g.Sum(line => line.TotalUsd);
+                var cost = g.Sum(line => line.CostUsd);
+                var gross = g.Sum(line => line.ProfitUsd);
+                return new ProfitPoint
+                {
+                    PeriodStart = g.Key,
+                    RevenueUsd = decimal.Round(revenue, 2),
+                    CostUsd = decimal.Round(cost, 2),
+                    GrossProfitUsd = decimal.Round(gross, 2),
+                    NetProfitUsd = decimal.Round(gross, 2)
+                };
+            })
+            .ToList();
+    }
+
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        var monday = date.Date;
+        var diff = (7 + (monday.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return monday.AddDays(-diff);
     }
 }

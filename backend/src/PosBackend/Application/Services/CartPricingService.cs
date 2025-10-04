@@ -23,7 +23,9 @@ public class CartPricingService
         CancellationToken cancellationToken = default)
     {
         var productIds = items.Select(i => i.ProductId).ToList();
-        var products = await _db.Products.Include(p => p.PriceRules)
+        var products = await _db.Products
+            .Include(p => p.PriceRules)
+            .Include(p => p.Inventory)
             .Where(p => productIds.Contains(p.Id)).ToListAsync(cancellationToken);
 
         var lines = new List<TransactionLine>();
@@ -34,21 +36,35 @@ public class CartPricingService
             var product = products.First(p => p.Id == item.ProductId);
             var priceRule = product.PriceRules.FirstOrDefault(r => r.Id == item.PriceRuleId && r.IsActive);
             var discountPercent = priceRule?.DiscountPercent ?? item.ManualDiscountPercent ?? 0m;
-            var unitPriceUsd = product.PriceUsd * (1 - discountPercent / 100m);
+            var baseUnitPriceUsd = product.PriceUsd;
+            var baseUnitPriceLbp = _currencyService.ConvertUsdToLbp(baseUnitPriceUsd, exchangeRate);
+            var unitPriceUsd = baseUnitPriceUsd * (1 - discountPercent / 100m);
             var unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
             var lineTotalUsd = unitPriceUsd * item.Quantity;
             var lineTotalLbp = unitPriceLbp * item.Quantity;
+
+            var inventoryCost = product.Inventory?.AverageCostUsd ?? baseUnitPriceUsd * 0.6m;
+            var lineCostUsd = inventoryCost * item.Quantity;
+            var lineCostLbp = _currencyService.ConvertUsdToLbp(lineCostUsd, exchangeRate);
+            var profitUsd = lineTotalUsd - lineCostUsd;
+            var profitLbp = lineTotalLbp - lineCostLbp;
 
             var line = new TransactionLine
             {
                 ProductId = product.Id,
                 PriceRuleId = priceRule?.Id,
                 Quantity = item.Quantity,
+                BaseUnitPriceUsd = _currencyService.RoundUsd(baseUnitPriceUsd),
+                BaseUnitPriceLbp = _currencyService.RoundLbp(baseUnitPriceLbp),
                 UnitPriceUsd = _currencyService.RoundUsd(unitPriceUsd),
                 UnitPriceLbp = _currencyService.RoundLbp(unitPriceLbp),
                 DiscountPercent = discountPercent,
                 TotalUsd = _currencyService.RoundUsd(lineTotalUsd),
-                TotalLbp = _currencyService.RoundLbp(lineTotalLbp)
+                TotalLbp = _currencyService.RoundLbp(lineTotalLbp),
+                CostUsd = _currencyService.RoundUsd(lineCostUsd),
+                CostLbp = _currencyService.RoundLbp(lineCostLbp),
+                ProfitUsd = _currencyService.RoundUsd(profitUsd),
+                ProfitLbp = _currencyService.RoundLbp(profitLbp)
             };
             lines.Add(line);
             totalUsd += line.TotalUsd;

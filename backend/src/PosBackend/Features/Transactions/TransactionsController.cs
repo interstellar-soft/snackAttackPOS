@@ -147,10 +147,17 @@ public class TransactionsController : ControllerBase
         {
             ProductId = l.ProductId,
             Quantity = -Math.Abs(l.Quantity),
+            BaseUnitPriceUsd = l.BaseUnitPriceUsd,
+            BaseUnitPriceLbp = l.BaseUnitPriceLbp,
             UnitPriceUsd = l.UnitPriceUsd,
             UnitPriceLbp = l.UnitPriceLbp,
             TotalUsd = -Math.Abs(l.TotalUsd),
-            TotalLbp = -Math.Abs(l.TotalLbp)
+            TotalLbp = -Math.Abs(l.TotalLbp),
+            DiscountPercent = l.DiscountPercent,
+            CostUsd = -Math.Abs(l.CostUsd),
+            CostLbp = -Math.Abs(l.CostLbp),
+            ProfitUsd = -Math.Abs(l.ProfitUsd),
+            ProfitLbp = -Math.Abs(l.ProfitLbp)
         }).ToList();
 
         var totalUsd = _currencyService.RoundUsd(lines.Sum(l => l.TotalUsd));
