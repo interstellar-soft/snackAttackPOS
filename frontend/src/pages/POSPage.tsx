@@ -63,8 +63,10 @@ export function POSPage() {
   }));
   const [barcode, setBarcode] = useState('');
   const [lastScan, setLastScan] = useState<string | undefined>();
-  const [paidUsd, setPaidUsd] = useState(0);
-  const [paidLbp, setPaidLbp] = useState(0);
+  const [paidUsdText, setPaidUsdText] = useState('');
+  const [paidUsdAmount, setPaidUsdAmount] = useState(0);
+  const [paidLbpText, setPaidLbpText] = useState('');
+  const [paidLbpAmount, setPaidLbpAmount] = useState(0);
   const [balance, setBalance] = useState<BalanceResponse | null>(null);
   const [rateModalOpen, setRateModalOpen] = useState(false);
   const [overrideRequired, setOverrideRequired] = useState(false);
@@ -158,15 +160,43 @@ export function POSPage() {
 
   const totalUsd = Number(subtotalUsd().toFixed(2));
 
+  const parseTenderAmount = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return 0;
+    }
+    const parsed = Number(trimmed.replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   useEffect(() => {
     if (!token) return;
-    computeBalanceMutate({ totalUsd, paidUsd, paidLbp, exchangeRate: rate });
-  }, [token, totalUsd, paidUsd, paidLbp, rate, computeBalanceMutate]);
+    const parsedUsd = parseTenderAmount(paidUsdText);
+    const parsedLbp = parseTenderAmount(paidLbpText);
+    if (parsedUsd !== paidUsdAmount) {
+      setPaidUsdAmount(parsedUsd);
+    }
+    if (parsedLbp !== paidLbpAmount) {
+      setPaidLbpAmount(parsedLbp);
+    }
+    computeBalanceMutate({ totalUsd, paidUsd: parsedUsd, paidLbp: parsedLbp, exchangeRate: rate });
+  }, [
+    token,
+    totalUsd,
+    paidUsdText,
+    paidLbpText,
+    rate,
+    computeBalanceMutate,
+    paidUsdAmount,
+    paidLbpAmount
+  ]);
 
   useEffect(() => {
     if (items.length === 0) {
-      setPaidUsd(0);
-      setPaidLbp(0);
+      setPaidUsdText('');
+      setPaidUsdAmount(0);
+      setPaidLbpText('');
+      setPaidLbpAmount(0);
       setOverrideRequired(false);
       setOverrideReason(null);
     }
@@ -178,14 +208,22 @@ export function POSPage() {
       setOverrideReason((reason) => reason ?? 'Override pending');
       return;
     }
+    const parsedUsd = parseTenderAmount(paidUsdText);
+    const parsedLbp = parseTenderAmount(paidLbpText);
+    if (parsedUsd !== paidUsdAmount) {
+      setPaidUsdAmount(parsedUsd);
+    }
+    if (parsedLbp !== paidLbpAmount) {
+      setPaidLbpAmount(parsedLbp);
+    }
     const response = await apiFetch<CheckoutResponse>(
       '/api/transactions/checkout',
       {
         method: 'POST',
         body: JSON.stringify({
           exchangeRate: rate,
-          paidUsd,
-          paidLbp,
+          paidUsd: parsedUsd,
+          paidLbp: parsedLbp,
           items: items.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
@@ -204,8 +242,10 @@ export function POSPage() {
 
     setBalance(response);
     clear();
-    setPaidUsd(0);
-    setPaidLbp(0);
+    setPaidUsdText('');
+    setPaidUsdAmount(0);
+    setPaidLbpText('');
+    setPaidLbpAmount(0);
     alert(`Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`);
   };
 
@@ -238,10 +278,12 @@ export function POSPage() {
       />
       <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
         <TenderPanel
-          paidUsd={paidUsd}
-          paidLbp={paidLbp}
-          onChangePaidUsd={setPaidUsd}
-          onChangePaidLbp={setPaidLbp}
+          paidUsdText={paidUsdText}
+          paidLbpText={paidLbpText}
+          onChangePaidUsdText={setPaidUsdText}
+          onChangePaidLbpText={setPaidLbpText}
+          onCommitPaidUsdAmount={setPaidUsdAmount}
+          onCommitPaidLbpAmount={setPaidLbpAmount}
           onCheckout={handleCheckout}
           balanceUsd={balance?.balanceUsd ?? 0}
           balanceLbp={balance?.balanceLbp ?? 0}

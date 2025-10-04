@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SVGProps } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -36,6 +36,18 @@ export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: Car
   const { t, i18n } = useTranslation();
   const { items, setItemQuantity, updateDiscount, removeItem, subtotalUsd, subtotalLbp } = useCartStore();
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [draftValues, setDraftValues] = useState<Record<string, { quantity: string; discount: string }>>({});
+
+  useEffect(() => {
+    const nextDrafts = items.reduce<Record<string, { quantity: string; discount: string }>>((acc, item) => {
+      acc[item.productId] = {
+        quantity: String(item.quantity),
+        discount: String(item.discountPercent)
+      };
+      return acc;
+    }, {});
+    setDraftValues(nextDrafts);
+  }, [items]);
 
   useEffect(() => {
     if (!highlightedItemId) return;
@@ -47,11 +59,82 @@ export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: Car
   }, [highlightedItemId, items]);
 
   const commitQuantity = (productId: string, rawValue: string) => {
-    const next = clampQuantity(Number(rawValue));
-    setItemQuantity(productId, next);
+    const item = items.find((cartItem) => cartItem.productId === productId);
+    if (!item) {
+      return;
+    }
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      setDraftValues((prev) => ({
+        ...prev,
+        [productId]: {
+          quantity: String(item.quantity),
+          discount: prev[productId]?.discount ?? String(item.discountPercent)
+        }
+      }));
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      setDraftValues((prev) => ({
+        ...prev,
+        [productId]: {
+          quantity: String(item.quantity),
+          discount: prev[productId]?.discount ?? String(item.discountPercent)
+        }
+      }));
+      return;
+    }
+    const nextQuantity = clampQuantity(parsed);
+    setItemQuantity(productId, nextQuantity);
+    setDraftValues((prev) => ({
+      ...prev,
+      [productId]: {
+        quantity: String(nextQuantity),
+        discount: prev[productId]?.discount ?? String(item.discountPercent)
+      }
+    }));
     if (highlightedItemId === productId) {
       onQuantityConfirm?.();
     }
+  };
+
+  const commitDiscount = (productId: string, rawValue: string) => {
+    const item = items.find((cartItem) => cartItem.productId === productId);
+    if (!item) {
+      return;
+    }
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      setDraftValues((prev) => ({
+        ...prev,
+        [productId]: {
+          quantity: prev[productId]?.quantity ?? String(item.quantity),
+          discount: String(item.discountPercent)
+        }
+      }));
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      setDraftValues((prev) => ({
+        ...prev,
+        [productId]: {
+          quantity: prev[productId]?.quantity ?? String(item.quantity),
+          discount: String(item.discountPercent)
+        }
+      }));
+      return;
+    }
+    const nextDiscount = Math.min(100, Math.max(0, parsed));
+    updateDiscount(productId, nextDiscount);
+    setDraftValues((prev) => ({
+      ...prev,
+      [productId]: {
+        quantity: prev[productId]?.quantity ?? String(item.quantity),
+        discount: String(nextDiscount)
+      }
+    }));
   };
 
   return (
@@ -96,10 +179,17 @@ export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: Car
                       ref={(element) => {
                         quantityInputRefs.current[item.productId] = element;
                       }}
-                      value={item.quantity}
-                      onChange={(event) =>
-                        setItemQuantity(item.productId, clampQuantity(Number(event.target.value)))
-                      }
+                      value={draftValues[item.productId]?.quantity ?? ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setDraftValues((prev) => ({
+                          ...prev,
+                          [item.productId]: {
+                            quantity: value,
+                            discount: prev[item.productId]?.discount ?? String(item.discountPercent)
+                          }
+                        }));
+                      }}
                       onBlur={(event) => commitQuantity(item.productId, event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
@@ -116,8 +206,24 @@ export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: Car
                       type="number"
                       min={0}
                       max={100}
-                      value={item.discountPercent}
-                      onChange={(event) => updateDiscount(item.productId, Number(event.target.value))}
+                      value={draftValues[item.productId]?.discount ?? ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setDraftValues((prev) => ({
+                          ...prev,
+                          [item.productId]: {
+                            quantity: prev[item.productId]?.quantity ?? String(item.quantity),
+                            discount: value
+                          }
+                        }));
+                      }}
+                      onBlur={(event) => commitDiscount(item.productId, event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          commitDiscount(item.productId, event.currentTarget.value);
+                        }
+                      }}
                     />
                   </label>
                   <div className="space-y-1">
