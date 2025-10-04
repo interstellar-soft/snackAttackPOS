@@ -236,6 +236,23 @@ export function POSPage() {
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
       />
+      <div className="mt-3 flex w-full justify-center lg:mt-4 lg:justify-end">
+        <div className="w-full max-w-md">
+          <TenderPanel
+            paidUsd={paidUsd}
+            paidLbp={paidLbp}
+            onChangePaidUsd={setPaidUsd}
+            onChangePaidLbp={setPaidLbp}
+            onCheckout={handleCheckout}
+            balanceUsd={balance?.balanceUsd ?? 0}
+            balanceLbp={balance?.balanceLbp ?? 0}
+            exchangeRate={rate}
+            onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
+            canEditRate={canEditRate}
+            disabled={overrideRequired}
+          />
+        </div>
+      </div>
       <div className="grid gap-3 lg:grid-cols-[1.75fr_1fr] xl:grid-cols-[1.65fr_1fr]">
         <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
           <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
@@ -256,21 +273,6 @@ export function POSPage() {
           </div>
         </div>
         <div className="flex h-[calc(100vh-11rem)] max-w-md flex-col gap-3 lg:justify-between">
-          <div className="lg:sticky lg:top-24">
-            <TenderPanel
-              paidUsd={paidUsd}
-              paidLbp={paidLbp}
-              onChangePaidUsd={setPaidUsd}
-              onChangePaidLbp={setPaidLbp}
-              onCheckout={handleCheckout}
-              balanceUsd={balance?.balanceUsd ?? 0}
-              balanceLbp={balance?.balanceLbp ?? 0}
-              exchangeRate={rate}
-              onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
-              canEditRate={canEditRate}
-              disabled={overrideRequired}
-            />
-          </div>
           <div className="flex-1 overflow-hidden">
             <CartPanel
               onClear={clear}
