@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -7,8 +9,16 @@ namespace PosBackend.Application.Services;
 
 public class ReceiptRenderer
 {
-    public byte[] RenderPdf(PosTransaction transaction, IEnumerable<TransactionLine> lines, decimal exchangeRate)
+    private readonly StoreProfileService _storeProfileService;
+
+    public ReceiptRenderer(StoreProfileService storeProfileService)
     {
+        _storeProfileService = storeProfileService;
+    }
+
+    public async Task<byte[]> RenderPdfAsync(PosTransaction transaction, IEnumerable<TransactionLine> lines, decimal exchangeRate, CancellationToken cancellationToken = default)
+    {
+        var storeProfile = await _storeProfileService.GetCurrentAsync(cancellationToken);
         var doc = Document.Create(container =>
         {
             container.Page(page =>
@@ -18,7 +28,7 @@ public class ReceiptRenderer
                 page.Content().Stack(stack =>
                 {
                     stack.Spacing(6);
-                    stack.Item().Text("Aurora POS Receipt").FontSize(16).Bold();
+                    stack.Item().Text(storeProfile.Name).FontSize(16).Bold();
                     stack.Item().Text($"Transaction #: {transaction.TransactionNumber}");
                     stack.Item().Text($"Date: {transaction.CreatedAt:yyyy-MM-dd HH:mm}");
                     stack.Item().Text($"Cashier: {transaction.UserId}");

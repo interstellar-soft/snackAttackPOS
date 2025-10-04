@@ -91,7 +91,8 @@ public class TransactionsController : ControllerBase
 
             await _db.SaveChangesAsync(cancellationToken);
 
-            receiptBase64 = Convert.ToBase64String(_receiptRenderer.RenderPdf(transaction, lines, currentRate));
+            var receiptBytes = await _receiptRenderer.RenderPdfAsync(transaction, lines, currentRate, cancellationToken);
+            receiptBase64 = Convert.ToBase64String(receiptBytes);
 
             await _eventHub.PublishAsync(new PosEvent("transaction.completed", new
             {

@@ -3,6 +3,8 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../hooks/useTheme';
+import { useStoreProfileStore } from '../../stores/storeProfileStore';
+import { useStoreProfileQuery } from '../../lib/SettingsService';
 
 interface TopBarProps {
   onLogout: () => void;
@@ -12,6 +14,8 @@ interface TopBarProps {
   isAnalytics?: boolean;
   onNavigateInventory?: () => void;
   isInventory?: boolean;
+  onNavigateSettings?: () => void;
+  isSettings?: boolean;
 }
 
 export function TopBar({
@@ -21,12 +25,16 @@ export function TopBar({
   onNavigatePos,
   isAnalytics,
   onNavigateInventory,
-  isInventory
+  isInventory,
+  onNavigateSettings,
+  isSettings
 }: TopBarProps) {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const displayName = useAuthStore((state) => state.displayName);
   const role = useAuthStore((state) => state.role);
+  const storeName = useStoreProfileStore((state) => state.name);
+  useStoreProfileQuery();
 
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
@@ -42,7 +50,7 @@ export function TopBar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
       <div>
-        <h1 className="text-2xl font-bold text-emerald-600 dark:text-emerald-300">Aurora POS</h1>
+        <h1 className="text-2xl font-bold text-emerald-600 dark:text-emerald-300">{storeName}</h1>
         <p className="text-xs text-slate-500">Asia/Beirut</p>
         {lastScan && (
           <Badge className="mt-2">Last scan: {lastScan}</Badge>
@@ -59,12 +67,22 @@ export function TopBar({
             {t('products')}
           </Button>
         )}
+        {canManageInventory && onNavigateSettings && !isSettings && (
+          <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigateSettings}>
+            {t('settings')}
+          </Button>
+        )}
         {onNavigatePos && isAnalytics && (
           <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigatePos}>
             {t('backToPos')}
           </Button>
         )}
         {onNavigatePos && isInventory && (
+          <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigatePos}>
+            {t('backToPos')}
+          </Button>
+        )}
+        {onNavigatePos && isSettings && (
           <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigatePos}>
             {t('backToPos')}
           </Button>

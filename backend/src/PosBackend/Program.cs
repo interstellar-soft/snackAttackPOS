@@ -18,6 +18,7 @@ builder.Services.AddSingleton<PosEventHub>();
 builder.Services.AddSingleton<ScanWatchdog>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<CartPricingService>();
+builder.Services.AddScoped<StoreProfileService>();
 builder.Services.AddScoped<ReceiptRenderer>();
 builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddScoped<CurrencyService>();

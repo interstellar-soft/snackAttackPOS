@@ -21,6 +21,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CurrencyRate> CurrencyRates => Set<CurrencyRate>();
+    public DbSet<StoreProfile> StoreProfiles => Set<StoreProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

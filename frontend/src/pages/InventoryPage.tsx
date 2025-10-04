@@ -9,6 +9,7 @@ import { Input } from '../components/ui/input';
 import { ProductsService, type CreateProductInput, type Product } from '../lib/ProductsService';
 import { formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../stores/authStore';
+import { useStoreProfileStore } from '../stores/storeProfileStore';
 
 type DialogState =
   | { type: 'create'; error?: string }
@@ -43,6 +44,7 @@ export function InventoryPage() {
 
   const logout = useAuthStore((state) => state.logout);
   const role = useAuthStore((state) => state.role);
+  const storeName = useStoreProfileStore((state) => state.name);
 
   const productsQuery = ProductsService.useInventoryProducts();
   const createProduct = ProductsService.useCreateProduct();
@@ -162,6 +164,7 @@ export function InventoryPage() {
         onLogout={logout}
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
+        onNavigateSettings={canSeeAnalytics ? () => navigate('/settings') : undefined}
         isInventory
       />
       {banner && (
@@ -369,7 +372,7 @@ function ProductFormDialog({
               id="product-name"
               value={formValues.name}
               onChange={handleChange('name')}
-              placeholder={t('inventoryNamePlaceholder')}
+              placeholder={t('inventoryNamePlaceholder', { storeName })}
               required
             />
           </div>

@@ -1,12 +1,14 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { POSPage } from './pages/POSPage';
 import { LoginPage } from './pages/LoginPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { InventoryPage } from './pages/InventoryPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { queryClient } from './lib/api';
 import { useAuthStore } from './stores/authStore';
+import { useStoreProfileStore } from './stores/storeProfileStore';
 
 interface ProtectedRouteProps {
   children: JSX.Element;
@@ -30,6 +32,12 @@ function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
 }
 
 export default function App() {
+  const storeName = useStoreProfileStore((state) => state.name);
+
+  useEffect(() => {
+    document.title = `${storeName} POS`;
+  }, [storeName]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div className="p-6">Loading…</div>}>
@@ -57,6 +65,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin', 'manager']}>
                   <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute roles={['admin', 'manager']}>
+                  <SettingsPage />
                 </ProtectedRoute>
               }
             />

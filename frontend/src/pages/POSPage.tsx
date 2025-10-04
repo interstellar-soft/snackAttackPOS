@@ -230,6 +230,7 @@ export function POSPage() {
         lastScan={lastScan}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
+        onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
       />
       <div className="grid gap-4 lg:grid-cols-[2.5fr_1fr]">
         <div className="space-y-4">
