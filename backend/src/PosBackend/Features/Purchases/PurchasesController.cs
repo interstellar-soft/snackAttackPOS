@@ -154,16 +154,11 @@ public class PurchasesController : ControllerBase
 
         if (errors.Count > 0)
         {
-            var validationProblem = new ValidationProblemDetails
+            var validationProblem = new ValidationProblemDetails(errors)
             {
                 Status = StatusCodes.Status400BadRequest,
                 Title = "One or more validation errors occurred."
             };
-
-            foreach (var error in errors)
-            {
-                validationProblem.Errors.Add(error.Key, error.Value);
-            }
 
             return ValidationProblem(validationProblem);
         }
