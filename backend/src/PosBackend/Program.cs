@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using PosBackend;
 using PosBackend.Application.Services;
 using PosBackend.Infrastructure.Data;
 using Npgsql;
@@ -15,6 +16,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<FeatureFlags>(builder.Configuration.GetSection("FeatureFlags"));
 
 builder.Services.AddSingleton<PosEventHub>();
 builder.Services.AddSingleton<ScanWatchdog>();

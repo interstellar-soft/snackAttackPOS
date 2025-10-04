@@ -4,12 +4,14 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PosBackend.Application.Requests;
 using PosBackend.Application.Responses;
 using PosBackend.Application.Services;
 using PosBackend.Features.Common;
 using PosBackend.Domain.Entities;
 using PosBackend.Infrastructure.Data;
+using PosBackend;
 
 namespace PosBackend.Features.Transactions;
 
@@ -25,8 +27,9 @@ public class TransactionsController : ControllerBase
     private readonly AuditLogger _auditLogger;
     private readonly CurrencyService _currencyService;
     private readonly MlClient _mlClient;
+    private readonly bool _visionEnabled;
 
-    public TransactionsController(ApplicationDbContext db, CartPricingService pricingService, ReceiptRenderer receiptRenderer, PosEventHub eventHub, AuditLogger auditLogger, CurrencyService currencyService, MlClient mlClient)
+    public TransactionsController(ApplicationDbContext db, CartPricingService pricingService, ReceiptRenderer receiptRenderer, PosEventHub eventHub, AuditLogger auditLogger, CurrencyService currencyService, MlClient mlClient, IOptions<FeatureFlags> featureFlags)
     {
         _db = db;
         _pricingService = pricingService;
@@ -35,6 +38,7 @@ public class TransactionsController : ControllerBase
         _auditLogger = auditLogger;
         _currencyService = currencyService;
         _mlClient = mlClient;
+        _visionEnabled = featureFlags.Value.VisionEnabled;
     }
 
     [HttpPost("checkout")]
@@ -72,12 +76,19 @@ public class TransactionsController : ControllerBase
         }
 
         var visionFlags = new List<string>();
-        foreach (var line in lines)
+        if (_visionEnabled)
         {
-            var vision = await _mlClient.PredictVisionAsync(new MlClient.VisionRequest(line.ProductId.ToString(), new[] { (double)line.UnitPriceUsd, (double)line.Quantity }), cancellationToken);
-            if (vision is not null && (!vision.IsMatch || vision.Confidence < 0.6))
+            foreach (var line in lines)
             {
-                visionFlags.Add($"vision:{vision.PredictedLabel}:{vision.Confidence:0.00}");
+                var vision = await _mlClient.PredictVisionAsync(
+                    new MlClient.VisionRequest(
+                        line.ProductId.ToString(),
+                        new[] { (double)line.UnitPriceUsd, (double)line.Quantity }),
+                    cancellationToken);
+                if (vision is not null && (!vision.IsMatch || vision.Confidence < 0.6))
+                {
+                    visionFlags.Add($"vision:{vision.PredictedLabel}:{vision.Confidence:0.00}");
+                }
             }
         }
 
