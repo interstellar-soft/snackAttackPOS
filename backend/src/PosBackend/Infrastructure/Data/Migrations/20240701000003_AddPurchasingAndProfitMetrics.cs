@@ -34,11 +34,11 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 nullable: true);
 
             migrationBuilder.DropColumn(
-                name: "total_cost",
+                name: "TotalCost",
                 table: "purchase_orders");
 
             migrationBuilder.DropColumn(
-                name: "currency",
+                name: "Currency",
                 table: "purchase_orders");
 
             migrationBuilder.AddColumn<Guid>(
@@ -146,13 +146,13 @@ namespace PosBackend.Infrastructure.Data.Migrations
                         name: "FK_purchase_order_lines_products_ProductId",
                         column: x => x.ProductId,
                         principalTable: "products",
-                        principalColumn: "id",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_purchase_order_lines_purchase_orders_PurchaseOrderId",
                         column: x => x.PurchaseOrderId,
                         principalTable: "purchase_orders",
-                        principalColumn: "id",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -176,7 +176,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 table: "purchase_orders",
                 column: "created_by_user_id",
                 principalTable: "users",
-                principalColumn: "id");
+                principalColumn: "Id");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -253,7 +253,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 table: "transaction_lines");
 
             migrationBuilder.AddColumn<string>(
-                name: "currency",
+                name: "Currency",
                 table: "purchase_orders",
                 type: "character varying(3)",
                 maxLength: 3,
@@ -261,7 +261,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 defaultValue: "USD");
 
             migrationBuilder.AddColumn<decimal>(
-                name: "total_cost",
+                name: "TotalCost",
                 table: "purchase_orders",
                 type: "numeric(14,2)",
                 nullable: false,
