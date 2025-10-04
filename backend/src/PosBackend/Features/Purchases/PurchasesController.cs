@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PosBackend.Application.Requests;
@@ -153,7 +154,18 @@ public class PurchasesController : ControllerBase
 
         if (errors.Count > 0)
         {
-            return ValidationProblem(errors);
+            var validationProblem = new ValidationProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred."
+            };
+
+            foreach (var error in errors)
+            {
+                validationProblem.Errors.Add(error.Key, error.Value);
+            }
+
+            return ValidationProblem(validationProblem);
         }
 
         await _db.PurchaseOrders.AddAsync(purchase, cancellationToken);
