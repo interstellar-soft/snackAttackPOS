@@ -273,7 +273,7 @@ export function POSPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col gap-3 bg-slate-100 p-4 lg:p-6 dark:bg-slate-950">
+    <div className="grid h-screen grid-rows-[auto_auto_1fr] gap-3 overflow-hidden bg-slate-100 p-4 lg:p-6 dark:bg-slate-950">
       <TopBar
         onLogout={logout}
         lastScan={lastScan}
@@ -300,43 +300,45 @@ export function POSPage() {
           disabled={overrideRequired}
         />
       </div>
-      <div className="grid gap-3 lg:grid-cols-[1.75fr_1fr] xl:grid-cols-[1.65fr_1fr]">
-        <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
-          <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
-            <Input
-              id="barcode-input"
-              ref={barcodeInputRef}
-              value={barcode}
-              onChange={(event) => setBarcode(event.target.value)}
-              placeholder={t('barcodePlaceholder')}
-              className="text-base"
-            />
-            <Button type="submit" size="sm">
-              Scan
-            </Button>
-          </form>
-          <div className="flex-1 overflow-hidden">
-            <ProductGrid
-              onScan={(product) => {
-                const displaySku = product.sku?.trim();
-                setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
-              }}
-            />
+      <div className="row-start-3 min-h-0">
+        <div className="grid min-h-0 gap-3 overflow-hidden lg:grid-cols-[1.75fr_1fr] xl:grid-cols-[1.65fr_1fr]">
+          <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
+            <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
+              <Input
+                id="barcode-input"
+                ref={barcodeInputRef}
+                value={barcode}
+                onChange={(event) => setBarcode(event.target.value)}
+                placeholder={t('barcodePlaceholder')}
+                className="text-base"
+              />
+              <Button type="submit" size="sm">
+                Scan
+              </Button>
+            </form>
+            <div className="flex-1 overflow-hidden">
+              <ProductGrid
+                onScan={(product) => {
+                  const displaySku = product.sku?.trim();
+                  setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
+                }}
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex h-[calc(100vh-11rem)] max-w-md flex-col gap-3 lg:justify-between">
-          <div className="flex-1 overflow-hidden">
-            <CartPanel
-              onClear={clear}
-              highlightedItemId={lastAddedItemId}
-              onQuantityConfirm={() => {
-                setLastAddedItemId(null);
-                barcodeInputRef.current?.focus();
-              }}
-            />
-          </div>
-          <div className="mt-auto pt-1">
-            <ReceiptPreview />
+          <div className="flex min-h-0 max-w-md flex-col gap-3 overflow-hidden lg:justify-between">
+            <div className="flex-1 overflow-hidden">
+              <CartPanel
+                onClear={clear}
+                highlightedItemId={lastAddedItemId}
+                onQuantityConfirm={() => {
+                  setLastAddedItemId(null);
+                  barcodeInputRef.current?.focus();
+                }}
+              />
+            </div>
+            <div className="mt-auto pt-1">
+              <ReceiptPreview />
+            </div>
           </div>
         </div>
       </div>
