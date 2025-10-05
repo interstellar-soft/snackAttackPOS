@@ -59,7 +59,7 @@ export function ProductGrid({ onScan }: ProductGridProps) {
         className="text-base"
       />
       <div className="relative flex-1 overflow-hidden">
-        <div className="grid max-h-[26rem] grid-cols-2 gap-2.5 overflow-y-auto pr-1 sm:max-h-[30rem] sm:grid-cols-2 md:grid-cols-3 lg:max-h-[32rem] lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid min-h-0 grid-cols-2 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {data?.map((product) => (
             <button
               key={product.id}
