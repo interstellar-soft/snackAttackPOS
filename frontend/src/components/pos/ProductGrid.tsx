@@ -103,8 +103,8 @@ export function ProductGrid({ onScan }: ProductGridProps) {
       />
       <div className="flex min-h-0 flex-1 flex-col gap-2.5">
         {showPinnedShelf && (
-          <Card className="max-h-48 overflow-y-auto border border-slate-200 p-2.5 shadow-sm dark:border-slate-700">
-            <div className="mb-2 flex items-center justify-between">
+          <Card className="flex h-48 flex-col overflow-hidden border border-slate-200 !p-0 shadow-sm dark:border-slate-700">
+            <div className="flex items-center justify-between gap-2.5 px-2.5 pt-2.5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                 {t('pinnedShelfTitle', 'Pinned shelf')}
               </p>
@@ -116,16 +116,18 @@ export function ProductGrid({ onScan }: ProductGridProps) {
                 {t('pinnedShelfSeeAll', 'See all pinned')}
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-              {pinnedProducts.map((product) => renderProductButton(product))}
-              {showPinnedEmptyState && (
-                <Card className="col-span-full text-center text-xs text-slate-500">
-                  {t('pinnedProductsEmpty', 'No curated products yet. Try searching to see the full catalog.')}
-                </Card>
-              )}
-              {isPinnedFetching && (
-                <Card className="col-span-full text-center text-xs text-slate-500">Loading…</Card>
-              )}
+            <div className="flex-1 overflow-y-auto px-2.5 pb-2.5">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+                {pinnedProducts.map((product) => renderProductButton(product))}
+                {showPinnedEmptyState && (
+                  <Card className="col-span-full text-center text-xs text-slate-500">
+                    {t('pinnedProductsEmpty', 'No curated products yet. Try searching to see the full catalog.')}
+                  </Card>
+                )}
+                {isPinnedFetching && (
+                  <Card className="col-span-full text-center text-xs text-slate-500">Loading…</Card>
+                )}
+              </div>
             </div>
           </Card>
         )}
