@@ -7,6 +7,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PurchasesPage } from './pages/PurchasesPage';
+import { InvoicesPage } from './pages/InvoicesPage';
 import { queryClient } from './lib/api';
 import { useAuthStore } from './stores/authStore';
 import { useStoreProfileStore } from './stores/storeProfileStore';
@@ -74,6 +75,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin', 'manager']}>
                   <PurchasesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/invoices"
+              element={
+                <ProtectedRoute roles={['admin', 'manager']}>
+                  <InvoicesPage />
                 </ProtectedRoute>
               }
             />

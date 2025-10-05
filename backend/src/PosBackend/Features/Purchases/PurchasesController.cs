@@ -37,12 +37,37 @@ public class PurchasesController : ControllerBase
             .Include(p => p.Supplier)
             .Include(p => p.Lines)
                 .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Category)
+            .Include(p => p.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
             .OrderByDescending(p => p.OrderedAt)
             .Take(100)
             .ToListAsync(cancellationToken);
 
         var responses = purchases.Select(ToResponse).ToList();
         return Ok(responses);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<PurchaseResponse>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var purchase = await _db.PurchaseOrders
+            .Include(p => p.Supplier)
+            .Include(p => p.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Category)
+            .Include(p => p.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (purchase is null)
+        {
+            return NotFound();
+        }
+
+        return ToResponse(purchase);
     }
 
     [HttpPost]
@@ -175,6 +200,174 @@ public class PurchasesController : ControllerBase
 
         var response = ToResponse(purchase);
         return CreatedAtAction(nameof(GetAll), new { id = purchase.Id }, response);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<PurchaseResponse>> Update(Guid id, [FromBody] UpdatePurchaseRequest request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        if (request.Items.Count == 0)
+        {
+            return BadRequest(new { message = "At least one item is required." });
+        }
+
+        var purchase = await _db.PurchaseOrders
+            .Include(p => p.Supplier)
+            .Include(p => p.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Category)
+            .Include(p => p.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (purchase is null)
+        {
+            return NotFound();
+        }
+
+        var exchangeRate = request.ExchangeRate > 0
+            ? request.ExchangeRate
+            : purchase.ExchangeRateUsed;
+
+        var supplier = await ResolveSupplierAsync(request.SupplierName, cancellationToken);
+
+        var orderedAt = request.PurchasedAt ?? purchase.OrderedAt;
+
+        var errors = new Dictionary<string, string[]>();
+        var newLines = new List<PurchaseOrderLine>();
+        foreach (var (item, index) in request.Items.Select((value, index) => (value, index)))
+        {
+            if (item.Quantity <= 0)
+            {
+                errors[$"Items[{index}].Quantity"] = new[] { "Quantity must be greater than zero." };
+                continue;
+            }
+
+            if (item.UnitCost < 0)
+            {
+                errors[$"Items[{index}].UnitCost"] = new[] { "Unit cost cannot be negative." };
+                continue;
+            }
+
+            var product = await ResolveProductAsync(item, exchangeRate, cancellationToken);
+            if (product is null)
+            {
+                errors[$"Items[{index}].Barcode"] = new[] { "Product details were incomplete." };
+                continue;
+            }
+
+            var currency = string.IsNullOrWhiteSpace(item.Currency) ? "USD" : item.Currency.ToUpperInvariant();
+            decimal unitCostUsd;
+            decimal unitCostLbp;
+            if (currency == "LBP")
+            {
+                unitCostUsd = _currencyService.ConvertLbpToUsd(item.UnitCost, exchangeRate);
+                unitCostLbp = _currencyService.RoundLbp(item.UnitCost);
+            }
+            else
+            {
+                unitCostUsd = _currencyService.RoundUsd(item.UnitCost);
+                unitCostLbp = _currencyService.ConvertUsdToLbp(unitCostUsd, exchangeRate);
+            }
+
+            var lineQuantity = decimal.Round(item.Quantity, 2, MidpointRounding.AwayFromZero);
+            var lineCostUsd = _currencyService.RoundUsd(unitCostUsd * lineQuantity);
+            var lineCostLbp = _currencyService.RoundLbp(unitCostLbp * lineQuantity);
+
+            var line = new PurchaseOrderLine
+            {
+                ProductId = product.Id,
+                Product = product,
+                Barcode = string.IsNullOrWhiteSpace(item.Barcode) ? product.Barcode : item.Barcode!,
+                Quantity = lineQuantity,
+                UnitCostUsd = unitCostUsd,
+                UnitCostLbp = unitCostLbp,
+                TotalCostUsd = lineCostUsd,
+                TotalCostLbp = lineCostLbp
+            };
+
+            newLines.Add(line);
+
+            if (item.SalePriceUsd.HasValue && item.SalePriceUsd.Value > 0)
+            {
+                product.PriceUsd = _currencyService.RoundUsd(item.SalePriceUsd.Value);
+                product.PriceLbp = _currencyService.ConvertUsdToLbp(product.PriceUsd, exchangeRate);
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            var validationProblem = new ValidationProblemDetails(errors)
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred."
+            };
+
+            return ValidationProblem(validationProblem);
+        }
+
+        var existingLines = purchase.Lines.ToList();
+        foreach (var line in existingLines)
+        {
+            if (line.Product is null)
+            {
+                line.Product = await _db.Products.Include(p => p.Inventory).FirstOrDefaultAsync(p => p.Id == line.ProductId, cancellationToken);
+            }
+
+            if (line.Product is not null)
+            {
+                await UpdateInventoryAsync(line.Product, -line.Quantity, line.UnitCostUsd, purchase.ExchangeRateUsed, cancellationToken);
+            }
+        }
+
+        _db.PurchaseOrderLines.RemoveRange(existingLines);
+        purchase.Lines.Clear();
+
+        purchase.SupplierId = supplier.Id;
+        purchase.Supplier = supplier;
+        purchase.OrderedAt = orderedAt;
+        purchase.ExpectedAt = request.PurchasedAt;
+        purchase.ReceivedAt = orderedAt;
+        purchase.ExchangeRateUsed = exchangeRate;
+        purchase.Reference = string.IsNullOrWhiteSpace(request.Reference) ? null : request.Reference.Trim();
+        purchase.TotalCostUsd = 0m;
+        purchase.TotalCostLbp = 0m;
+        purchase.UpdatedAt = DateTime.UtcNow;
+
+        foreach (var line in newLines)
+        {
+            purchase.Lines.Add(line);
+            purchase.TotalCostUsd += line.TotalCostUsd;
+            purchase.TotalCostLbp += line.TotalCostLbp;
+
+            if (line.Product is not null)
+            {
+                await UpdateInventoryAsync(line.Product, line.Quantity, line.UnitCostUsd, exchangeRate, cancellationToken);
+            }
+        }
+
+        purchase.TotalCostUsd = _currencyService.RoundUsd(purchase.TotalCostUsd);
+        purchase.TotalCostLbp = _currencyService.RoundLbp(purchase.TotalCostLbp);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var userId = User.GetCurrentUserId();
+        if (userId.HasValue)
+        {
+            await _auditLogger.LogAsync(userId.Value, "UpdatePurchase", nameof(PurchaseOrder), purchase.Id, new
+            {
+                purchase.TotalCostUsd,
+                purchase.TotalCostLbp,
+                Items = purchase.Lines.Select(l => new { l.ProductId, l.Quantity, l.UnitCostUsd })
+            }, cancellationToken);
+        }
+
+        return ToResponse(purchase);
     }
 
     private async Task<Supplier> ResolveSupplierAsync(string? supplierName, CancellationToken cancellationToken)
@@ -315,12 +508,16 @@ public class PurchasesController : ControllerBase
                 Id = line.Id,
                 ProductId = line.ProductId,
                 ProductName = line.Product?.Name ?? string.Empty,
+                ProductSku = line.Product?.Sku,
+                CategoryName = line.Product?.Category?.Name,
                 Barcode = line.Barcode,
                 Quantity = line.Quantity,
                 UnitCostUsd = line.UnitCostUsd,
                 UnitCostLbp = line.UnitCostLbp,
                 TotalCostUsd = line.TotalCostUsd,
-                TotalCostLbp = line.TotalCostLbp
+                TotalCostLbp = line.TotalCostLbp,
+                QuantityOnHand = line.Product?.Inventory?.QuantityOnHand ?? 0,
+                CurrentSalePriceUsd = line.Product?.PriceUsd
             }).ToList()
         };
     }

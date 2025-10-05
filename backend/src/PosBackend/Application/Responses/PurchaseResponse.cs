@@ -18,10 +18,14 @@ public class PurchaseLineResponse
     public Guid Id { get; set; }
     public Guid ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
+    public string? ProductSku { get; set; }
+    public string? CategoryName { get; set; }
     public string Barcode { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal UnitCostUsd { get; set; }
     public decimal UnitCostLbp { get; set; }
     public decimal TotalCostUsd { get; set; }
     public decimal TotalCostLbp { get; set; }
+    public decimal QuantityOnHand { get; set; }
+    public decimal? CurrentSalePriceUsd { get; set; }
 }

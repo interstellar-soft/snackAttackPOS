@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { API_BASE_URL } from '../lib/api';
 import type { Product } from '../lib/ProductsService';
-import { PurchasesService, type PurchaseItemInput } from '../lib/PurchasesService';
+import { PurchasesService, type Purchase, type PurchaseItemInput } from '../lib/PurchasesService';
 import { playCartBeep } from '../lib/sounds';
 import { useAuthStore } from '../stores/authStore';
 import { useStoreProfileStore } from '../stores/storeProfileStore';
@@ -45,11 +45,14 @@ export function PurchasesPage() {
   const [exchangeRate, setExchangeRate] = useState('90000');
   const [items, setItems] = useState<DraftItem[]>([]);
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null);
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const purchasesQuery = PurchasesService.usePurchases();
   const createPurchase = PurchasesService.useCreatePurchase();
+  const updatePurchase = PurchasesService.useUpdatePurchase();
 
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
@@ -60,6 +63,18 @@ export function PurchasesPage() {
     const timeout = window.setTimeout(() => setBanner(null), 4000);
     return () => window.clearTimeout(timeout);
   }, [banner]);
+
+  useEffect(() => {
+    if (!editingPurchaseId) {
+      setEditingLabel(null);
+      return;
+    }
+    const match = purchasesQuery.data?.find((purchase) => purchase.id === editingPurchaseId);
+    if (match) {
+      const label = match.reference?.trim() || match.supplierName || match.id;
+      setEditingLabel(label);
+    }
+  }, [editingPurchaseId, purchasesQuery.data]);
 
   const handleFetchProduct = async (code: string): Promise<Product | null> => {
     const trimmed = code.trim();
@@ -82,6 +97,49 @@ export function PurchasesPage() {
       throw new Error(message || t('purchasesError'));
     }
     return (await response.json()) as Product;
+  };
+
+  const resetDraft = () => {
+    setItems([]);
+    setSupplierName('');
+    setReference('');
+    setBarcode('');
+    setEditingPurchaseId(null);
+    setEditingLabel(null);
+    setLastScannedItemId(null);
+  };
+
+  const handleEditPurchase = (purchase: Purchase) => {
+    setEditingPurchaseId(purchase.id);
+    const nextLabel = purchase.reference?.trim() || purchase.supplierName || purchase.id;
+    setEditingLabel(nextLabel);
+    setSupplierName(purchase.supplierName);
+    setReference(purchase.reference ?? '');
+    setExchangeRate(purchase.exchangeRateUsed.toString());
+    setItems(
+      purchase.lines.map((line) => ({
+        id: line.id,
+        productId: line.productId,
+        barcode: line.barcode,
+        name: line.productName,
+        sku: line.productSku?.trim() ?? '',
+        categoryName: line.categoryName?.trim() ?? '',
+        quantity: line.quantity.toString(),
+        unitCost: line.unitCostUsd.toString(),
+        currency: 'USD',
+        salePriceUsd: line.currentSalePriceUsd != null ? line.currentSalePriceUsd.toString() : '',
+        isExisting: true,
+        quantityOnHand: line.quantityOnHand ?? 0
+      }))
+    );
+    setLastScannedItemId(null);
+    setBarcode('');
+    setBanner({ type: 'success', message: t('purchasesEditing') });
+  };
+
+  const handleCancelEdit = () => {
+    resetDraft();
+    setBanner(null);
   };
 
   const handleBarcodeAdd = async () => {
@@ -223,6 +281,8 @@ export function PurchasesPage() {
     );
   }, [items, exchangeRate]);
 
+  const isSaving = editingPurchaseId ? updatePurchase.isPending : createPurchase.isPending;
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const rate = Number(exchangeRate);
@@ -267,16 +327,28 @@ export function PurchasesPage() {
     }
 
     try {
-      await createPurchase.mutateAsync({
-        supplierName: supplierName.trim() || undefined,
-        reference: reference.trim() || undefined,
-        exchangeRate: rate,
-        items: payloadItems
-      });
-      setItems([]);
-      setSupplierName('');
-      setReference('');
-      setBanner({ type: 'success', message: t('purchasesSuccess') });
+      if (editingPurchaseId) {
+        await updatePurchase.mutateAsync({
+          id: editingPurchaseId,
+          payload: {
+            supplierName: supplierName.trim() || undefined,
+            reference: reference.trim() || undefined,
+            exchangeRate: rate,
+            items: payloadItems
+          }
+        });
+        resetDraft();
+        setBanner({ type: 'success', message: t('purchasesUpdated') });
+      } else {
+        await createPurchase.mutateAsync({
+          supplierName: supplierName.trim() || undefined,
+          reference: reference.trim() || undefined,
+          exchangeRate: rate,
+          items: payloadItems
+        });
+        resetDraft();
+        setBanner({ type: 'success', message: t('purchasesSuccess') });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('purchasesError');
       setBanner({ type: 'error', message });
@@ -290,10 +362,16 @@ export function PurchasesPage() {
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canManageInventory ? () => navigate('/analytics') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
+        onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigatePurchases={undefined}
         isPurchases
       />
+      {editingPurchaseId && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 shadow-sm dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200">
+          {editingLabel ? `${t('purchasesEditing')} — ${editingLabel}` : t('purchasesEditing')}
+        </div>
+      )}
       {banner && (
         <div
           className={`rounded-lg border p-4 text-sm ${
@@ -509,7 +587,7 @@ export function PurchasesPage() {
                 </span>
               </div>
             </div>
-            <div className="flex justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Button
                 type="button"
                 className="bg-blue-500 hover:bg-blue-400"
@@ -533,9 +611,16 @@ export function PurchasesPage() {
               >
                 {t('purchasesAddManual')}
               </Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500" disabled={createPurchase.isPending}>
-                {createPurchase.isPending ? t('inventorySaving') : t('purchasesSubmit')}
-              </Button>
+              <div className="flex items-center gap-2">
+                {editingPurchaseId && (
+                  <Button type="button" className="bg-slate-200 text-slate-800 hover:bg-slate-300" onClick={handleCancelEdit}>
+                    {t('purchasesCancelEdit')}
+                  </Button>
+                )}
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500" disabled={isSaving}>
+                  {isSaving ? t('inventorySaving') : t(editingPurchaseId ? 'purchasesUpdate' : 'purchasesSubmit')}
+                </Button>
+              </div>
             </div>
           </Card>
         </form>
@@ -547,33 +632,54 @@ export function PurchasesPage() {
             <p className="text-sm text-slate-500">{t('purchasesHistoryEmpty')}</p>
           )}
           <div className="space-y-3">
-            {purchasesQuery.data?.map((purchase) => (
-              <div key={purchase.id} className="rounded-lg border border-slate-200 p-4 text-sm dark:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">{purchase.supplierName}</p>
-                    <p className="text-xs text-slate-500">
-                      {new Date(purchase.orderedAt).toLocaleString()} · {purchase.reference ?? t('purchasesNoReference')}
-                    </p>
+            {purchasesQuery.data?.map((purchase) => {
+              const isEditingCard = editingPurchaseId === purchase.id;
+              const cardClasses = `rounded-lg border p-4 text-sm transition-colors ${
+                isEditingCard
+                  ? 'border-emerald-400 bg-emerald-50 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-900/20'
+                  : 'border-slate-200 dark:border-slate-700'
+              }`;
+              return (
+                <div key={purchase.id} className={cardClasses}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{purchase.supplierName}</p>
+                      <p className="text-xs text-slate-500">
+                        {new Date(purchase.orderedAt).toLocaleString()} · {purchase.reference ?? t('purchasesNoReference')}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 text-right">
+                      <div>
+                        <p className="font-semibold text-emerald-600 dark:text-emerald-300">
+                          {formatCurrency(purchase.totalCostUsd, 'USD')}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {t('purchasesHistoryItems', { count: purchase.lines.length })}
+                        </p>
+                      </div>
+                      {isEditingCard ? (
+                        <Badge className="bg-emerald-500 text-white">{t('purchasesEditing')}</Badge>
+                      ) : (
+                        <Button
+                          type="button"
+                          className="bg-emerald-500 hover:bg-emerald-400"
+                          onClick={() => handleEditPurchase(purchase)}
+                        >
+                          {t('purchasesEditAction')}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-emerald-600 dark:text-emerald-300">
-                      {formatCurrency(purchase.totalCostUsd, 'USD')}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {t('purchasesHistoryItems', { count: purchase.lines.length })}
-                    </p>
-                  </div>
+                  <ul className="mt-3 space-y-1 text-xs text-slate-500">
+                    {purchase.lines.map((line) => (
+                      <li key={line.id}>
+                        {line.productName} · {line.quantity.toLocaleString()} × {formatCurrency(line.unitCostUsd, 'USD')}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="mt-3 space-y-1 text-xs text-slate-500">
-                  {purchase.lines.map((line) => (
-                    <li key={line.id}>
-                      {line.productName} · {line.quantity.toLocaleString()} × {formatCurrency(line.unitCostUsd, 'USD')}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       </div>

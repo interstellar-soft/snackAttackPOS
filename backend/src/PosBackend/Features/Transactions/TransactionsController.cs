@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -39,6 +40,141 @@ public class TransactionsController : ControllerBase
         _currencyService = currencyService;
         _mlClient = mlClient;
         _visionEnabled = featureFlags.Value.VisionEnabled;
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<ActionResult<IEnumerable<TransactionResponse>>> GetAll([FromQuery] int take = 100, CancellationToken cancellationToken = default)
+    {
+        var limit = Math.Clamp(take, 1, 500);
+        var transactions = await _db.Transactions
+            .Include(t => t.User)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Category)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.PriceRule)
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var responses = transactions.Select(ToResponse).ToList();
+        return Ok(responses);
+    }
+
+    [HttpGet("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<ActionResult<TransactionResponse>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var transaction = await _db.Transactions
+            .Include(t => t.User)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Category)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.PriceRule)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (transaction is null)
+        {
+            return NotFound();
+        }
+
+        return ToResponse(transaction);
+    }
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<ActionResult<TransactionResponse>> Update(Guid id, [FromBody] UpdateTransactionRequest request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        if (request.Items.Count == 0)
+        {
+            return BadRequest(new { message = "At least one item is required." });
+        }
+
+        var transaction = await _db.Transactions
+            .Include(t => t.User)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.PriceRule)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (transaction is null)
+        {
+            return NotFound();
+        }
+
+        var rate = request.ExchangeRate > 0
+            ? request.ExchangeRate
+            : transaction.ExchangeRateUsed;
+
+        var (totalUsd, totalLbp, pricedLines) = await _pricingService.PriceCartAsync(request.Items, rate, cancellationToken);
+
+        foreach (var existingLine in transaction.Lines.ToList())
+        {
+            var inventory = existingLine.Product?.Inventory
+                ?? await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == existingLine.ProductId, cancellationToken);
+            if (inventory is not null)
+            {
+                inventory.QuantityOnHand += existingLine.Quantity;
+            }
+        }
+
+        _db.TransactionLines.RemoveRange(transaction.Lines);
+        transaction.Lines.Clear();
+
+        var balance = _currencyService.ComputeBalance(totalUsd, request.PaidUsd, request.PaidLbp, rate);
+
+        transaction.ExchangeRateUsed = rate;
+        transaction.TotalUsd = balance.totalUsd;
+        transaction.TotalLbp = balance.totalLbp;
+        transaction.PaidUsd = _currencyService.RoundUsd(request.PaidUsd);
+        transaction.PaidLbp = _currencyService.RoundLbp(request.PaidLbp);
+        transaction.BalanceUsd = balance.balanceUsd;
+        transaction.BalanceLbp = balance.balanceLbp;
+        transaction.UpdatedAt = DateTime.UtcNow;
+
+        foreach (var line in pricedLines)
+        {
+            line.TransactionId = transaction.Id;
+            line.Transaction = transaction;
+            transaction.Lines.Add(line);
+
+            var inventory = line.Product?.Inventory
+                ?? await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == line.ProductId, cancellationToken);
+            if (inventory is not null)
+            {
+                inventory.QuantityOnHand = Math.Max(0, inventory.QuantityOnHand - line.Quantity);
+            }
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var userId = User.GetCurrentUserId();
+        if (userId.HasValue)
+        {
+            await _auditLogger.LogAsync(userId.Value, "UpdateTransaction", nameof(PosTransaction), transaction.Id, new
+            {
+                transaction.TransactionNumber,
+                transaction.TotalUsd,
+                transaction.TotalLbp
+            }, cancellationToken);
+        }
+
+        return ToResponse(transaction);
     }
 
     [HttpPost("checkout")]
@@ -278,6 +414,27 @@ public class TransactionsController : ControllerBase
         {
             TransactionId = transaction.Id,
             PdfBase64 = Convert.ToBase64String(pdfBytes)
+        };
+    }
+
+    private TransactionResponse ToResponse(PosTransaction transaction)
+    {
+        return new TransactionResponse
+        {
+            Id = transaction.Id,
+            TransactionNumber = transaction.TransactionNumber,
+            Type = transaction.Type.ToString(),
+            CashierName = transaction.User?.DisplayName ?? string.Empty,
+            ExchangeRateUsed = transaction.ExchangeRateUsed,
+            TotalUsd = transaction.TotalUsd,
+            TotalLbp = transaction.TotalLbp,
+            PaidUsd = transaction.PaidUsd,
+            PaidLbp = transaction.PaidLbp,
+            BalanceUsd = transaction.BalanceUsd,
+            BalanceLbp = transaction.BalanceLbp,
+            CreatedAt = transaction.CreatedAt,
+            UpdatedAt = transaction.UpdatedAt,
+            Lines = transaction.Lines.Select(CheckoutLineResponse.FromEntity).ToList()
         };
     }
 }
