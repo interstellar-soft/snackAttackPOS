@@ -131,12 +131,12 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<string>("Name").HasColumnType("text");
                 b.Property<decimal>("PriceLbp").HasColumnType("numeric(14,2)");
                 b.Property<decimal>("PriceUsd").HasColumnType("numeric(12,2)");
-                b.Property<string>("Sku").HasColumnType("text");
+                b.Property<string>("Sku").HasColumnType("text").IsRequired(false);
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
                 b.HasKey("Id");
                 b.HasIndex("Barcode").IsUnique();
                 b.HasIndex("CategoryId");
-                b.HasIndex("Sku").IsUnique();
+                b.HasIndex("Sku").IsUnique().HasFilter("\"Sku\" IS NOT NULL");
                 b.ToTable("products", (string)null);
             });
 

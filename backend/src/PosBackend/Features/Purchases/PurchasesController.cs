@@ -212,12 +212,13 @@ public class PurchasesController : ControllerBase
             return product;
         }
 
-        if (string.IsNullOrWhiteSpace(item.Name) || string.IsNullOrWhiteSpace(item.Sku) || string.IsNullOrWhiteSpace(item.CategoryName))
+        if (string.IsNullOrWhiteSpace(item.Name) || string.IsNullOrWhiteSpace(item.CategoryName))
         {
             return null;
         }
 
         var category = await GetOrCreateCategoryAsync(item.CategoryName!, cancellationToken);
+        var normalizedSku = string.IsNullOrWhiteSpace(item.Sku) ? null : item.Sku.Trim();
         var priceUsd = item.SalePriceUsd.HasValue && item.SalePriceUsd.Value > 0
             ? _currencyService.RoundUsd(item.SalePriceUsd.Value)
             : Math.Max(_currencyService.RoundUsd(item.UnitCost * 1.25m), 0.01m);
@@ -227,7 +228,7 @@ public class PurchasesController : ControllerBase
         product = new Product
         {
             Name = item.Name.Trim(),
-            Sku = item.Sku.Trim(),
+            Sku = normalizedSku,
             Barcode = string.IsNullOrWhiteSpace(item.Barcode) ? Guid.NewGuid().ToString("N") : item.Barcode.Trim(),
             CategoryId = category.Id,
             Category = category,

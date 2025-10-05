@@ -58,6 +58,34 @@ public class ProductsControllerTests
     }
 
     [Fact]
+    public async Task CreateProduct_AllowsMissingSku()
+    {
+        await using var context = CreateContext();
+
+        var controller = CreateController(context);
+        var request = new CreateProductRequest
+        {
+            Name = "Mystery Snack",
+            Sku = null,
+            Barcode = "5555555555555",
+            Price = 1.25m,
+            Currency = "USD",
+            CategoryName = "Snacks"
+        };
+
+        var result = await controller.CreateProduct(request, CancellationToken.None);
+
+        var created = Assert.IsType<CreatedAtActionResult>(result.Result);
+        var response = Assert.IsType<ProductResponse>(created.Value);
+        Assert.Equal(request.Name, response.Name);
+        Assert.Null(response.Sku);
+
+        var stored = await context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == response.Id);
+        Assert.NotNull(stored);
+        Assert.Null(stored!.Sku);
+    }
+
+    [Fact]
     public async Task CreateProduct_ReturnsValidationProblem_ForDuplicateSku()
     {
         await using var context = CreateContext();
@@ -138,6 +166,46 @@ public class ProductsControllerTests
         Assert.Equal(newCategory.Id, stored.CategoryId);
         Assert.Equal(3m, stored.PriceUsd);
         Assert.Equal(270000m, stored.PriceLbp);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_AllowsClearingSku()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Original",
+            Sku = "SNK-001",
+            Barcode = "123123123123",
+            PriceUsd = 1m,
+            PriceLbp = 90000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.Add(product);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+        var request = new UpdateProductRequest
+        {
+            Name = "Original",
+            Sku = "   ",
+            Barcode = "123123123123",
+            Price = 1m,
+            Currency = "USD",
+            CategoryName = category.Name
+        };
+
+        var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ProductResponse>(ok.Value);
+        Assert.Null(response.Sku);
+
+        var stored = await context.Products.AsNoTracking().FirstAsync(p => p.Id == product.Id);
+        Assert.Null(stored.Sku);
     }
 
     [Fact]
@@ -253,6 +321,36 @@ public class ProductsControllerTests
     }
 
     [Fact]
+    public async Task Search_ReturnsProducts_WhenSkuMissing()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Mystery Snack",
+            Sku = null,
+            Barcode = "555", 
+            PriceUsd = 1m,
+            PriceLbp = 90000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.Add(product);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+
+        var result = await controller.Search("mystery", null, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var responses = Assert.IsAssignableFrom<IEnumerable<ProductResponse>>(ok.Value);
+        var single = Assert.Single(responses);
+        Assert.Equal(product.Name, single.Name);
+        Assert.Null(single.Sku);
+    }
+
+    [Fact]
     public async Task GetProductById_ReturnsProduct()
     {
         await using var context = CreateContext();
@@ -328,6 +426,35 @@ public class ProductsControllerTests
         var result = await controller.DeleteProduct(Guid.NewGuid(), CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Scan_ReturnsProduct_WhenSkuMissing()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Mystery",
+            Sku = null,
+            Barcode = "999888777666",
+            PriceUsd = 2m,
+            PriceLbp = 180000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.Add(product);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+
+        var result = await controller.Scan(new ScanRequest { Barcode = product.Barcode }, CancellationToken.None);
+
+        var response = Assert.IsType<ProductResponse>(result.Value);
+        Assert.Equal(product.Name, response.Name);
+        Assert.Null(response.Sku);
+        Assert.False(response.IsFlagged ?? false);
     }
 
     private static ProductsController CreateController(ApplicationDbContext context)
