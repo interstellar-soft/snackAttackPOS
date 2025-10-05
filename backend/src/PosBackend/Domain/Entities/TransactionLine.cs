@@ -8,8 +8,10 @@ public class TransactionLine : BaseEntity
     [JsonIgnore]
     public PosTransaction? Transaction { get; set; }
     public Guid ProductId { get; set; }
+    [JsonIgnore]
     public Product? Product { get; set; }
     public Guid? PriceRuleId { get; set; }
+    [JsonIgnore]
     public PriceRule? PriceRule { get; set; }
     public decimal Quantity { get; set; }
     public decimal BaseUnitPriceUsd { get; set; }

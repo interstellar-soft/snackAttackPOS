@@ -1,5 +1,3 @@
-using PosBackend.Domain.Entities;
-
 namespace PosBackend.Application.Responses;
 
 public class CheckoutResponse
@@ -13,7 +11,7 @@ public class CheckoutResponse
     public decimal BalanceUsd { get; set; }
     public decimal BalanceLbp { get; set; }
     public decimal ExchangeRate { get; set; }
-    public IEnumerable<TransactionLine> Lines { get; set; } = new List<TransactionLine>();
+    public IEnumerable<CheckoutLineResponse> Lines { get; set; } = new List<CheckoutLineResponse>();
     public string ReceiptPdfBase64 { get; set; } = string.Empty;
     public bool RequiresOverride { get; set; }
     public string? OverrideReason { get; set; }
