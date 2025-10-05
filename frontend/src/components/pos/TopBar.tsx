@@ -16,6 +16,8 @@ interface TopBarProps {
   isInventory?: boolean;
   onNavigatePurchases?: () => void;
   isPurchases?: boolean;
+  onNavigateInvoices?: () => void;
+  isInvoices?: boolean;
   onNavigateSettings?: () => void;
   isSettings?: boolean;
 }
@@ -30,6 +32,8 @@ export function TopBar({
   isInventory,
   onNavigatePurchases,
   isPurchases,
+  onNavigateInvoices,
+  isInvoices,
   onNavigateSettings,
   isSettings
 }: TopBarProps) {
@@ -66,6 +70,11 @@ export function TopBar({
             {t('analytics')}
           </Button>
         )}
+        {canManageInventory && onNavigateInvoices && !isInvoices && (
+          <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigateInvoices}>
+            {t('invoices')}
+          </Button>
+        )}
         {canManageInventory && onNavigatePurchases && !isPurchases && (
           <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigatePurchases}>
             {t('purchases')}
@@ -82,6 +91,11 @@ export function TopBar({
           </Button>
         )}
         {onNavigatePos && isAnalytics && (
+          <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigatePos}>
+            {t('backToPos')}
+          </Button>
+        )}
+        {onNavigatePos && isInvoices && (
           <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={onNavigatePos}>
             {t('backToPos')}
           </Button>

@@ -186,6 +186,7 @@ export function InventoryPage() {
         onLogout={logout}
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
+        onNavigateInvoices={canSeeAnalytics ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canSeeAnalytics ? () => navigate('/purchases') : undefined}
         onNavigateSettings={canSeeAnalytics ? () => navigate('/settings') : undefined}
         isInventory

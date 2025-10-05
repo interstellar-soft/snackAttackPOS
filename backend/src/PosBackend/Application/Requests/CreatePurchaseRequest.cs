@@ -46,3 +46,7 @@ public class CreatePurchaseItemRequest
 
     public decimal? SalePriceUsd { get; set; }
 }
+
+public class UpdatePurchaseRequest : CreatePurchaseRequest
+{
+}

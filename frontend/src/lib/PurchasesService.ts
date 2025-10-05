@@ -6,12 +6,16 @@ export interface PurchaseLine {
   id: string;
   productId: string;
   productName: string;
+  productSku?: string | null;
+  categoryName?: string | null;
   barcode: string;
   quantity: number;
   unitCostUsd: number;
   unitCostLbp: number;
   totalCostUsd: number;
   totalCostLbp: number;
+  quantityOnHand: number;
+  currentSalePriceUsd?: number | null;
 }
 
 export interface Purchase {
@@ -48,7 +52,8 @@ export interface CreatePurchaseInput {
 
 const purchasesKeys = {
   all: ['purchases'] as const,
-  list: () => ['purchases', 'list'] as const
+  list: () => ['purchases', 'list'] as const,
+  detail: (id: string) => ['purchases', 'detail', id] as const
 };
 
 function useAuthToken() {
@@ -63,6 +68,19 @@ export const PurchasesService = {
       enabled: !!token,
       queryFn: async () => {
         return await apiFetch<Purchase[]>('/api/purchases', {}, token ?? undefined);
+      }
+    });
+  },
+  usePurchase(id?: string) {
+    const token = useAuthToken();
+    return useQuery<Purchase | null>({
+      queryKey: id ? [...purchasesKeys.detail(id), token] : ['purchases', 'detail', token],
+      enabled: !!token && !!id,
+      queryFn: async () => {
+        if (!id) {
+          return null;
+        }
+        return await apiFetch<Purchase>(`/api/purchases/${id}`, {}, token ?? undefined);
       }
     });
   },
@@ -82,6 +100,27 @@ export const PurchasesService = {
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: purchasesKeys.all });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+      }
+    });
+  },
+  useUpdatePurchase() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+    return useMutation<Purchase, Error, { id: string; payload: CreatePurchaseInput }>({
+      mutationFn: async ({ id, payload }) => {
+        return await apiFetch<Purchase>(
+          `/api/purchases/${id}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+          },
+          token ?? undefined
+        );
+      },
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: purchasesKeys.all });
+        queryClient.invalidateQueries({ queryKey: purchasesKeys.detail(variables.id) });
         queryClient.invalidateQueries({ queryKey: ['products'] });
       }
     });
