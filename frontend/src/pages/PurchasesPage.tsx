@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/pos/TopBar';
@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/badge';
 import { API_BASE_URL } from '../lib/api';
 import type { Product } from '../lib/ProductsService';
 import { PurchasesService, type PurchaseItemInput } from '../lib/PurchasesService';
+import { playCartBeep } from '../lib/sounds';
 import { useAuthStore } from '../stores/authStore';
 import { useStoreProfileStore } from '../stores/storeProfileStore';
 import { formatCurrency } from '../lib/utils';
@@ -44,6 +45,8 @@ export function PurchasesPage() {
   const [exchangeRate, setExchangeRate] = useState('90000');
   const [items, setItems] = useState<DraftItem[]>([]);
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null);
+  const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const purchasesQuery = PurchasesService.usePurchases();
   const createPurchase = PurchasesService.useCreatePurchase();
@@ -88,6 +91,7 @@ export function PurchasesPage() {
     }
     try {
       const product = await handleFetchProduct(trimmed);
+      let nextHighlightedId: string | null = null;
       if (product) {
         setItems((previous) => {
           const existingIndex = previous.findIndex((item) => item.productId === product.id);
@@ -95,26 +99,27 @@ export function PurchasesPage() {
             const next = [...previous];
             const target = next[existingIndex];
             const nextQuantity = (Number(target.quantity) || 0) + 1;
-            next[existingIndex] = { ...target, quantity: nextQuantity.toString() };
+            const updated = { ...target, quantity: nextQuantity.toString() };
+            next[existingIndex] = updated;
+            nextHighlightedId = updated.id;
             return next;
           }
-          return [
-            ...previous,
-            {
-              id: product.id,
-              productId: product.id,
-              barcode: product.barcode,
-              name: product.name,
-              sku: product.sku?.trim() ?? '',
-              categoryName: product.categoryName ?? product.category ?? '',
-              quantity: '1',
-              unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
-              currency: 'USD',
-              salePriceUsd: product.priceUsd?.toString() ?? '',
-              isExisting: true,
-              quantityOnHand: product.quantityOnHand ?? 0
-            }
-          ];
+          const newItem: DraftItem = {
+            id: product.id,
+            productId: product.id,
+            barcode: product.barcode,
+            name: product.name,
+            sku: product.sku?.trim() ?? '',
+            categoryName: product.categoryName ?? product.category ?? '',
+            quantity: '1',
+            unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
+            currency: 'USD',
+            salePriceUsd: product.priceUsd?.toString() ?? '',
+            isExisting: true,
+            quantityOnHand: product.quantityOnHand ?? 0
+          };
+          nextHighlightedId = newItem.id;
+          return [...previous, newItem];
         });
       } else {
         setItems((previous) => {
@@ -123,27 +128,32 @@ export function PurchasesPage() {
             const next = [...previous];
             const target = next[existingIndex];
             const nextQuantity = (Number(target.quantity) || 0) + 1;
-            next[existingIndex] = { ...target, quantity: nextQuantity.toString() };
+            const updated = { ...target, quantity: nextQuantity.toString() };
+            next[existingIndex] = updated;
+            nextHighlightedId = updated.id;
             return next;
           }
-          return [
-            ...previous,
-            {
-              id: createId(),
-              barcode: trimmed,
-              name: '',
-              sku: '',
-              categoryName: '',
-              quantity: '1',
-              unitCost: '0',
-              currency: 'USD',
-              salePriceUsd: '',
-              isExisting: false,
-              quantityOnHand: 0
-            }
-          ];
+          const newItem: DraftItem = {
+            id: createId(),
+            barcode: trimmed,
+            name: '',
+            sku: '',
+            categoryName: '',
+            quantity: '1',
+            unitCost: '0',
+            currency: 'USD',
+            salePriceUsd: '',
+            isExisting: false,
+            quantityOnHand: 0
+          };
+          nextHighlightedId = newItem.id;
+          return [...previous, newItem];
         });
       }
+      if (nextHighlightedId) {
+        setLastScannedItemId(nextHighlightedId);
+      }
+      void playCartBeep();
       setBarcode('');
       setBanner(null);
     } catch (error) {
@@ -154,11 +164,43 @@ export function PurchasesPage() {
 
   const handleItemChange = (id: string, field: keyof DraftItem, value: string) => {
     setItems((previous) => previous.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+    if (field === 'quantity' && lastScannedItemId === id) {
+      setLastScannedItemId(null);
+    }
   };
 
   const handleRemoveItem = (id: string) => {
     setItems((previous) => previous.filter((item) => item.id !== id));
+    if (lastScannedItemId === id) {
+      setLastScannedItemId(null);
+    }
   };
+
+  useEffect(() => {
+    if (lastScannedItemId && !items.some((item) => item.id === lastScannedItemId)) {
+      setLastScannedItemId(null);
+    }
+  }, [items, lastScannedItemId]);
+
+  const highlightedQuantity = lastScannedItemId
+    ? items.find((item) => item.id === lastScannedItemId)?.quantity
+    : undefined;
+
+  useEffect(() => {
+    if (!lastScannedItemId) {
+      return;
+    }
+    const input = quantityInputRefs.current[lastScannedItemId];
+    if (input) {
+      input.focus();
+      const select = () => input.select();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(select);
+      } else {
+        select();
+      }
+    }
+  }, [lastScannedItemId, highlightedQuantity]);
 
   const totals = useMemo(() => {
     const rate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1;
@@ -350,94 +392,107 @@ export function PurchasesPage() {
                       </td>
                     </tr>
                   )}
-                  {items.map((item) => (
-                    <tr key={item.id} className="align-top text-slate-700 dark:text-slate-200">
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={item.name}
-                              onChange={(event) => handleItemChange(item.id, 'name', event.target.value)}
-                              placeholder={t('inventoryNamePlaceholder', { storeName })}
-                              disabled={item.isExisting}
-                              required={!item.isExisting}
-                            />
-                            <Badge className={item.isExisting ? 'bg-emerald-500' : 'bg-blue-500'}>
-                              {item.isExisting ? t('purchasesExistingBadge') : t('purchasesNewBadge')}
-                            </Badge>
+                  {items.map((item) => {
+                    const isHighlighted = lastScannedItemId === item.id;
+                    const rowClasses = `align-top text-slate-700 transition-colors dark:text-slate-200 ${
+                      isHighlighted ? 'bg-emerald-50 dark:bg-emerald-900/30' : ''
+                    }`;
+                    return (
+                      <tr key={item.id} className={rowClasses}>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={item.name}
+                                onChange={(event) => handleItemChange(item.id, 'name', event.target.value)}
+                                placeholder={t('inventoryNamePlaceholder', { storeName })}
+                                disabled={item.isExisting}
+                                required={!item.isExisting}
+                              />
+                              <Badge className={item.isExisting ? 'bg-emerald-500' : 'bg-blue-500'}>
+                                {item.isExisting ? t('purchasesExistingBadge') : t('purchasesNewBadge')}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-slate-500">
+                              {t('inventoryBarcode')}: {item.barcode}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {t('purchasesOnHand', { count: item.quantityOnHand.toLocaleString() })}
+                            </span>
                           </div>
-                          <span className="text-xs text-slate-500">
-                            {t('inventoryBarcode')}: {item.barcode}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {t('purchasesOnHand', { count: item.quantityOnHand.toLocaleString() })}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Input
-                          value={item.isExisting && !item.sku.trim() ? '—' : item.sku}
-                          onChange={(event) => handleItemChange(item.id, 'sku', event.target.value)}
-                          placeholder={t('inventorySkuPlaceholder')}
-                          disabled={item.isExisting}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <Input
-                          value={item.categoryName}
-                          onChange={(event) => handleItemChange(item.id, 'categoryName', event.target.value)}
-                          placeholder={t('inventoryCategoryNamePlaceholder')}
-                          disabled={item.isExisting}
-                          required={!item.isExisting}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.quantity}
-                          onChange={(event) => handleItemChange(item.id, 'quantity', event.target.value)}
-                          required
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.unitCost}
-                          onChange={(event) => handleItemChange(item.id, 'unitCost', event.target.value)}
-                          required
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <select
-                          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
-                          value={item.currency}
-                          onChange={(event) => handleItemChange(item.id, 'currency', event.target.value)}
-                        >
-                          <option value="USD">USD</option>
-                          <option value="LBP">LBP</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.salePriceUsd}
-                          onChange={(event) => handleItemChange(item.id, 'salePriceUsd', event.target.value)}
-                          placeholder={t('purchasesSalePricePlaceholder')}
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button type="button" className="bg-red-500 hover:bg-red-400" onClick={() => handleRemoveItem(item.id)}>
-                          {t('removeItem')}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            value={item.isExisting && !item.sku.trim() ? '—' : item.sku}
+                            onChange={(event) => handleItemChange(item.id, 'sku', event.target.value)}
+                            placeholder={t('inventorySkuPlaceholder')}
+                            disabled={item.isExisting}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            value={item.categoryName}
+                            onChange={(event) => handleItemChange(item.id, 'categoryName', event.target.value)}
+                            placeholder={t('inventoryCategoryNamePlaceholder')}
+                            disabled={item.isExisting}
+                            required={!item.isExisting}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.quantity}
+                            ref={(element) => {
+                              if (element) {
+                                quantityInputRefs.current[item.id] = element;
+                              } else {
+                                delete quantityInputRefs.current[item.id];
+                              }
+                            }}
+                            onChange={(event) => handleItemChange(item.id, 'quantity', event.target.value)}
+                            required
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.unitCost}
+                            onChange={(event) => handleItemChange(item.id, 'unitCost', event.target.value)}
+                            required
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
+                            value={item.currency}
+                            onChange={(event) => handleItemChange(item.id, 'currency', event.target.value)}
+                          >
+                            <option value="USD">USD</option>
+                            <option value="LBP">LBP</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.salePriceUsd}
+                            onChange={(event) => handleItemChange(item.id, 'salePriceUsd', event.target.value)}
+                            placeholder={t('purchasesSalePricePlaceholder')}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button type="button" className="bg-red-500 hover:bg-red-400" onClick={() => handleRemoveItem(item.id)}>
+                            {t('removeItem')}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -459,24 +514,23 @@ export function PurchasesPage() {
               <Button
                 type="button"
                 className="bg-blue-500 hover:bg-blue-400"
-                onClick={() =>
-                  setItems((previous) => [
-                    ...previous,
-                    {
-                      id: createId(),
-                      barcode: '',
-                      name: '',
-                      sku: '',
-                      categoryName: '',
-                      quantity: '1',
-                      unitCost: '0',
-                      currency: 'USD',
-                      salePriceUsd: '',
-                      isExisting: false,
-                      quantityOnHand: 0
-                    }
-                  ])
-                }
+                onClick={() => {
+                  const newItem: DraftItem = {
+                    id: createId(),
+                    barcode: '',
+                    name: '',
+                    sku: '',
+                    categoryName: '',
+                    quantity: '1',
+                    unitCost: '0',
+                    currency: 'USD',
+                    salePriceUsd: '',
+                    isExisting: false,
+                    quantityOnHand: 0
+                  };
+                  setItems((previous) => [...previous, newItem]);
+                  setLastScannedItemId(newItem.id);
+                }}
               >
                 {t('purchasesAddManual')}
               </Button>
