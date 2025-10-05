@@ -105,7 +105,7 @@ export function PurchasesPage() {
               productId: product.id,
               barcode: product.barcode,
               name: product.name,
-              sku: product.sku,
+              sku: product.sku?.trim() ?? '',
               categoryName: product.categoryName ?? product.category ?? '',
               quantity: '1',
               unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
@@ -204,7 +204,7 @@ export function PurchasesPage() {
       }
       const salePrice = Number(item.salePriceUsd);
       if (!item.isExisting) {
-        if (!item.name.trim() || !item.sku.trim() || !item.categoryName.trim()) {
+        if (!item.name.trim() || !item.categoryName.trim()) {
           setBanner({ type: 'error', message: t('purchasesValidationError') });
           return;
         }
@@ -213,7 +213,10 @@ export function PurchasesPage() {
         productId: item.productId,
         barcode: item.barcode,
         name: item.isExisting ? undefined : item.name.trim(),
-        sku: item.isExisting ? undefined : item.sku.trim(),
+        sku:
+          item.isExisting || !item.sku.trim()
+            ? undefined
+            : item.sku.trim(),
         categoryName: item.isExisting ? undefined : item.categoryName.trim(),
         quantity,
         unitCost,
@@ -373,11 +376,10 @@ export function PurchasesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <Input
-                          value={item.sku}
+                          value={item.isExisting && !item.sku.trim() ? '—' : item.sku}
                           onChange={(event) => handleItemChange(item.id, 'sku', event.target.value)}
                           placeholder={t('inventorySkuPlaceholder')}
                           disabled={item.isExisting}
-                          required={!item.isExisting}
                         />
                       </td>
                       <td className="px-4 py-3">

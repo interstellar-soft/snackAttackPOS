@@ -39,7 +39,7 @@ export function ProductGrid({ onScan }: ProductGridProps) {
     addItem({
       productId: product.id,
       name: product.name,
-      sku: product.sku,
+      sku: product.sku?.trim() || undefined,
       barcode: product.barcode,
       priceUsd: product.priceUsd,
       priceLbp: product.priceLbp,
@@ -72,7 +72,7 @@ export function ProductGrid({ onScan }: ProductGridProps) {
               <div className="flex items-start justify-between gap-1">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{product.name}</p>
-                  <span className="text-[0.7rem] text-slate-500">{product.sku}</span>
+                  <span className="text-[0.7rem] text-slate-500">{product.sku?.trim() || '—'}</span>
                 </div>
                 {product.isPinned && (
                   <Badge className="shrink-0 bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">

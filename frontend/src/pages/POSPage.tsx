@@ -36,7 +36,7 @@ interface CheckoutResponse extends BalanceResponse {
 
 interface ProductResponse {
   id: string;
-  sku: string;
+  sku?: string | null;
   name: string;
   barcode: string;
   priceUsd: number;
@@ -103,7 +103,7 @@ export function POSPage() {
       addItem({
         productId: product.id,
         name: product.name,
-        sku: product.sku,
+        sku: product.sku?.trim() || undefined,
         barcode: product.barcode,
         priceUsd: product.priceUsd,
         priceLbp: product.priceLbp,
@@ -111,7 +111,8 @@ export function POSPage() {
         discountPercent: 0
       });
       setLastAddedItemId(product.id);
-      setLastScan(`${product.name} (${product.sku})`);
+      const displaySku = product.sku?.trim();
+      setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
       setBarcode('');
       if (product.isFlagged) {
         setOverrideRequired(true);
@@ -314,7 +315,12 @@ export function POSPage() {
             </Button>
           </form>
           <div className="flex-1 overflow-hidden">
-            <ProductGrid onScan={(product) => setLastScan(`${product.name} (${product.sku})`)} />
+            <ProductGrid
+              onScan={(product) => {
+                const displaySku = product.sku?.trim();
+                setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
+              }}
+            />
           </div>
         </div>
         <div className="flex h-[calc(100vh-11rem)] max-w-md flex-col gap-3 lg:justify-between">

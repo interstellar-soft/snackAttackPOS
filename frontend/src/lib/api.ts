@@ -17,7 +17,7 @@ export type ProductCurrency = 'USD' | 'LBP';
 
 export interface ProductResponseDto {
   id: string;
-  sku: string;
+  sku?: string | null;
   name: string;
   barcode: string;
   priceUsd: number;
@@ -30,7 +30,7 @@ export interface ProductResponseDto {
 
 export interface ProductMutationPayload {
   name: string;
-  sku: string;
+  sku?: string;
   barcode: string;
   price: number;
   currency?: ProductCurrency;
