@@ -146,7 +146,7 @@ export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: Car
   };
 
   return (
-    <Card className="flex h-full flex-col bg-slate-50 dark:bg-slate-900">
+    <Card className="flex h-full w-full flex-col bg-slate-50 dark:bg-slate-900">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>{t('cart')}</CardTitle>
         <Button type="button" className="bg-slate-600 hover:bg-slate-500" onClick={onClear}>

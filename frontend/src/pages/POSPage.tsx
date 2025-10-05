@@ -327,7 +327,7 @@ export function POSPage() {
               />
             </div>
             <div className="grid h-full min-h-0 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="flex h-full min-h-0 overflow-hidden">
+              <div className="flex h-full min-h-0 w-full overflow-hidden">
                 <CartPanel
                   onClear={clear}
                   highlightedItemId={lastAddedItemId}
@@ -337,7 +337,7 @@ export function POSPage() {
                   }}
                 />
               </div>
-              <div className="flex h-full min-h-0 overflow-hidden">
+              <div className="flex h-full min-h-0 w-full overflow-hidden">
                 <ReceiptPreview />
               </div>
             </div>
