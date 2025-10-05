@@ -91,9 +91,8 @@ export function PurchasesPage() {
     }
     try {
       const product = await handleFetchProduct(trimmed);
-      let nextHighlightedId: string | null = null;
-      if (product) {
-        setItems((previous) => {
+      const deriveNextItems = (previous: DraftItem[]) => {
+        if (product) {
           const existingIndex = previous.findIndex((item) => item.productId === product.id);
           if (existingIndex >= 0) {
             const next = [...previous];
@@ -101,8 +100,7 @@ export function PurchasesPage() {
             const nextQuantity = (Number(target.quantity) || 0) + 1;
             const updated = { ...target, quantity: nextQuantity.toString() };
             next[existingIndex] = updated;
-            nextHighlightedId = updated.id;
-            return next;
+            return { items: next, highlightId: updated.id };
           }
           const newItem: DraftItem = {
             id: product.id,
@@ -118,38 +116,39 @@ export function PurchasesPage() {
             isExisting: true,
             quantityOnHand: product.quantityOnHand ?? 0
           };
-          nextHighlightedId = newItem.id;
-          return [...previous, newItem];
-        });
-      } else {
-        setItems((previous) => {
-          const existingIndex = previous.findIndex((item) => item.barcode === trimmed);
-          if (existingIndex >= 0) {
-            const next = [...previous];
-            const target = next[existingIndex];
-            const nextQuantity = (Number(target.quantity) || 0) + 1;
-            const updated = { ...target, quantity: nextQuantity.toString() };
-            next[existingIndex] = updated;
-            nextHighlightedId = updated.id;
-            return next;
-          }
-          const newItem: DraftItem = {
-            id: createId(),
-            barcode: trimmed,
-            name: '',
-            sku: '',
-            categoryName: '',
-            quantity: '1',
-            unitCost: '0',
-            currency: 'USD',
-            salePriceUsd: '',
-            isExisting: false,
-            quantityOnHand: 0
-          };
-          nextHighlightedId = newItem.id;
-          return [...previous, newItem];
-        });
-      }
+          return { items: [...previous, newItem], highlightId: newItem.id };
+        }
+        const existingIndex = previous.findIndex((item) => item.barcode === trimmed);
+        if (existingIndex >= 0) {
+          const next = [...previous];
+          const target = next[existingIndex];
+          const nextQuantity = (Number(target.quantity) || 0) + 1;
+          const updated = { ...target, quantity: nextQuantity.toString() };
+          next[existingIndex] = updated;
+          return { items: next, highlightId: updated.id };
+        }
+        const newItem: DraftItem = {
+          id: createId(),
+          barcode: trimmed,
+          name: '',
+          sku: '',
+          categoryName: '',
+          quantity: '1',
+          unitCost: '0',
+          currency: 'USD',
+          salePriceUsd: '',
+          isExisting: false,
+          quantityOnHand: 0
+        };
+        return { items: [...previous, newItem], highlightId: newItem.id };
+      };
+
+      let nextHighlightedId: string | null = null;
+      setItems((previous) => {
+        const { items: nextItems, highlightId } = deriveNextItems(previous);
+        nextHighlightedId = highlightId;
+        return nextItems;
+      });
       if (nextHighlightedId) {
         setLastScannedItemId(nextHighlightedId);
       }
