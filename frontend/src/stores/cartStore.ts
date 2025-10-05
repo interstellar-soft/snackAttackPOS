@@ -5,7 +5,7 @@ import { playCartBeep } from '../lib/sounds';
 export interface CartItem {
   productId: string;
   name: string;
-  sku: string;
+  sku?: string | null;
   barcode: string;
   priceUsd: number;
   priceLbp: number;
@@ -91,7 +91,24 @@ export const useCartStore = create<CartState>()(
       setLastAddedItemId: (productId) => set({ lastAddedItemId: productId })
     }),
     {
-      name: 'aurora-cart'
+      name: 'aurora-cart',
+      version: 1,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState;
+        }
+        const state = persistedState as CartState;
+        const items = Array.isArray(state.items)
+          ? state.items.map((item) => ({
+              ...item,
+              sku: item.sku && String(item.sku).trim() ? String(item.sku) : undefined
+            }))
+          : [];
+        return {
+          ...state,
+          items
+        } satisfies CartState;
+      }
     }
   )
 );

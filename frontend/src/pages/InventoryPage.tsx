@@ -92,7 +92,6 @@ export function InventoryPage() {
 
     if (
       !name ||
-      !sku ||
       !barcode ||
       !categoryName ||
       !Number.isFinite(parsedPrice) ||
@@ -104,12 +103,12 @@ export function InventoryPage() {
     return {
       payload: {
         name,
-        sku,
         barcode,
         categoryName,
         price: parsedPrice,
         currency: values.currency,
-        isPinned: values.isPinned
+        isPinned: values.isPinned,
+        ...(sku ? { sku } : {})
       }
     };
   };
@@ -153,12 +152,12 @@ export function InventoryPage() {
       await togglePinnedProduct.mutateAsync({
         id: product.id,
         name: product.name,
-        sku: product.sku,
         barcode: product.barcode,
         categoryName: product.categoryName ?? product.category,
         price: product.priceUsd,
         currency: 'USD',
-        isPinned: !product.isPinned
+        isPinned: !product.isPinned,
+        ...(product.sku && product.sku.trim() ? { sku: product.sku } : {})
       });
       setBanner({
         type: 'success',
@@ -266,7 +265,9 @@ export function InventoryPage() {
                   productsQuery.data.map((product) => (
                     <tr key={product.id} className="text-slate-700 dark:text-slate-200">
                       <td className="px-4 py-3 text-sm font-medium">{product.name}</td>
-                      <td className="px-4 py-3 text-xs uppercase text-slate-500">{product.sku}</td>
+                      <td className="px-4 py-3 text-xs uppercase text-slate-500">
+                        {product.sku?.trim() || '—'}
+                      </td>
                       <td className="px-4 py-3 text-sm text-slate-500">{product.barcode}</td>
                       <td className="px-4 py-3 text-sm text-slate-500">
                         <div className="flex flex-col">
@@ -354,7 +355,7 @@ export function InventoryPage() {
           submitLabel={t('inventoryUpdateAction')}
           values={{
             name: dialog.product.name,
-            sku: dialog.product.sku,
+            sku: dialog.product.sku ?? '',
             barcode: dialog.product.barcode,
             categoryName: dialog.product.categoryName ?? dialog.product.category ?? '',
             price: dialog.product.priceUsd.toString(),
@@ -448,7 +449,6 @@ function ProductFormDialog({
               value={formValues.sku}
               onChange={handleChange('sku')}
               placeholder={t('inventorySkuPlaceholder')}
-              required
             />
           </div>
         </div>

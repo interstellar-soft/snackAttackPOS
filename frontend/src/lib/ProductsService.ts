@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 
 export interface Product {
   id: string;
-  sku: string;
+  sku?: string | null;
   name: string;
   barcode: string;
   priceUsd: number;
@@ -20,7 +20,7 @@ export interface Product {
 }
 
 export interface CreateProductInput {
-  sku: string;
+  sku?: string;
   name: string;
   barcode: string;
   price: number;
