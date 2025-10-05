@@ -283,9 +283,9 @@ export function POSPage() {
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
       />
-      <div className="row-start-2 min-h-0">
-        <div className="grid min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.5fr)]">
-          <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
+      <div className="row-start-2 h-full min-h-0">
+        <div className="grid h-full min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.5fr)]">
+          <div className="flex h-full min-h-0 flex-col gap-3 lg:pr-2">
             <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
               <Input
                 id="barcode-input"
@@ -308,7 +308,7 @@ export function POSPage() {
               />
             </div>
           </div>
-          <div className="grid min-h-0 gap-3 overflow-hidden grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="min-h-0 overflow-hidden rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
               <TenderPanel
                 paidUsdText={paidUsdText}
@@ -326,8 +326,8 @@ export function POSPage() {
                 disabled={overrideRequired}
               />
             </div>
-            <div className="grid min-h-0 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="min-h-0 overflow-hidden">
+            <div className="grid h-full min-h-0 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="flex h-full min-h-0 overflow-hidden">
                 <CartPanel
                   onClear={clear}
                   highlightedItemId={lastAddedItemId}
@@ -337,7 +337,7 @@ export function POSPage() {
                   }}
                 />
               </div>
-              <div className="min-h-0 overflow-hidden">
+              <div className="flex h-full min-h-0 overflow-hidden">
                 <ReceiptPreview />
               </div>
             </div>
