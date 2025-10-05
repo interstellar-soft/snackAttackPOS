@@ -326,8 +326,8 @@ export function POSPage() {
                 disabled={overrideRequired}
               />
             </div>
-            <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-              <div className="flex-1 overflow-hidden">
+            <div className="grid min-h-0 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="min-h-0 overflow-hidden">
                 <CartPanel
                   onClear={clear}
                   highlightedItemId={lastAddedItemId}
@@ -337,7 +337,7 @@ export function POSPage() {
                   }}
                 />
               </div>
-              <div className="shrink-0 pt-1">
+              <div className="min-h-0 overflow-hidden">
                 <ReceiptPreview />
               </div>
             </div>

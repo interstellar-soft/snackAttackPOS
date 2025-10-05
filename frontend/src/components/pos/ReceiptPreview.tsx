@@ -11,17 +11,17 @@ export function ReceiptPreview() {
   const storeName = useStoreProfileStore((state) => state.name);
 
   return (
-    <Card className="bg-slate-50 text-sm dark:bg-slate-900">
+    <Card className="flex h-full flex-col bg-slate-50 text-sm dark:bg-slate-900">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold text-slate-700 dark:text-slate-100">
           {t('receiptPreview')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="flex flex-1 flex-col space-y-3 overflow-y-auto">
         <div className="text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           {storeName}
         </div>
-        <div className="max-h-32 space-y-2 overflow-y-auto pr-1">
+        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
           {items.length > 0 ? (
             items.map((item) => (
               <div key={item.productId} className="flex items-start justify-between gap-2">
