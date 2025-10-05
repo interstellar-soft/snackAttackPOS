@@ -4,12 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using QuestPDF.Infrastructure;
 using PosBackend;
 using PosBackend.Application.Services;
 using PosBackend.Infrastructure.Data;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
