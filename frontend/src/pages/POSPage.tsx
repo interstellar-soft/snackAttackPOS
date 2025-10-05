@@ -284,7 +284,7 @@ export function POSPage() {
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
       />
       <div className="row-start-2 min-h-0">
-        <div className="grid min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.15fr)] xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1.15fr)]">
+        <div className="grid min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.5fr)]">
           <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
             <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
               <Input
@@ -299,7 +299,7 @@ export function POSPage() {
                 Scan
               </Button>
             </form>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden">
               <ProductGrid
                 onScan={(product) => {
                   const displaySku = product.sku?.trim();
