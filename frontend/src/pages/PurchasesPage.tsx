@@ -7,12 +7,13 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { API_BASE_URL } from '../lib/api';
-import type { Product } from '../lib/ProductsService';
+import { ProductsService, type Product } from '../lib/ProductsService';
 import { PurchasesService, type Purchase, type PurchaseItemInput } from '../lib/PurchasesService';
 import { playCartBeep } from '../lib/sounds';
 import { useAuthStore } from '../stores/authStore';
 import { useStoreProfileStore } from '../stores/storeProfileStore';
 import { formatCurrency } from '../lib/utils';
+import { CategorySelect } from '../components/purchases/CategorySelect';
 
 interface DraftItem {
   id: string;
@@ -51,10 +52,28 @@ export function PurchasesPage() {
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const purchasesQuery = PurchasesService.usePurchases();
+  const inventoryProductsQuery = ProductsService.useInventoryProducts();
   const createPurchase = PurchasesService.useCreatePurchase();
   const updatePurchase = PurchasesService.useUpdatePurchase();
 
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
+
+  const categoryOptions = useMemo(() => {
+    const items = inventoryProductsQuery.data ?? [];
+    const map = new Map<string, string>();
+    for (const product of items) {
+      const raw = (product.categoryName ?? product.category ?? '').trim();
+      if (!raw) {
+        continue;
+      }
+      const key = raw.toLocaleLowerCase();
+      if (!map.has(key)) {
+        map.set(key, raw);
+      }
+    }
+    const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
+    return Array.from(map.values()).sort((a, b) => collator.compare(a, b));
+  }, [inventoryProductsQuery.data]);
 
   useEffect(() => {
     if (!banner) {
@@ -507,12 +526,12 @@ export function PurchasesPage() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <Input
+                          <CategorySelect
+                            categories={categoryOptions}
                             value={item.categoryName}
-                            onChange={(event) => handleItemChange(item.id, 'categoryName', event.target.value)}
+                            onChange={(value) => handleItemChange(item.id, 'categoryName', value)}
                             placeholder={t('inventoryCategoryNamePlaceholder')}
                             disabled={item.isExisting}
-                            required={!item.isExisting}
                           />
                         </td>
                         <td className="px-4 py-3">
