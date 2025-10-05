@@ -284,7 +284,7 @@ export function POSPage() {
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
       />
       <div className="row-start-2 min-h-0">
-        <div className="grid min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
+        <div className="grid min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.15fr)] xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1.15fr)]">
           <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
             <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
               <Input
@@ -308,8 +308,8 @@ export function POSPage() {
               />
             </div>
           </div>
-          <div className="flex min-h-0 flex-col gap-3 overflow-hidden lg:max-w-md">
-            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
+          <div className="grid min-h-0 gap-3 overflow-hidden grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="min-h-0 overflow-hidden rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
               <TenderPanel
                 paidUsdText={paidUsdText}
                 paidLbpText={paidLbpText}
@@ -326,7 +326,7 @@ export function POSPage() {
                 disabled={overrideRequired}
               />
             </div>
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+            <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
               <div className="flex-1 overflow-hidden">
                 <CartPanel
                   onClear={clear}
