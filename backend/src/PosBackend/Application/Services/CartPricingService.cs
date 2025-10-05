@@ -66,6 +66,8 @@ public class CartPricingService
                 ProfitUsd = _currencyService.RoundUsd(profitUsd),
                 ProfitLbp = _currencyService.RoundLbp(profitLbp)
             };
+            line.Product = product;
+            line.PriceRule = priceRule;
             lines.Add(line);
             totalUsd += line.TotalUsd;
             totalLbp += line.TotalLbp;

@@ -127,6 +127,8 @@ public class TransactionsController : ControllerBase
             }, cancellationToken);
         }
 
+        var responseLines = lines.Select(CheckoutLineResponse.FromEntity).ToList();
+
         return new CheckoutResponse
         {
             TransactionId = transaction.Id,
@@ -138,7 +140,7 @@ public class TransactionsController : ControllerBase
             BalanceUsd = transaction.BalanceUsd,
             BalanceLbp = transaction.BalanceLbp,
             ExchangeRate = transaction.ExchangeRateUsed,
-            Lines = lines,
+            Lines = responseLines,
             ReceiptPdfBase64 = receiptBase64,
             RequiresOverride = visionFlags.Any(),
             OverrideReason = visionFlags.Any() ? string.Join(";", visionFlags) : null
@@ -148,7 +150,12 @@ public class TransactionsController : ControllerBase
     [HttpPost("return")]
     public async Task<ActionResult<CheckoutResponse>> Return([FromBody] ReturnRequest request, CancellationToken cancellationToken)
     {
-        var original = await _db.Transactions.Include(t => t.Lines).FirstOrDefaultAsync(t => t.Id == request.TransactionId, cancellationToken);
+        var original = await _db.Transactions
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.PriceRule)
+            .FirstOrDefaultAsync(t => t.Id == request.TransactionId, cancellationToken);
         if (original is null)
         {
             return NotFound();
@@ -157,6 +164,9 @@ public class TransactionsController : ControllerBase
         var lines = original.Lines.Where(l => request.LineIds.Contains(l.Id)).Select(l => new TransactionLine
         {
             ProductId = l.ProductId,
+            Product = l.Product,
+            PriceRuleId = l.PriceRuleId,
+            PriceRule = l.PriceRule,
             Quantity = -Math.Abs(l.Quantity),
             BaseUnitPriceUsd = l.BaseUnitPriceUsd,
             BaseUnitPriceLbp = l.BaseUnitPriceLbp,
@@ -214,6 +224,8 @@ public class TransactionsController : ControllerBase
 
         var receiptBytes = await _receiptRenderer.RenderPdfAsync(transaction, lines, transaction.ExchangeRateUsed, cancellationToken);
 
+        var responseLines = lines.Select(CheckoutLineResponse.FromEntity).ToList();
+
         return new CheckoutResponse
         {
             TransactionId = transaction.Id,
@@ -225,7 +237,7 @@ public class TransactionsController : ControllerBase
             BalanceUsd = 0,
             BalanceLbp = 0,
             ExchangeRate = transaction.ExchangeRateUsed,
-            Lines = lines,
+            Lines = responseLines,
             ReceiptPdfBase64 = Convert.ToBase64String(receiptBytes)
         };
     }
