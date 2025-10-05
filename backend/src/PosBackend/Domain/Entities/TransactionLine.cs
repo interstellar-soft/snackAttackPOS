@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace PosBackend.Domain.Entities;
 
 public class TransactionLine : BaseEntity
 {
     public Guid TransactionId { get; set; }
+    [JsonIgnore]
     public PosTransaction? Transaction { get; set; }
     public Guid ProductId { get; set; }
     public Product? Product { get; set; }
