@@ -99,7 +99,7 @@ public class ProductsController : ControllerBase
         var product = new Product
         {
             Name = request.Name!,
-            Sku = request.Sku!,
+            Sku = NormalizeOptional(request.Sku),
             Barcode = request.Barcode!,
             Description = NormalizeOptional(request.Description),
             CategoryId = category.Id,
@@ -153,7 +153,7 @@ public class ProductsController : ControllerBase
         }
 
         product.Name = request.Name!;
-        product.Sku = request.Sku!;
+        product.Sku = NormalizeOptional(request.Sku);
         product.Barcode = request.Barcode!;
         product.Description = NormalizeOptional(request.Description);
         product.CategoryId = category.Id;
@@ -194,7 +194,10 @@ public class ProductsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(q))
         {
             var term = q.ToLower();
-            query = query.Where(p => p.Name.ToLower().Contains(term) || p.Sku.ToLower().Contains(term) || p.Barcode.Contains(term));
+            query = query.Where(p =>
+                p.Name.ToLower().Contains(term) ||
+                (p.Sku != null && p.Sku.ToLower().Contains(term)) ||
+                p.Barcode.Contains(term));
         }
 
         if (pinnedOnly == true)
@@ -224,8 +227,9 @@ public class ProductsController : ControllerBase
         }
 
         var userId = User.FindFirst("sub")?.Value ?? "anonymous";
-        var rapid = _watchdog.IsRapidRepeat(userId, product.Sku);
-        var anomaly = await _mlClient.PredictAnomalyAsync(new MlClient.AnomalyRequest(product.Sku, product.PriceUsd, 1), cancellationToken);
+        var productIdentifier = BuildProductIdentifier(product);
+        var rapid = _watchdog.IsRapidRepeat(userId, productIdentifier);
+        var anomaly = await _mlClient.PredictAnomalyAsync(new MlClient.AnomalyRequest(productIdentifier, product.PriceUsd, 1), cancellationToken);
 
         var flagged = rapid || (anomaly?.IsAnomaly ?? false);
         var reason = rapid ? "rapid_repeat_scan" : anomaly?.Reason;
@@ -282,14 +286,7 @@ public class ProductsController : ControllerBase
             request.Name = request.Name.Trim();
         }
 
-        if (string.IsNullOrWhiteSpace(request.Sku))
-        {
-            AddError(errors, nameof(request.Sku), "SKU is required.");
-        }
-        else
-        {
-            request.Sku = request.Sku.Trim();
-        }
+        request.Sku = NormalizeOptional(request.Sku);
 
         if (string.IsNullOrWhiteSpace(request.Barcode))
         {
@@ -328,7 +325,7 @@ public class ProductsController : ControllerBase
             request.CategoryName = request.CategoryName.Trim();
         }
 
-        if (!errors.ContainsKey(nameof(request.Sku)))
+        if (request.Sku is not null)
         {
             var skuExists = await _db.Products
                 .AnyAsync(p => p.Sku == request.Sku && (!existingProductId.HasValue || p.Id != existingProductId.Value), cancellationToken);
@@ -454,6 +451,21 @@ public class ProductsController : ControllerBase
         }
 
         list.Add(message);
+    }
+
+    private static string BuildProductIdentifier(Product product)
+    {
+        if (!string.IsNullOrWhiteSpace(product.Sku))
+        {
+            return product.Sku;
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.Barcode))
+        {
+            return $"BAR:{product.Barcode}";
+        }
+
+        return $"ID:{product.Id}";
     }
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

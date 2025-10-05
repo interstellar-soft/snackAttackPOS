@@ -3,7 +3,7 @@ namespace PosBackend.Application.Responses;
 public class ProductResponse
 {
     public Guid Id { get; set; }
-    public string Sku { get; set; } = string.Empty;
+    public string? Sku { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Barcode { get; set; } = string.Empty;
     public decimal PriceUsd { get; set; }

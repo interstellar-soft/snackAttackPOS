@@ -9,8 +9,7 @@ public abstract class ProductMutationRequestBase
     [Required]
     public string Name { get; set; } = string.Empty;
 
-    [Required]
-    public string Sku { get; set; } = string.Empty;
+    public string? Sku { get; set; }
 
     [Required]
     public string Barcode { get; set; } = string.Empty;
