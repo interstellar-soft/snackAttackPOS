@@ -273,7 +273,7 @@ export function POSPage() {
   };
 
   return (
-    <div className="grid h-screen grid-rows-[auto_auto_1fr] gap-3 overflow-hidden bg-slate-100 p-4 lg:p-6 dark:bg-slate-950">
+    <div className="grid h-screen grid-rows-[auto_1fr] gap-3 overflow-hidden bg-slate-100 p-4 lg:p-6 dark:bg-slate-950">
       <TopBar
         onLogout={logout}
         lastScan={lastScan}
@@ -283,25 +283,8 @@ export function POSPage() {
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
       />
-      <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
-        <TenderPanel
-          paidUsdText={paidUsdText}
-          paidLbpText={paidLbpText}
-          onChangePaidUsdText={setPaidUsdText}
-          onChangePaidLbpText={setPaidLbpText}
-          onCommitPaidUsdAmount={setPaidUsdAmount}
-          onCommitPaidLbpAmount={setPaidLbpAmount}
-          onCheckout={handleCheckout}
-          balanceUsd={balance?.balanceUsd ?? 0}
-          balanceLbp={balance?.balanceLbp ?? 0}
-          exchangeRate={rate}
-          onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
-          canEditRate={canEditRate}
-          disabled={overrideRequired}
-        />
-      </div>
-      <div className="row-start-3 min-h-0">
-        <div className="grid min-h-0 gap-3 overflow-hidden lg:grid-cols-[1.75fr_1fr] xl:grid-cols-[1.65fr_1fr]">
+      <div className="row-start-2 min-h-0">
+        <div className="grid min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
           <div className="flex min-h-0 flex-col gap-3 lg:pr-2">
             <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
               <Input
@@ -325,19 +308,38 @@ export function POSPage() {
               />
             </div>
           </div>
-          <div className="flex min-h-0 max-w-md flex-col gap-3 overflow-hidden lg:justify-between">
-            <div className="flex-1 overflow-hidden">
-              <CartPanel
-                onClear={clear}
-                highlightedItemId={lastAddedItemId}
-                onQuantityConfirm={() => {
-                  setLastAddedItemId(null);
-                  barcodeInputRef.current?.focus();
-                }}
+          <div className="flex min-h-0 flex-col gap-3 overflow-hidden lg:max-w-md">
+            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
+              <TenderPanel
+                paidUsdText={paidUsdText}
+                paidLbpText={paidLbpText}
+                onChangePaidUsdText={setPaidUsdText}
+                onChangePaidLbpText={setPaidLbpText}
+                onCommitPaidUsdAmount={setPaidUsdAmount}
+                onCommitPaidLbpAmount={setPaidLbpAmount}
+                onCheckout={handleCheckout}
+                balanceUsd={balance?.balanceUsd ?? 0}
+                balanceLbp={balance?.balanceLbp ?? 0}
+                exchangeRate={rate}
+                onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
+                canEditRate={canEditRate}
+                disabled={overrideRequired}
               />
             </div>
-            <div className="mt-auto pt-1">
-              <ReceiptPreview />
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+              <div className="flex-1 overflow-hidden">
+                <CartPanel
+                  onClear={clear}
+                  highlightedItemId={lastAddedItemId}
+                  onQuantityConfirm={() => {
+                    setLastAddedItemId(null);
+                    barcodeInputRef.current?.focus();
+                  }}
+                />
+              </div>
+              <div className="shrink-0 pt-1">
+                <ReceiptPreview />
+              </div>
             </div>
           </div>
         </div>
