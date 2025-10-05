@@ -40,6 +40,7 @@ export interface DeleteProductInput {
 
 interface SearchProductsOptions {
   pinnedOnly?: boolean;
+  enabled?: boolean;
 }
 
 const productsKeys = {
@@ -80,6 +81,7 @@ export const ProductsService = {
   useSearchProducts(term: string, options: SearchProductsOptions = {}) {
     const token = useAuthToken();
     const pinnedOnly = options.pinnedOnly ?? false;
+    const enabled = options.enabled ?? true;
 
     return useQuery<Product[]>({
       queryKey: [...productsKeys.search(term, pinnedOnly), token],
@@ -90,7 +92,7 @@ export const ProductsService = {
           token ?? undefined
         );
       },
-      enabled: !!token,
+      enabled: !!token && enabled,
       staleTime: 30_000
     });
   },
