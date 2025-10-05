@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './api';
 import { useAuthStore } from '../stores/authStore';
-import { DEFAULT_STORE_NAME, useStoreProfileStore } from '../stores/storeProfileStore';
+import { useStoreProfileStore } from '../stores/storeProfileStore';
 
 export interface StoreProfileResponse {
   id: string;
@@ -30,9 +30,6 @@ export function useStoreProfileQuery() {
     },
     onSuccess: (data) => {
       setName(data.name);
-    },
-    onError: () => {
-      setName(DEFAULT_STORE_NAME);
     }
   });
 }
