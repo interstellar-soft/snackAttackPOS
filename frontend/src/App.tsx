@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { POSPage } from './pages/POSPage';
 import { LoginPage } from './pages/LoginPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
+import { ProfitsPage } from './pages/ProfitsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -60,6 +61,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin', 'manager']}>
                   <AnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profits"
+              element={
+                <ProtectedRoute roles={['admin', 'manager']}>
+                  <ProfitsPage />
                 </ProtectedRoute>
               }
             />
