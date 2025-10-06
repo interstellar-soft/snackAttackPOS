@@ -76,6 +76,10 @@ export function POSPage() {
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    barcodeInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();

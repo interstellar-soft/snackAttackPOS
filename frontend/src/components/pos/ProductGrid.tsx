@@ -82,7 +82,6 @@ export function ProductGrid({ onScan }: ProductGridProps) {
           placeholder={t('searchProducts')}
           value={term}
           onChange={(event) => setTerm(event.target.value)}
-          autoFocus
           className="w-full text-base"
         />
       </CardHeader>
