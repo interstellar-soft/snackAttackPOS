@@ -9,7 +9,6 @@ import { Badge } from '../components/ui/badge';
 import { API_BASE_URL } from '../lib/api';
 import { ProductsService, type Product } from '../lib/ProductsService';
 import { PurchasesService, type Purchase, type PurchaseItemInput } from '../lib/PurchasesService';
-import { playCartBeep } from '../lib/sounds';
 import { useAuthStore } from '../stores/authStore';
 import { useStoreProfileStore } from '../stores/storeProfileStore';
 import { formatCurrency } from '../lib/utils';
@@ -229,7 +228,6 @@ export function PurchasesPage() {
       if (nextHighlightedId) {
         setLastScannedItemId(nextHighlightedId);
       }
-      void playCartBeep();
       setBarcode('');
       setBanner(null);
     } catch (error) {
