@@ -9,6 +9,7 @@ using PosBackend.Application.Requests;
 using PosBackend.Application.Responses;
 using PosBackend.Application.Services;
 using PosBackend.Domain.Entities;
+using InventoryEntity = PosBackend.Domain.Entities.Inventory;
 using PosBackend.Features.Common;
 using PosBackend.Infrastructure.Data;
 
@@ -457,7 +458,7 @@ public class PurchasesController : ControllerBase
         var inventory = await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == product.Id, cancellationToken);
         if (inventory is null)
         {
-            inventory = new Inventory
+            inventory = new InventoryEntity
             {
                 ProductId = product.Id,
                 QuantityOnHand = 0,
