@@ -74,6 +74,17 @@ export function POSPage() {
   const [overrideRequired, setOverrideRequired] = useState(false);
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
+  const barcodeBufferRef = useRef('');
+  const barcodeTimeoutRef = useRef<number | null>(null);
+  const lastScannerTimeRef = useRef(0);
+  const pendingFirstCharRef = useRef('');
+  const pendingEditableRef = useRef<{
+    element: HTMLInputElement | HTMLTextAreaElement;
+    value: string;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+  } | null>(null);
+  const pendingEditableTimeoutRef = useRef<number | null>(null);
 
   const focusBarcodeInput = useCallback(() => {
     barcodeInputRef.current?.focus();
@@ -163,10 +174,184 @@ export function POSPage() {
   });
   const computeBalanceMutate = computeBalance.mutate;
 
+  const { mutate: mutateScan } = scanMutation;
+
+  const submitScan = useCallback(
+    (code: string) => {
+      mutateScan(code);
+    },
+    [mutateScan]
+  );
+
+  useEffect(() => {
+    const scannerThresholdMs = 100;
+
+    const clearPendingEditable = () => {
+      pendingFirstCharRef.current = '';
+      pendingEditableRef.current = null;
+      if (pendingEditableTimeoutRef.current !== null) {
+        window.clearTimeout(pendingEditableTimeoutRef.current);
+        pendingEditableTimeoutRef.current = null;
+      }
+    };
+
+    const clearBuffer = (clearInput = false) => {
+      barcodeBufferRef.current = '';
+      if (barcodeTimeoutRef.current !== null) {
+        window.clearTimeout(barcodeTimeoutRef.current);
+        barcodeTimeoutRef.current = null;
+      }
+      if (clearInput) {
+        setBarcode('');
+      }
+      clearPendingEditable();
+    };
+
+    const scheduleBufferReset = () => {
+      if (barcodeTimeoutRef.current !== null) {
+        window.clearTimeout(barcodeTimeoutRef.current);
+      }
+      barcodeTimeoutRef.current = window.setTimeout(() => {
+        clearBuffer(true);
+      }, scannerThresholdMs);
+    };
+
+    const applyPendingFirstChar = () => {
+      if (!pendingFirstCharRef.current) {
+        return '';
+      }
+      const firstChar = pendingFirstCharRef.current;
+      const pendingEditable = pendingEditableRef.current;
+      if (pendingEditable) {
+        const { element, value, selectionStart, selectionEnd } = pendingEditable;
+        element.value = value;
+        if (
+          typeof selectionStart === 'number' &&
+          typeof selectionEnd === 'number'
+        ) {
+          element.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }
+      clearPendingEditable();
+      return firstChar;
+    };
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (activeElement === barcodeInputRef.current) {
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      const isPrintableKey = event.key.length === 1 && event.key !== 'Enter';
+      const isEnter = event.key === 'Enter';
+
+      if (!isPrintableKey && !isEnter) {
+        return;
+      }
+
+      const now = performance.now();
+      const timeSinceLast = now - lastScannerTimeRef.current;
+      lastScannerTimeRef.current = now;
+
+      if (isPrintableKey) {
+        const shouldHandle =
+          barcodeBufferRef.current.length > 0 ||
+          pendingFirstCharRef.current !== '' ||
+          timeSinceLast <= scannerThresholdMs;
+
+        if (!shouldHandle) {
+          pendingFirstCharRef.current = event.key;
+
+          const target = event.target;
+          if (
+            target instanceof HTMLInputElement ||
+            target instanceof HTMLTextAreaElement
+          ) {
+            if (
+              target !== barcodeInputRef.current &&
+              !target.readOnly &&
+              !target.disabled
+            ) {
+              pendingEditableRef.current = {
+                element: target,
+                value: target.value,
+                selectionStart: target.selectionStart,
+                selectionEnd: target.selectionEnd
+              };
+            } else {
+              pendingEditableRef.current = null;
+            }
+          } else {
+            pendingEditableRef.current = null;
+          }
+
+          if (pendingEditableTimeoutRef.current !== null) {
+            window.clearTimeout(pendingEditableTimeoutRef.current);
+          }
+          pendingEditableTimeoutRef.current = window.setTimeout(() => {
+            pendingFirstCharRef.current = '';
+            pendingEditableRef.current = null;
+            pendingEditableTimeoutRef.current = null;
+          }, scannerThresholdMs);
+          return;
+        }
+
+        event.preventDefault();
+        focusBarcodeInput();
+
+        if (!barcodeBufferRef.current) {
+          const firstChar = applyPendingFirstChar();
+          barcodeBufferRef.current = firstChar;
+        }
+
+        const nextValue = `${barcodeBufferRef.current}${event.key}`;
+        barcodeBufferRef.current = nextValue;
+        setBarcode(nextValue);
+        scheduleBufferReset();
+        return;
+      }
+
+      const shouldHandleEnter =
+        barcodeBufferRef.current.length > 0 || pendingFirstCharRef.current !== '';
+
+      if (!shouldHandleEnter) {
+        return;
+      }
+
+      event.preventDefault();
+      focusBarcodeInput();
+
+      if (!barcodeBufferRef.current) {
+        const firstChar = applyPendingFirstChar();
+        barcodeBufferRef.current = firstChar;
+      }
+
+      const pendingValue =
+        barcodeBufferRef.current || barcodeInputRef.current?.value || '';
+      const trimmed = pendingValue.trim();
+      clearBuffer();
+
+      if (trimmed) {
+        setBarcode(trimmed);
+        submitScan(trimmed);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => {
+      window.removeEventListener('keydown', handleKeydown);
+      clearBuffer();
+    };
+  }, [focusBarcodeInput, submitScan]);
+
   const handleScanSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (barcode.trim()) {
-      scanMutation.mutate(barcode.trim());
+      submitScan(barcode.trim());
     }
   };
 
