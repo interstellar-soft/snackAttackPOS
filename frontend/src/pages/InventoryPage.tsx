@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { ProductsService, type CreateProductInput, type Product } from '../lib/ProductsService';
+import { useInventorySummary } from '../lib/InventoryService';
 import { formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../stores/authStore';
 import { useStoreProfileStore } from '../stores/storeProfileStore';
@@ -47,6 +48,7 @@ export function InventoryPage() {
   const storeName = useStoreProfileStore((state) => state.name);
 
   const productsQuery = ProductsService.useInventoryProducts();
+  const inventorySummary = useInventorySummary();
   const createProduct = ProductsService.useCreateProduct();
   const updateProduct = ProductsService.useUpdateProduct();
   const togglePinnedProduct = ProductsService.useUpdateProduct();
@@ -60,6 +62,10 @@ export function InventoryPage() {
 
   const currencyLocale = useMemo(
     () => (i18n.language === 'ar' ? 'ar-LB' : 'en-US'),
+    [i18n.language]
+  );
+  const numberFormatter = useMemo(
+    () => new Intl.NumberFormat(i18n.language === 'ar' ? 'ar-LB' : 'en-US'),
     [i18n.language]
   );
 
@@ -88,6 +94,11 @@ export function InventoryPage() {
   const isFiltering = searchTerm.trim().length > 0;
   const hasProducts = totalProducts > 0;
   const hasFilteredResults = filteredProducts.length > 0;
+  const summaryData = inventorySummary.data;
+  const summaryCategories = summaryData?.categories ?? [];
+  const summaryItems = summaryData?.items ?? [];
+  const hasCategoryData = summaryCategories.length > 0;
+  const hasItemData = summaryItems.length > 0;
 
   const renderTableRows = () => {
     if (!hasProducts) {
@@ -313,6 +324,182 @@ export function InventoryPage() {
           {banner.message}
         </div>
       )}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+            {t('inventorySummaryTitle')}
+          </h2>
+        </div>
+        {inventorySummary.isLoading ? (
+          <Card className="p-6 text-sm text-slate-500 dark:text-slate-400">
+            {t('inventorySummaryLoading')}
+          </Card>
+        ) : inventorySummary.isError ? (
+          <Card className="flex flex-col gap-3 p-6">
+            <div className="text-sm text-red-600 dark:text-red-400">
+              {t('inventorySummaryError')}
+            </div>
+            <div>
+              <Button type="button" onClick={() => inventorySummary.refetch()} className="w-fit">
+                {t('retry')}
+              </Button>
+            </div>
+          </Card>
+        ) : !summaryData ? (
+          <Card className="p-6 text-sm text-slate-500 dark:text-slate-400">
+            {t('inventorySummaryEmpty')}
+          </Card>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    {t('inventorySummaryTotalStockValue')}
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {t('inventorySummaryTotalsDescription')}
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                      {t('inventorySummaryTotalUsd')}
+                    </div>
+                    <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                      {formatCurrency(summaryData.totalCostUsd ?? 0, 'USD', currencyLocale)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                      {t('inventorySummaryTotalLbp')}
+                    </div>
+                    <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                      {formatCurrency(summaryData.totalCostLbp ?? 0, 'LBP', currencyLocale)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+            <Card className="flex flex-col gap-3 p-6">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  {t('inventorySummaryCategoriesTitle')}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t('inventorySummaryCategoriesDescription')}
+                </p>
+              </div>
+              {hasCategoryData ? (
+                <ul className="space-y-3">
+                  {summaryCategories.map((category) => (
+                    <li
+                      key={category.categoryId}
+                      className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-slate-100">
+                            {category.categoryName || t('inventoryCategoryUnknown')}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {t('inventorySummaryQuantityLabel', {
+                              count: numberFormatter.format(category.quantityOnHand ?? 0)
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-1 text-sm">
+                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                          <span>{t('inventorySummaryTotalUsd')}</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">
+                            {formatCurrency(category.totalCostUsd ?? 0, 'USD', currencyLocale)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                          <span>{t('inventorySummaryTotalLbp')}</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">
+                            {formatCurrency(category.totalCostLbp ?? 0, 'LBP', currencyLocale)}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t('inventorySummaryCategoriesEmpty')}
+                </p>
+              )}
+            </Card>
+            <Card className="flex flex-col gap-3 p-6 lg:col-span-2">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  {t('inventorySummaryItemsTitle')}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t('inventorySummaryItemsDescription')}
+                </p>
+              </div>
+              {hasItemData ? (
+                <ul className="space-y-3">
+                  {summaryItems.map((item) => (
+                    <li
+                      key={item.productId}
+                      className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+                    >
+                      <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <p className="font-medium text-slate-900 dark:text-slate-100">
+                            {item.productName}
+                          </p>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {t('inventorySummaryQuantityLabel', {
+                              count: numberFormatter.format(item.quantityOnHand ?? 0)
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {item.sku ? (
+                            <span>
+                              {t('inventorySku')}: {item.sku}
+                            </span>
+                          ) : (
+                            <span>
+                              {t('inventoryBarcodeLabel')}: {item.barcode}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {item.categoryName || t('inventoryCategoryUnknown')}
+                        </p>
+                      </div>
+                      <div className="mt-3 grid gap-1 text-sm">
+                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                          <span>{t('inventorySummaryTotalUsd')}</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">
+                            {formatCurrency(item.totalCostUsd ?? 0, 'USD', currencyLocale)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                          <span>{t('inventorySummaryTotalLbp')}</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">
+                            {formatCurrency(item.totalCostLbp ?? 0, 'LBP', currencyLocale)}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t('inventorySummaryItemsEmpty')}
+                </p>
+              )}
+            </Card>
+          </div>
+        )}
+      </section>
       <Card className="space-y-4 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
