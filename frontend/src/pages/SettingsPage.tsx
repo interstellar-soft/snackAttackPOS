@@ -60,6 +60,7 @@ export function SettingsPage() {
         onLogout={logout}
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canManageInventory ? () => navigate('/analytics') : undefined}
+        onNavigateProfits={canManageInventory ? () => navigate('/profits') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}

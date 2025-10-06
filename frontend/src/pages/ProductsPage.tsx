@@ -295,6 +295,7 @@ export function ProductsPage() {
         onLogout={logout}
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
+        onNavigateProfits={canSeeAnalytics ? () => navigate('/profits') : undefined}
         onNavigateInvoices={canSeeAnalytics ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canSeeAnalytics ? () => navigate('/purchases') : undefined}
         onNavigateSettings={canSeeAnalytics ? () => navigate('/settings') : undefined}
