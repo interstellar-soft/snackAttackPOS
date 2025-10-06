@@ -87,14 +87,6 @@ export function POSPage() {
   const pendingEditableTimeoutRef = useRef<number | null>(null);
 
   const focusBarcodeInput = useCallback(() => {
-    barcodeInputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    focusBarcodeInput();
-  }, [focusBarcodeInput]);
-
-  const focusBarcodeInput = useCallback(() => {
     const element = barcodeInputRef.current;
     if (!element) {
       return;
