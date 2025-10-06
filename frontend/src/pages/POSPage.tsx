@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -75,9 +75,13 @@ export function POSPage() {
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
+  const focusBarcodeInput = useCallback(() => {
     barcodeInputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    focusBarcodeInput();
+  }, [focusBarcodeInput]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -118,6 +122,7 @@ export function POSPage() {
       const displaySku = product.sku?.trim();
       setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
       setBarcode('');
+      focusBarcodeInput();
       if (product.isFlagged) {
         setOverrideRequired(true);
         setOverrideReason(product.flagReason ?? 'Anomaly detected');
@@ -337,7 +342,7 @@ export function POSPage() {
                   highlightedItemId={lastAddedItemId}
                   onQuantityConfirm={() => {
                     setLastAddedItemId(null);
-                    barcodeInputRef.current?.focus();
+                    focusBarcodeInput();
                   }}
                 />
               </div>
