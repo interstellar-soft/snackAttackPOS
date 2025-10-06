@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { ProfitsPage } from './pages/ProfitsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PurchasesPage } from './pages/PurchasesPage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -60,6 +61,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin', 'manager']}>
                   <AnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profits"
+              element={
+                <ProtectedRoute roles={['admin', 'manager']}>
+                  <ProfitsPage />
                 </ProtectedRoute>
               }
             />

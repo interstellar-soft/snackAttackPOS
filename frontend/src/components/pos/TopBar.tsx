@@ -11,8 +11,10 @@ interface TopBarProps {
   onLogout: () => void;
   lastScan?: string;
   onNavigateAnalytics?: () => void;
+  onNavigateProfits?: () => void;
   onNavigatePos?: () => void;
   isAnalytics?: boolean;
+  isProfits?: boolean;
   onNavigateProducts?: () => void;
   isProducts?: boolean;
   onNavigateInventory?: () => void;
@@ -29,8 +31,10 @@ export function TopBar({
   onLogout,
   lastScan,
   onNavigateAnalytics,
+  onNavigateProfits,
   onNavigatePos,
   isAnalytics,
+  isProfits,
   onNavigateProducts,
   isProducts,
   onNavigateInventory,
@@ -53,6 +57,7 @@ export function TopBar({
   const isPosActive =
     Boolean(onNavigatePos) &&
     !isAnalytics &&
+    !isProfits &&
     !isInventory &&
     !isPurchases &&
     !isInvoices &&
@@ -71,6 +76,12 @@ export function TopBar({
       label: t('analytics'),
       onClick: onNavigateAnalytics,
       isActive: Boolean(isAnalytics)
+    },
+    {
+      key: 'profits',
+      label: t('profits'),
+      onClick: onNavigateProfits,
+      isActive: Boolean(isProfits)
     },
     {
       key: 'products',
