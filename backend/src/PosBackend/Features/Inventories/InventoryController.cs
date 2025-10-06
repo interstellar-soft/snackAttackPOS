@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PosBackend.Application.Responses;
 using PosBackend.Infrastructure.Data;
 
-namespace PosBackend.Features.Inventory;
+namespace PosBackend.Features.Inventories;
 
 [ApiController]
 [Route("api/inventory")]
