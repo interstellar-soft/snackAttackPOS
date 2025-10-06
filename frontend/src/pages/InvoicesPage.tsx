@@ -11,7 +11,6 @@ import { useAuthStore } from '../stores/authStore';
 import { formatCurrency } from '../lib/utils';
 import { API_BASE_URL } from '../lib/api';
 import type { Product } from '../lib/ProductsService';
-import { playCartBeep } from '../lib/sounds';
 
 interface InvoiceDraftItem {
   id: string;
@@ -191,7 +190,6 @@ export function InvoicesPage() {
       });
       setBarcode('');
       setBanner(null);
-      void playCartBeep();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('invoicesUpdateError');
       setBanner({ type: 'error', message });

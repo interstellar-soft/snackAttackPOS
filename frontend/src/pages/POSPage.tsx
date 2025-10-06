@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -75,6 +75,18 @@ export function POSPage() {
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
 
+  const focusBarcodeInput = useCallback(() => {
+    const element = barcodeInputRef.current;
+    if (!element) {
+      return;
+    }
+    element.focus();
+    if (typeof element.setSelectionRange === 'function') {
+      const length = element.value.length;
+      element.setSelectionRange(length, length);
+    }
+  }, []);
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -86,6 +98,10 @@ export function POSPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
+  useEffect(() => {
+    focusBarcodeInput();
+  }, [focusBarcodeInput]);
 
   const scanMutation = useMutation<ProductResponse, Error, string>({
     mutationFn: async (code: string) => {
@@ -114,12 +130,151 @@ export function POSPage() {
       const displaySku = product.sku?.trim();
       setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
       setBarcode('');
+      focusBarcodeInput();
       if (product.isFlagged) {
         setOverrideRequired(true);
         setOverrideReason(product.flagReason ?? 'Anomaly detected');
       }
+    },
+    onSettled: () => {
+      focusBarcodeInput();
     }
   });
+  const { mutate: mutateBarcode } = scanMutation;
+
+  useEffect(() => {
+    let buffer = '';
+    let sequenceActive = false;
+    let lastKeyTime = 0;
+    let resetTimer: number | undefined;
+    let sourceElement: HTMLInputElement | HTMLTextAreaElement | null = null;
+    let sourceInitialValue = '';
+
+    const clearTimer = () => {
+      if (resetTimer !== undefined) {
+        window.clearTimeout(resetTimer);
+        resetTimer = undefined;
+      }
+    };
+
+    const resetSequence = () => {
+      buffer = '';
+      sequenceActive = false;
+      lastKeyTime = 0;
+      sourceElement = null;
+      sourceInitialValue = '';
+      clearTimer();
+    };
+
+    const scheduleReset = () => {
+      clearTimer();
+      resetTimer = window.setTimeout(() => {
+        resetSequence();
+      }, 250);
+    };
+
+    const revertSource = () => {
+      if (sourceElement) {
+        sourceElement.value = sourceInitialValue;
+        sourceElement.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target === barcodeInputRef.current) {
+        resetSequence();
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        resetSequence();
+        return;
+      }
+
+      const key = event.key;
+      const isCharacterKey = key.length === 1;
+      const isEnter = key === 'Enter';
+
+      if (!isCharacterKey && !isEnter) {
+        resetSequence();
+        return;
+      }
+
+      const now = Date.now();
+      const delta = now - lastKeyTime;
+
+      if (!buffer) {
+        if (isCharacterKey) {
+          buffer = key;
+          lastKeyTime = now;
+          scheduleReset();
+          if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+            sourceElement = target;
+            sourceInitialValue = target.value;
+          } else {
+            sourceElement = null;
+            sourceInitialValue = '';
+          }
+        }
+        return;
+      }
+
+      if (!sequenceActive) {
+        const rapidCharacter = isCharacterKey && delta <= 80;
+        const rapidEnter = isEnter && delta <= 120;
+        if (rapidCharacter || rapidEnter) {
+          sequenceActive = true;
+          revertSource();
+          focusBarcodeInput();
+          if (rapidCharacter) {
+            event.preventDefault();
+            buffer += key;
+            setBarcode(buffer);
+            scheduleReset();
+          } else if (rapidEnter) {
+            event.preventDefault();
+            const code = buffer.trim();
+            if (code) {
+              setBarcode(code);
+              mutateBarcode(code);
+            }
+            resetSequence();
+          }
+        } else {
+          resetSequence();
+        }
+        lastKeyTime = now;
+        return;
+      }
+
+      event.preventDefault();
+      focusBarcodeInput();
+      if (isCharacterKey) {
+        buffer += key;
+        setBarcode(buffer);
+        scheduleReset();
+      } else if (isEnter) {
+        const code = buffer.trim();
+        if (code) {
+          setBarcode(code);
+          mutateBarcode(code);
+        }
+        resetSequence();
+      }
+      lastKeyTime = now;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      clearTimer();
+    };
+  }, [focusBarcodeInput, mutateBarcode]);
 
   const currencyQuery = useQuery<BalanceResponse>({
     queryKey: ['currency-rate', token],
@@ -157,7 +312,8 @@ export function POSPage() {
   const handleScanSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (barcode.trim()) {
-      scanMutation.mutate(barcode.trim());
+      focusBarcodeInput();
+      mutateBarcode(barcode.trim());
     }
   };
 
