@@ -199,6 +199,7 @@ export function AnalyticsPage() {
         onLogout={logout}
         isAnalytics
         onNavigatePos={() => navigate('/')}
+        onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}

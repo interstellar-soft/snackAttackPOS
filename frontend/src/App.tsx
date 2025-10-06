@@ -5,6 +5,7 @@ import { POSPage } from './pages/POSPage';
 import { LoginPage } from './pages/LoginPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { InventoryPage } from './pages/InventoryPage';
+import { ProductsPage } from './pages/ProductsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PurchasesPage } from './pages/PurchasesPage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -67,6 +68,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin', 'manager']}>
                   <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/products"
+              element={
+                <ProtectedRoute roles={['admin', 'manager']}>
+                  <ProductsPage />
                 </ProtectedRoute>
               }
             />

@@ -378,10 +378,11 @@ export function PurchasesPage() {
         onLogout={logout}
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canManageInventory ? () => navigate('/analytics') : undefined}
+        onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
-        onNavigatePurchases={undefined}
+        onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         isPurchases
       />
       {editingPurchaseId && (
