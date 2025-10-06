@@ -7,6 +7,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProfitsPage } from './pages/ProfitsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { ProfitsPage } from './pages/ProfitsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PurchasesPage } from './pages/PurchasesPage';
 import { InvoicesPage } from './pages/InvoicesPage';
