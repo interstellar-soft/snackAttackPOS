@@ -300,6 +300,7 @@ export function InvoicesPage() {
         onLogout={logout}
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canManageInventory ? () => navigate('/analytics') : undefined}
+        onNavigateProfits={canManageInventory ? () => navigate('/profits') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}

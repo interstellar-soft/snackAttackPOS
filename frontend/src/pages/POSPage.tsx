@@ -616,6 +616,7 @@ export function POSPage() {
         onLogout={logout}
         lastScan={lastScan}
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
+        onNavigateProfits={canSeeAnalytics ? () => navigate('/profits') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
