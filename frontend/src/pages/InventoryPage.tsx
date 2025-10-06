@@ -54,10 +54,121 @@ export function InventoryPage() {
 
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [banner, setBanner] = useState<BannerState | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const canSeeAnalytics = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
-  const currencyLocale = useMemo(() => (i18n.language === 'ar' ? 'ar-LB' : 'en-US'), [i18n.language]);
+  const currencyLocale = useMemo(
+    () => (i18n.language === 'ar' ? 'ar-LB' : 'en-US'),
+    [i18n.language]
+  );
+
+  const filteredProducts = useMemo(() => {
+    const products = productsQuery.data ?? [];
+    const term = searchTerm.trim().toLowerCase();
+
+    if (!term) {
+      return products;
+    }
+
+    return products.filter((product) => {
+      const fields = [
+        product.name,
+        product.sku,
+        product.barcode,
+        product.categoryName,
+        product.category
+      ];
+
+      return fields.some((field) => field?.toLowerCase().includes(term));
+    });
+  }, [productsQuery.data, searchTerm]);
+
+  const totalProducts = productsQuery.data?.length ?? 0;
+  const isFiltering = searchTerm.trim().length > 0;
+  const hasProducts = totalProducts > 0;
+  const hasFilteredResults = filteredProducts.length > 0;
+
+  const renderTableRows = () => {
+    if (!hasProducts) {
+      return (
+        <tr>
+          <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={10}>
+            {t('inventoryEmpty')}
+          </td>
+        </tr>
+      );
+    }
+
+    if (!hasFilteredResults) {
+      return (
+        <tr>
+          <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={10}>
+            {t('inventoryNoResults')}
+          </td>
+        </tr>
+      );
+    }
+
+    return filteredProducts.map((product) => (
+      <tr key={product.id} className="text-slate-700 dark:text-slate-200">
+        <td className="px-4 py-3 text-sm font-medium">{product.name}</td>
+        <td className="px-4 py-3 text-xs uppercase text-slate-500">{product.sku?.trim() || '—'}</td>
+        <td className="px-4 py-3 text-sm text-slate-500">{product.barcode}</td>
+        <td className="px-4 py-3 text-sm text-slate-500">
+          <div className="flex flex-col">
+            <span>{product.categoryName ?? product.category ?? t('inventoryCategoryUnknown')}</span>
+            {product.category && product.categoryName && product.category !== product.categoryName && (
+              <span className="text-xs text-slate-400">{product.category}</span>
+            )}
+          </div>
+        </td>
+        <td className="px-4 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300">
+          {formatCurrency(product.priceUsd, 'USD', currencyLocale)}
+        </td>
+        <td className="px-4 py-3 text-sm text-slate-500">
+          {formatCurrency(product.priceLbp, 'LBP', currencyLocale)}
+        </td>
+        <td className="px-4 py-3 text-sm text-slate-500">{product.quantityOnHand?.toLocaleString() ?? '0'}</td>
+        <td className="px-4 py-3 text-sm text-slate-500">
+          {formatCurrency(product.averageCostUsd ?? 0, 'USD', currencyLocale)}
+        </td>
+        <td className="px-4 py-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed dark:border-slate-600 dark:bg-slate-800"
+              checked={product.isPinned}
+              onChange={() => handleTogglePinned(product)}
+              disabled={togglePinnedProduct.isPending}
+              aria-label={t('inventoryPinToPos')}
+            />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {product.isPinned ? t('inventoryPinnedYes') : t('inventoryPinnedNo')}
+            </span>
+          </label>
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              className="bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+              onClick={() => setDialog({ type: 'edit', product })}
+            >
+              {t('inventoryEdit')}
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-500 hover:bg-red-400"
+              onClick={() => setDialog({ type: 'delete', product })}
+            >
+              {t('inventoryDelete')}
+            </Button>
+          </div>
+        </td>
+      </tr>
+    ));
+  };
 
   useEffect(() => {
     if (!banner) {
@@ -207,12 +318,25 @@ export function InventoryPage() {
           <div>
             <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{t('inventoryListTitle')}</h2>
             <p className="text-sm text-slate-500">
-              {t('inventoryTotal', { count: productsQuery.data?.length ?? 0 })}
+              {isFiltering
+                ? t('inventoryFilteredTotal', {
+                    filtered: filteredProducts.length,
+                    total: totalProducts
+                  })
+                : t('inventoryTotal', { count: totalProducts })}
             </p>
           </div>
-          <Button type="button" onClick={() => setDialog({ type: 'create' })}>
-            {t('inventoryAddTitle')}
-          </Button>
+          <div className="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={t('inventorySearchPlaceholder')}
+              className="min-w-[220px]"
+            />
+            <Button type="button" onClick={() => setDialog({ type: 'create' })}>
+              {t('inventoryAddTitle')}
+            </Button>
+          </div>
         </div>
         {productsQuery.isLoading && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40">
@@ -261,78 +385,7 @@ export function InventoryPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {productsQuery.data && productsQuery.data.length > 0 ? (
-                  productsQuery.data.map((product) => (
-                    <tr key={product.id} className="text-slate-700 dark:text-slate-200">
-                      <td className="px-4 py-3 text-sm font-medium">{product.name}</td>
-                      <td className="px-4 py-3 text-xs uppercase text-slate-500">
-                        {product.sku?.trim() || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">{product.barcode}</td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
-                        <div className="flex flex-col">
-                          <span>{product.categoryName ?? product.category ?? t('inventoryCategoryUnknown')}</span>
-                          {product.category && product.categoryName && product.category !== product.categoryName && (
-                            <span className="text-xs text-slate-400">{product.category}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300">
-                        {formatCurrency(product.priceUsd, 'USD', currencyLocale)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
-                        {formatCurrency(product.priceLbp, 'LBP', currencyLocale)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
-                        {product.quantityOnHand?.toLocaleString() ?? '0'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
-                        {formatCurrency(product.averageCostUsd ?? 0, 'USD', currencyLocale)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed dark:border-slate-600 dark:bg-slate-800"
-                            checked={product.isPinned}
-                            onChange={() => handleTogglePinned(product)}
-                            disabled={togglePinnedProduct.isPending}
-                            aria-label={t('inventoryPinToPos')}
-                          />
-                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {product.isPinned ? t('inventoryPinnedYes') : t('inventoryPinnedNo')}
-                          </span>
-                        </label>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            className="bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-                            onClick={() => setDialog({ type: 'edit', product })}
-                          >
-                            {t('inventoryEdit')}
-                          </Button>
-                          <Button
-                            type="button"
-                            className="bg-red-500 hover:bg-red-400"
-                            onClick={() => setDialog({ type: 'delete', product })}
-                          >
-                            {t('inventoryDelete')}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={10}>
-                      {t('inventoryEmpty')}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">{renderTableRows()}</tbody>
             </table>
           </div>
         )}
