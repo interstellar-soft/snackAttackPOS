@@ -45,10 +45,11 @@ const demoProfitSummary: ProfitSummaryResponse = createDemoProfitSummary();
 function createDemoProfitSummary(): ProfitSummaryResponse {
   const today = new Date();
 
-  const dailyPoints = Array.from({ length: 14 }, (_, index) => {
+  const hourlyPoints = Array.from({ length: 24 }, (_, index) => {
     const date = new Date(today);
-    date.setDate(date.getDate() - (13 - index));
-    const revenue = 850 + index * 25;
+    date.setMinutes(0, 0, 0);
+    date.setHours(date.getHours() - (23 - index));
+    const revenue = 480 + index * 12;
     const cost = revenue * 0.68;
     const gross = revenue - cost;
     return {
@@ -57,6 +58,21 @@ function createDemoProfitSummary(): ProfitSummaryResponse {
       costUsd: Number(cost.toFixed(2)),
       grossProfitUsd: Number(gross.toFixed(2)),
       netProfitUsd: Number(gross.toFixed(2))
+    } satisfies ProfitPoint;
+  });
+
+  const dailyPoints = Array.from({ length: 30 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(date.getDate() - (29 - index));
+    const revenue = 820 + index * 18;
+    const cost = revenue * 0.69;
+    const gross = revenue - cost;
+    return {
+      periodStart: date.toISOString(),
+      revenueUsd: Number(revenue.toFixed(2)),
+      costUsd: Number(cost.toFixed(2)),
+      grossProfitUsd: Number(gross.toFixed(2)),
+      netProfitUsd: Number((gross * 0.97).toFixed(2))
     } satisfies ProfitPoint;
   });
 
@@ -76,26 +92,11 @@ function createDemoProfitSummary(): ProfitSummaryResponse {
     } satisfies ProfitPoint;
   });
 
-  const yearlyPoints = Array.from({ length: 4 }, (_, index) => {
-    const date = new Date(today);
-    date.setFullYear(date.getFullYear() - (3 - index), 0, 1);
-    const revenue = 260000 + index * 15000;
-    const cost = revenue * 0.69;
-    const gross = revenue - cost;
-    return {
-      periodStart: date.toISOString(),
-      revenueUsd: Number(revenue.toFixed(2)),
-      costUsd: Number(cost.toFixed(2)),
-      grossProfitUsd: Number(gross.toFixed(2)),
-      netProfitUsd: Number((gross * 0.96).toFixed(2))
-    } satisfies ProfitPoint;
-  });
-
   return {
-    daily: { points: dailyPoints },
+    daily: { points: hourlyPoints },
     weekly: { points: dailyPoints },
-    monthly: { points: monthlyPoints },
-    yearly: { points: yearlyPoints }
+    monthly: { points: dailyPoints },
+    yearly: { points: monthlyPoints }
   };
 }
 
@@ -107,16 +108,17 @@ function formatPeriodLabel(scope: ProfitScope, isoDate: string, locale: string) 
   switch (scope) {
     case 'daily':
       return new Intl.DateTimeFormat(locale, {
-        month: 'short',
-        day: 'numeric'
+        hour: 'numeric',
+        minute: '2-digit'
       }).format(date);
     case 'monthly':
       return new Intl.DateTimeFormat(locale, {
         month: 'short',
-        year: 'numeric'
+        day: 'numeric'
       }).format(date);
     case 'yearly':
       return new Intl.DateTimeFormat(locale, {
+        month: 'short',
         year: 'numeric'
       }).format(date);
     default:
@@ -152,13 +154,17 @@ export function ProfitsPage() {
 
   const chartData = useMemo(
     () =>
-      (profitSummary[scope]?.points ?? []).map((point) => ({
-        label: formatPeriodLabel(scope, point.periodStart, locale),
-        grossProfit: Number(point.grossProfitUsd ?? 0),
-        netProfit: Number(point.netProfitUsd ?? 0),
-        revenue: Number(point.revenueUsd ?? 0),
-        cost: Number(point.costUsd ?? 0)
-      })),
+      [...(profitSummary[scope]?.points ?? [])]
+        .sort(
+          (a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime()
+        )
+        .map((point) => ({
+          label: formatPeriodLabel(scope, point.periodStart, locale),
+          grossProfit: Number(point.grossProfitUsd ?? 0),
+          netProfit: Number(point.netProfitUsd ?? 0),
+          revenue: Number(point.revenueUsd ?? 0),
+          cost: Number(point.costUsd ?? 0)
+        })),
     [locale, profitSummary, scope]
   );
 
@@ -177,7 +183,12 @@ export function ProfitsPage() {
   );
 
   const averageNet = chartData.length > 0 ? totals.netProfit / chartData.length : 0;
-  const scopeLabel = t(scope === 'daily' ? 'profitScopeDaily' : scope === 'monthly' ? 'profitScopeMonthly' : 'profitScopeYearly');
+  const periodLabel =
+    scope === 'daily'
+      ? t('profitPeriodHour')
+      : scope === 'monthly'
+        ? t('profitPeriodDay')
+        : t('profitPeriodMonth');
   const hasData = chartData.length > 0;
 
   return (
@@ -233,7 +244,7 @@ export function ProfitsPage() {
             {formatCurrency(totals.netProfit, 'USD', locale)}
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t('profitAveragePerPeriod', { period: scopeLabel })}: {formatCurrency(averageNet, 'USD', locale)}
+            {t('profitAveragePerPeriod', { period: periodLabel })}: {formatCurrency(averageNet, 'USD', locale)}
           </p>
         </Card>
         <Card className="space-y-2 p-4">
