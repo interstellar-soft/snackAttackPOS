@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -39,6 +39,10 @@ interface ProfitSummaryResponse {
 }
 
 type ProfitScope = 'daily' | 'monthly' | 'yearly';
+
+type SelectedPeriods = Partial<Record<ProfitScope, string | undefined>>;
+
+const scopes: ProfitScope[] = ['daily', 'monthly', 'yearly'];
 
 const demoProfitSummary: ProfitSummaryResponse = createDemoProfitSummary();
 
@@ -135,6 +139,7 @@ export function ProfitsPage() {
   const role = useAuthStore((state) => state.role);
 
   const [scope, setScope] = useState<ProfitScope>('daily');
+  const [selectedPeriods, setSelectedPeriods] = useState<SelectedPeriods>({});
 
   const { data, isLoading, isError } = useQuery<ProfitSummaryResponse>({
     queryKey: ['profit-summary', token],
@@ -151,6 +156,74 @@ export function ProfitsPage() {
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
+  const sortedPoints = useMemo(
+    () => {
+      const sortPoints = (points?: ProfitPoint[]) =>
+        [...(points ?? [])].sort(
+          (a, b) => new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()
+        );
+      return {
+        daily: sortPoints(profitSummary.daily?.points),
+        monthly: sortPoints(profitSummary.monthly?.points),
+        yearly: sortPoints(profitSummary.yearly?.points)
+      } satisfies Record<ProfitScope, ProfitPoint[]>;
+    },
+    [profitSummary]
+  );
+
+  useEffect(() => {
+    setSelectedPeriods((prev) => {
+      const next: SelectedPeriods = { ...prev };
+      let updated = false;
+
+      scopes.forEach((key) => {
+        const points = sortedPoints[key];
+        if (points.length === 0) {
+          if (next[key] !== undefined) {
+            next[key] = undefined;
+            updated = true;
+          }
+          return;
+        }
+
+        const current = next[key];
+        const hasCurrent = typeof current === 'string' && points.some((point) => point.periodStart === current);
+        const fallback = points[0]?.periodStart;
+
+        if (!hasCurrent && fallback !== undefined && current !== fallback) {
+          next[key] = fallback;
+          updated = true;
+        }
+      });
+
+      return updated ? next : prev;
+    });
+  }, [sortedPoints]);
+
+  const periodOptions = useMemo(
+    () =>
+      sortedPoints[scope].map((point) => ({
+        value: point.periodStart,
+        label: formatPeriodLabel(scope, point.periodStart, locale)
+      })),
+    [locale, scope, sortedPoints]
+  );
+
+  const filteredPoints = useMemo(() => {
+    const selected = selectedPeriods[scope];
+    const points = sortedPoints[scope];
+
+    if (!selected) {
+      return points;
+    }
+
+    return points.filter((point) => point.periodStart === selected);
+  }, [scope, selectedPeriods, sortedPoints]);
+
+  const chartData = useMemo(
+    () =>
+      [...filteredPoints]
+        .sort((a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime())
   const chartData = useMemo(
     () =>
       [...(profitSummary[scope]?.points ?? [])]
@@ -164,6 +237,7 @@ export function ProfitsPage() {
           revenue: Number(point.revenueUsd ?? 0),
           cost: Number(point.costUsd ?? 0)
         })),
+    [filteredPoints, locale, scope]
     [locale, profitSummary, scope]
   );
 
@@ -189,6 +263,13 @@ export function ProfitsPage() {
         ? t('profitPeriodMonth')
         : t('profitPeriodYear');
   const hasData = chartData.length > 0;
+  const selectedPeriodValue = selectedPeriods[scope] ?? '';
+  const periodPickerLabel =
+    scope === 'daily'
+      ? t('profitPeriodPickerDaily')
+      : scope === 'monthly'
+        ? t('profitPeriodPickerMonthly')
+        : t('profitPeriodPickerYearly');
 
   return (
     <div className="flex min-h-screen flex-col gap-4 bg-slate-100 p-4 dark:bg-slate-950">
@@ -217,6 +298,48 @@ export function ProfitsPage() {
           <div>
             <CardTitle>{t('profitOverviewTitle')}</CardTitle>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('profitOverviewDescription')}</p>
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
+              <span className="mb-1 font-medium">{t('profitScopeLabel')}</span>
+              <select
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                value={scope}
+                onChange={(event) => {
+                  const value = event.target.value as ProfitScope;
+                  setScope(value);
+                }}
+              >
+                <option value="daily">{t('profitScopeDaily')}</option>
+                <option value="monthly">{t('profitScopeMonthly')}</option>
+                <option value="yearly">{t('profitScopeYearly')}</option>
+              </select>
+            </label>
+            <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
+              <span className="mb-1 font-medium">{periodPickerLabel}</span>
+              <select
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                value={selectedPeriodValue}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSelectedPeriods((prev) => ({
+                    ...prev,
+                    [scope]: value || undefined
+                  }));
+                }}
+                disabled={periodOptions.length === 0}
+              >
+                {periodOptions.length === 0 ? (
+                  <option value="">{t('profitPeriodUnavailable')}</option>
+                ) : (
+                  periodOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
           </div>
           <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
             <span className="mb-1 font-medium">{t('profitScopeLabel')}</span>
