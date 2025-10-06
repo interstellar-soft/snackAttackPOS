@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { POSPage } from './pages/POSPage';
 import { LoginPage } from './pages/LoginPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
+import { ProfitsPage } from './pages/ProfitsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { ProfitsPage } from './pages/ProfitsPage';

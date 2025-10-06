@@ -224,6 +224,12 @@ export function ProfitsPage() {
     () =>
       [...filteredPoints]
         .sort((a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime())
+  const chartData = useMemo(
+    () =>
+      [...(profitSummary[scope]?.points ?? [])]
+        .sort(
+          (a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime()
+        )
         .map((point) => ({
           label: formatPeriodLabel(scope, point.periodStart, locale),
           grossProfit: Number(point.grossProfitUsd ?? 0),
@@ -232,6 +238,7 @@ export function ProfitsPage() {
           cost: Number(point.costUsd ?? 0)
         })),
     [filteredPoints, locale, scope]
+    [locale, profitSummary, scope]
   );
 
   const totals = useMemo(
@@ -334,6 +341,21 @@ export function ProfitsPage() {
               </select>
             </label>
           </div>
+          <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
+            <span className="mb-1 font-medium">{t('profitScopeLabel')}</span>
+            <select
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+              value={scope}
+              onChange={(event) => {
+                const value = event.target.value as ProfitScope;
+                setScope(value);
+              }}
+            >
+              <option value="daily">{t('profitScopeDaily')}</option>
+              <option value="monthly">{t('profitScopeMonthly')}</option>
+              <option value="yearly">{t('profitScopeYearly')}</option>
+            </select>
+          </label>
         </div>
       </Card>
 

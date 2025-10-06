@@ -36,17 +36,41 @@ public class AnalyticsController : ControllerBase
             return new ProfitSummaryResponse();
         }
 
-        var daily = BuildSeries(lines, date => date.Date);
+        var now = DateTime.UtcNow;
+        var hourlyWindowStart = now.AddHours(-23);
+        var dailyWindowStart = now.AddDays(-29);
+        var monthlyWindowStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
+
+        static DateTime AsUtc(DateTime date)
+        {
+            return DateTime.SpecifyKind(date, DateTimeKind.Utc);
+        }
+
+        static DateTime StartOfHour(DateTime date)
+        {
+            return new DateTime(date.Year, date.Month, date.Day, date.Hour, 0, 0, DateTimeKind.Utc);
+        }
+
+        var hourly = BuildSeries(
+            lines.Where(l => l.Transaction != null && AsUtc(l.Transaction!.CreatedAt) >= hourlyWindowStart),
+            StartOfHour);
+
+        var daily = BuildSeries(
+            lines.Where(l => l.Transaction != null && AsUtc(l.Transaction!.CreatedAt) >= dailyWindowStart),
+            date => date.Date);
+
         var weekly = BuildSeries(lines, StartOfWeek);
-        var monthly = BuildSeries(lines, date => new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc));
-        var yearly = BuildSeries(lines, date => new DateTime(date.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var monthly = BuildSeries(
+            lines.Where(l => l.Transaction != null && AsUtc(l.Transaction!.CreatedAt) >= monthlyWindowStart),
+            date => new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc));
 
         return new ProfitSummaryResponse
         {
-            Daily = new ProfitSeries { Points = daily },
+            Daily = new ProfitSeries { Points = hourly },
             Weekly = new ProfitSeries { Points = weekly },
-            Monthly = new ProfitSeries { Points = monthly },
-            Yearly = new ProfitSeries { Points = yearly }
+            Monthly = new ProfitSeries { Points = daily },
+            Yearly = new ProfitSeries { Points = monthly }
         };
     }
 
