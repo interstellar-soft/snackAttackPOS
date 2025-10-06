@@ -62,7 +62,9 @@ export function SettingsPage() {
         onNavigateAnalytics={canManageInventory ? () => navigate('/analytics') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
+        onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
+        onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         isSettings
       />
       <Card className="max-w-2xl space-y-4 p-6">
