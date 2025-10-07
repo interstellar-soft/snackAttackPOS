@@ -188,6 +188,45 @@ export function PurchasesPage() {
     setBanner(null);
   };
 
+  const focusAndSelectQuantityInput = useCallback((input: HTMLInputElement) => {
+    const focusInput = () => {
+      if (typeof input.focus === 'function') {
+        input.focus({ preventScroll: true });
+      }
+    };
+
+    const runSelection = () => {
+      try {
+        if (typeof input.select === 'function') {
+          input.select();
+          return;
+        }
+        if (typeof input.setSelectionRange === 'function') {
+          input.setSelectionRange(0, input.value.length);
+        }
+      } catch {
+        // Some browsers throw for selection APIs on number inputs; ignore and retry.
+      }
+    };
+
+    const focusAndSelect = () => {
+      focusInput();
+      runSelection();
+    };
+
+    focusAndSelect();
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(focusAndSelect);
+      requestAnimationFrame(focusAndSelect);
+    }
+
+    const retryDelays = [0, 24, 64, 120];
+    for (const delay of retryDelays) {
+      window.setTimeout(focusAndSelect, delay);
+    }
+  }, []);
+
   const addBarcode = useCallback(
     async (rawCode: string) => {
       const trimmed = rawCode.trim();
@@ -256,6 +295,12 @@ export function PurchasesPage() {
         });
         if (nextHighlightedId) {
           setLastScannedItemId(nextHighlightedId);
+          window.setTimeout(() => {
+            const input = quantityInputRefs.current[nextHighlightedId!];
+            if (input) {
+              focusAndSelectQuantityInput(input);
+            }
+          });
         }
         setBarcode('');
         setBanner(null);
@@ -264,7 +309,7 @@ export function PurchasesPage() {
         setBanner({ type: 'error', message });
       }
     },
-    [handleFetchProduct, t]
+    [focusAndSelectQuantityInput, handleFetchProduct, t]
   );
 
   const handleBarcodeAdd = useCallback(async () => {
