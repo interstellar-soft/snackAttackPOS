@@ -15,4 +15,6 @@ public class ProductResponse
     public string? FlagReason { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal AverageCostUsd { get; set; }
+    public decimal ReorderPoint { get; set; }
+    public bool IsReorderAlarmEnabled { get; set; }
 }

@@ -17,6 +17,8 @@ export interface Product {
   isPinned?: boolean;
   quantityOnHand?: number;
   averageCostUsd?: number;
+  reorderPoint?: number;
+  isReorderAlarmEnabled?: boolean;
 }
 
 export interface CreateProductInput {
@@ -28,6 +30,7 @@ export interface CreateProductInput {
   categoryName: string;
   description?: string;
   isPinned: boolean;
+  reorderPoint: number;
 }
 
 export interface UpdateProductInput extends CreateProductInput {

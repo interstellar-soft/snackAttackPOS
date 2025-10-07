@@ -26,6 +26,10 @@ export interface ProductResponseDto {
   categoryName: string;
   isFlagged?: boolean | null;
   flagReason?: string | null;
+  quantityOnHand?: number;
+  averageCostUsd?: number;
+  reorderPoint?: number;
+  isReorderAlarmEnabled?: boolean;
 }
 
 export interface ProductMutationPayload {
@@ -36,6 +40,8 @@ export interface ProductMutationPayload {
   currency?: ProductCurrency;
   categoryName: string;
   description?: string | null;
+  isPinned?: boolean;
+  reorderPoint?: number;
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
