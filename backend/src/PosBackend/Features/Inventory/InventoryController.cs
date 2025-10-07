@@ -32,48 +32,66 @@ public class InventoryController : ControllerBase
             return new InventorySummaryResponse();
         }
 
-        static decimal Round(decimal value) => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+        static decimal Round(decimal value, int decimals = 2) => decimal.Round(value, decimals, MidpointRounding.AwayFromZero);
 
         var itemSummaries = inventories
-            .Select(inventory =>
+            .GroupBy(inventory => inventory.ProductId)
+            .Select(group =>
             {
-                var product = inventory.Product;
+                var sample = group.First();
+                var product = sample.Product;
                 var category = product?.Category;
-                var totalCostUsd = Round(inventory.QuantityOnHand * inventory.AverageCostUsd);
-                var totalCostLbp = Round(inventory.QuantityOnHand * inventory.AverageCostLbp);
+                var totalQuantity = group.Sum(item => item.QuantityOnHand);
+                var totalCostUsdRaw = group.Sum(item => item.QuantityOnHand * item.AverageCostUsd);
+                var totalCostLbpRaw = group.Sum(item => item.QuantityOnHand * item.AverageCostLbp);
+                var totalCostUsd = Round(totalCostUsdRaw);
+                var totalCostLbp = Round(totalCostLbpRaw);
+                var averageCostUsd = totalQuantity > 0
+                    ? Round(totalCostUsdRaw / totalQuantity, 4)
+                    : Round(sample.AverageCostUsd, 4);
+                var averageCostLbp = totalQuantity > 0
+                    ? Round(totalCostLbpRaw / totalQuantity)
+                    : Round(sample.AverageCostLbp);
 
                 return new InventoryItemSummary
                 {
-                    ProductId = inventory.ProductId,
+                    ProductId = sample.ProductId,
                     ProductName = product?.Name ?? "Unknown",
                     Sku = product?.Sku,
                     Barcode = product?.Barcode ?? string.Empty,
                     CategoryId = category?.Id,
                     CategoryName = category?.Name ?? "Uncategorized",
-                    QuantityOnHand = inventory.QuantityOnHand,
-                    AverageCostUsd = inventory.AverageCostUsd,
-                    AverageCostLbp = inventory.AverageCostLbp,
+                    QuantityOnHand = totalQuantity,
+                    AverageCostUsd = averageCostUsd,
+                    AverageCostLbp = averageCostLbp,
                     TotalCostUsd = totalCostUsd,
                     TotalCostLbp = totalCostLbp
                 };
             })
-            .OrderBy(item => item.CategoryName)
+            .OrderByDescending(item => item.TotalCostUsd)
             .ThenBy(item => item.ProductName)
             .ToList();
 
         var categorySummaries = inventories
-            .GroupBy(i => i.Product?.Category)
+            .GroupBy(inventory =>
+            {
+                var category = inventory.Product?.Category;
+                return new
+                {
+                    Id = category?.Id ?? Guid.Empty,
+                    Name = category?.Name ?? "Uncategorized"
+                };
+            })
             .Select(group =>
             {
-                var category = group.Key;
                 var totalQuantity = group.Sum(item => item.QuantityOnHand);
                 var totalCostUsd = Round(group.Sum(item => item.QuantityOnHand * item.AverageCostUsd));
                 var totalCostLbp = Round(group.Sum(item => item.QuantityOnHand * item.AverageCostLbp));
 
                 return new InventoryCategorySummary
                 {
-                    CategoryId = category?.Id ?? Guid.Empty,
-                    CategoryName = category?.Name ?? "Uncategorized",
+                    CategoryId = group.Key.Id,
+                    CategoryName = group.Key.Name,
                     QuantityOnHand = totalQuantity,
                     TotalCostUsd = totalCostUsd,
                     TotalCostLbp = totalCostLbp
