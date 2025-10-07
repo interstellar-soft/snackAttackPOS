@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/pos/TopBar';
@@ -49,6 +49,18 @@ export function PurchasesPage() {
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null);
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const barcodeInputRef = useRef<HTMLInputElement | null>(null);
+  const barcodeBufferRef = useRef('');
+  const barcodeTimeoutRef = useRef<number | null>(null);
+  const lastScannerTimeRef = useRef(0);
+  const pendingFirstCharRef = useRef('');
+  const pendingEditableRef = useRef<{
+    element: HTMLInputElement | HTMLTextAreaElement;
+    value: string;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+  } | null>(null);
+  const pendingEditableTimeoutRef = useRef<number | null>(null);
 
   const purchasesQuery = PurchasesService.usePurchases();
   const inventoryProductsQuery = ProductsService.useInventoryProducts();
@@ -74,6 +86,22 @@ export function PurchasesPage() {
     return Array.from(map.values()).sort((a, b) => collator.compare(a, b));
   }, [inventoryProductsQuery.data]);
 
+  const focusBarcodeInput = useCallback(() => {
+    const element = barcodeInputRef.current;
+    if (!element) {
+      return;
+    }
+    element.focus();
+    if (typeof element.setSelectionRange === 'function') {
+      const length = element.value.length;
+      element.setSelectionRange(length, length);
+    }
+  }, []);
+
+  useEffect(() => {
+    focusBarcodeInput();
+  }, [focusBarcodeInput]);
+
   useEffect(() => {
     if (!banner) {
       return;
@@ -94,7 +122,7 @@ export function PurchasesPage() {
     }
   }, [editingPurchaseId, purchasesQuery.data]);
 
-  const handleFetchProduct = async (code: string): Promise<Product | null> => {
+  const handleFetchProduct = useCallback(async (code: string): Promise<Product | null> => {
     const trimmed = code.trim();
     if (!trimmed) {
       return null;
@@ -115,7 +143,7 @@ export function PurchasesPage() {
       throw new Error(message || t('purchasesError'));
     }
     return (await response.json()) as Product;
-  };
+  }, [t, token]);
 
   const resetDraft = () => {
     setItems([]);
@@ -160,16 +188,81 @@ export function PurchasesPage() {
     setBanner(null);
   };
 
-  const handleBarcodeAdd = async () => {
-    const trimmed = barcode.trim();
-    if (!trimmed) {
-      return;
+  const focusAndSelectQuantityInput = useCallback((input: HTMLInputElement) => {
+    const focusInput = () => {
+      if (typeof input.focus === 'function') {
+        input.focus({ preventScroll: true });
+      }
+    };
+
+    const runSelection = () => {
+      try {
+        if (typeof input.select === 'function') {
+          input.select();
+          return;
+        }
+        if (typeof input.setSelectionRange === 'function') {
+          input.setSelectionRange(0, input.value.length);
+        }
+      } catch {
+        // Some browsers throw for selection APIs on number inputs; ignore and retry.
+      }
+    };
+
+    const focusAndSelect = () => {
+      focusInput();
+      runSelection();
+    };
+
+    focusAndSelect();
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(focusAndSelect);
+      requestAnimationFrame(focusAndSelect);
     }
-    try {
-      const product = await handleFetchProduct(trimmed);
-      const deriveNextItems = (previous: DraftItem[]) => {
-        if (product) {
-          const existingIndex = previous.findIndex((item) => item.productId === product.id);
+
+    const retryDelays = [0, 24, 64, 120];
+    for (const delay of retryDelays) {
+      window.setTimeout(focusAndSelect, delay);
+    }
+  }, []);
+
+  const addBarcode = useCallback(
+    async (rawCode: string) => {
+      const trimmed = rawCode.trim();
+      if (!trimmed) {
+        return;
+      }
+      try {
+        const product = await handleFetchProduct(trimmed);
+        const deriveNextItems = (previous: DraftItem[]) => {
+          if (product) {
+            const existingIndex = previous.findIndex((item) => item.productId === product.id);
+            if (existingIndex >= 0) {
+              const next = [...previous];
+              const target = next[existingIndex];
+              const nextQuantity = (Number(target.quantity) || 0) + 1;
+              const updated = { ...target, quantity: nextQuantity.toString() };
+              next[existingIndex] = updated;
+              return { items: next, highlightId: updated.id };
+            }
+            const newItem: DraftItem = {
+              id: product.id,
+              productId: product.id,
+              barcode: product.barcode,
+              name: product.name,
+              sku: product.sku?.trim() ?? '',
+              categoryName: product.categoryName ?? product.category ?? '',
+              quantity: '1',
+              unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
+              currency: 'USD',
+              salePriceUsd: product.priceUsd?.toString() ?? '',
+              isExisting: true,
+              quantityOnHand: product.quantityOnHand ?? 0
+            };
+            return { items: [...previous, newItem], highlightId: newItem.id };
+          }
+          const existingIndex = previous.findIndex((item) => item.barcode === trimmed);
           if (existingIndex >= 0) {
             const next = [...previous];
             const target = next[existingIndex];
@@ -179,62 +272,49 @@ export function PurchasesPage() {
             return { items: next, highlightId: updated.id };
           }
           const newItem: DraftItem = {
-            id: product.id,
-            productId: product.id,
-            barcode: product.barcode,
-            name: product.name,
-            sku: product.sku?.trim() ?? '',
-            categoryName: product.categoryName ?? product.category ?? '',
+            id: createId(),
+            barcode: trimmed,
+            name: '',
+            sku: '',
+            categoryName: '',
             quantity: '1',
-            unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
+            unitCost: '0',
             currency: 'USD',
-            salePriceUsd: product.priceUsd?.toString() ?? '',
-            isExisting: true,
-            quantityOnHand: product.quantityOnHand ?? 0
+            salePriceUsd: '',
+            isExisting: false,
+            quantityOnHand: 0
           };
           return { items: [...previous, newItem], highlightId: newItem.id };
-        }
-        const existingIndex = previous.findIndex((item) => item.barcode === trimmed);
-        if (existingIndex >= 0) {
-          const next = [...previous];
-          const target = next[existingIndex];
-          const nextQuantity = (Number(target.quantity) || 0) + 1;
-          const updated = { ...target, quantity: nextQuantity.toString() };
-          next[existingIndex] = updated;
-          return { items: next, highlightId: updated.id };
-        }
-        const newItem: DraftItem = {
-          id: createId(),
-          barcode: trimmed,
-          name: '',
-          sku: '',
-          categoryName: '',
-          quantity: '1',
-          unitCost: '0',
-          currency: 'USD',
-          salePriceUsd: '',
-          isExisting: false,
-          quantityOnHand: 0
         };
-        return { items: [...previous, newItem], highlightId: newItem.id };
-      };
 
-      let nextHighlightedId: string | null = null;
-      setItems((previous) => {
-        const { items: nextItems, highlightId } = deriveNextItems(previous);
-        nextHighlightedId = highlightId;
-        return nextItems;
-      });
-      if (nextHighlightedId) {
-        setLastScannedItemId(nextHighlightedId);
+        let nextHighlightedId: string | null = null;
+        setItems((previous) => {
+          const { items: nextItems, highlightId } = deriveNextItems(previous);
+          nextHighlightedId = highlightId;
+          return nextItems;
+        });
+        if (nextHighlightedId) {
+          setLastScannedItemId(nextHighlightedId);
+          window.setTimeout(() => {
+            const input = quantityInputRefs.current[nextHighlightedId!];
+            if (input) {
+              focusAndSelectQuantityInput(input);
+            }
+          });
+        }
+        setBarcode('');
+        setBanner(null);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t('purchasesError');
+        setBanner({ type: 'error', message });
       }
-      setBarcode('');
-      setBanner(null);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('purchasesError');
-      setBanner({ type: 'error', message });
-    }
-  };
+    },
+    [focusAndSelectQuantityInput, handleFetchProduct, t]
+  );
+
+  const handleBarcodeAdd = useCallback(async () => {
+    await addBarcode(barcode);
+  }, [addBarcode, barcode]);
 
   const handleItemChange = (id: string, field: keyof DraftItem, value: string) => {
     setItems((previous) => previous.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
@@ -266,15 +346,173 @@ export function PurchasesPage() {
     }
     const input = quantityInputRefs.current[lastScannedItemId];
     if (input) {
-      input.focus();
-      const select = () => input.select();
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(select);
-      } else {
-        select();
-      }
+      focusAndSelectQuantityInput(input);
     }
-  }, [lastScannedItemId, highlightedQuantity]);
+  }, [focusAndSelectQuantityInput, lastScannedItemId, highlightedQuantity]);
+
+  const submitScannedBarcode = useCallback(
+    (code: string) => {
+      void addBarcode(code);
+    },
+    [addBarcode]
+  );
+
+  useEffect(() => {
+    const scannerThresholdMs = 100;
+
+    const clearPendingEditable = () => {
+      pendingFirstCharRef.current = '';
+      pendingEditableRef.current = null;
+      if (pendingEditableTimeoutRef.current !== null) {
+        window.clearTimeout(pendingEditableTimeoutRef.current);
+        pendingEditableTimeoutRef.current = null;
+      }
+    };
+
+    const clearBuffer = (clearInput = false) => {
+      barcodeBufferRef.current = '';
+      if (barcodeTimeoutRef.current !== null) {
+        window.clearTimeout(barcodeTimeoutRef.current);
+        barcodeTimeoutRef.current = null;
+      }
+      if (clearInput) {
+        setBarcode('');
+      }
+      clearPendingEditable();
+    };
+
+    const scheduleBufferReset = () => {
+      if (barcodeTimeoutRef.current !== null) {
+        window.clearTimeout(barcodeTimeoutRef.current);
+      }
+      barcodeTimeoutRef.current = window.setTimeout(() => {
+        clearBuffer(true);
+      }, scannerThresholdMs);
+    };
+
+    const applyPendingFirstChar = () => {
+      if (!pendingFirstCharRef.current) {
+        return '';
+      }
+      const firstChar = pendingFirstCharRef.current;
+      const pendingEditable = pendingEditableRef.current;
+      if (pendingEditable) {
+        const { element, value, selectionStart, selectionEnd } = pendingEditable;
+        element.value = value;
+        if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+          element.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }
+      clearPendingEditable();
+      return firstChar;
+    };
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (activeElement === barcodeInputRef.current) {
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      const isPrintableKey = event.key.length === 1 && event.key !== 'Enter';
+      const isEnter = event.key === 'Enter';
+
+      if (!isPrintableKey && !isEnter) {
+        return;
+      }
+
+      const now = performance.now();
+      const timeSinceLast = now - lastScannerTimeRef.current;
+      lastScannerTimeRef.current = now;
+
+      if (isPrintableKey) {
+        const shouldHandle =
+          barcodeBufferRef.current.length > 0 ||
+          pendingFirstCharRef.current !== '' ||
+          timeSinceLast <= scannerThresholdMs;
+
+        if (!shouldHandle) {
+          pendingFirstCharRef.current = event.key;
+
+          const target = event.target;
+          if (
+            target instanceof HTMLInputElement ||
+            target instanceof HTMLTextAreaElement
+          ) {
+            if (target !== barcodeInputRef.current && !target.readOnly && !target.disabled) {
+              pendingEditableRef.current = {
+                element: target,
+                value: target.value,
+                selectionStart: target.selectionStart,
+                selectionEnd: target.selectionEnd
+              };
+            } else {
+              pendingEditableRef.current = null;
+            }
+          } else {
+            pendingEditableRef.current = null;
+          }
+
+          if (pendingEditableTimeoutRef.current !== null) {
+            window.clearTimeout(pendingEditableTimeoutRef.current);
+          }
+          pendingEditableTimeoutRef.current = window.setTimeout(() => {
+            pendingFirstCharRef.current = '';
+            pendingEditableRef.current = null;
+            pendingEditableTimeoutRef.current = null;
+          }, scannerThresholdMs);
+          return;
+        }
+
+        event.preventDefault();
+        focusBarcodeInput();
+
+        if (!barcodeBufferRef.current) {
+          const firstChar = applyPendingFirstChar();
+          barcodeBufferRef.current = firstChar;
+        }
+
+        const nextValue = `${barcodeBufferRef.current}${event.key}`;
+        barcodeBufferRef.current = nextValue;
+        setBarcode(nextValue);
+        scheduleBufferReset();
+        return;
+      }
+
+      const shouldHandleEnter =
+        barcodeBufferRef.current.length > 0 || pendingFirstCharRef.current !== '';
+
+      if (!shouldHandleEnter) {
+        return;
+      }
+
+      event.preventDefault();
+      focusBarcodeInput();
+
+      if (!barcodeBufferRef.current) {
+        const firstChar = applyPendingFirstChar();
+        barcodeBufferRef.current = firstChar;
+      }
+
+      const pendingValue = barcodeBufferRef.current || barcodeInputRef.current?.value || '';
+      const trimmed = pendingValue.trim();
+      clearBuffer();
+
+      if (trimmed) {
+        setBarcode(trimmed);
+        submitScannedBarcode(trimmed);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => {
+      window.removeEventListener('keydown', handleKeydown);
+      clearBuffer();
+    };
+  }, [focusBarcodeInput, submitScannedBarcode]);
 
   const totals = useMemo(() => {
     const rate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1;
@@ -412,6 +650,8 @@ export function PurchasesPage() {
               </div>
               <div className="flex gap-2">
                 <Input
+                  id="purchases-barcode-input"
+                  ref={barcodeInputRef}
                   value={barcode}
                   onChange={(event) => setBarcode(event.target.value)}
                   onKeyDown={(event) => {
