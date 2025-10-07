@@ -82,6 +82,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<decimal>("AverageCostLbp").HasColumnType("numeric(20,2)");
                 b.Property<decimal>("AverageCostUsd").HasColumnType("numeric(14,4)");
                 b.Property<DateTimeOffset?>("LastRestockedAt").HasColumnType("timestamp with time zone");
+                b.Property<bool>("IsReorderAlarmEnabled").HasColumnType("boolean");
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
                 b.Property<decimal>("QuantityOnHand").HasColumnType("numeric(14,2)");
                 b.Property<decimal>("ReorderPoint").HasColumnType("numeric(18,2)");

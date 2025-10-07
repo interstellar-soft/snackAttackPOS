@@ -456,19 +456,20 @@ public class PurchasesController : ControllerBase
     private async Task UpdateInventoryAsync(Product product, decimal quantity, decimal unitCostUsd, decimal exchangeRate, CancellationToken cancellationToken)
     {
         var inventory = await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == product.Id, cancellationToken);
-        if (inventory is null)
-        {
-            inventory = new InventoryEntity
+            if (inventory is null)
             {
-                ProductId = product.Id,
-                QuantityOnHand = 0,
-                ReorderPoint = 0,
-                ReorderQuantity = 0,
-                AverageCostUsd = unitCostUsd,
-                AverageCostLbp = _currencyService.ConvertUsdToLbp(unitCostUsd, exchangeRate),
-                LastRestockedAt = DateTimeOffset.UtcNow
-            };
-            await _db.Inventories.AddAsync(inventory, cancellationToken);
+                inventory = new InventoryEntity
+                {
+                    ProductId = product.Id,
+                    QuantityOnHand = 0,
+                    ReorderPoint = 0,
+                    ReorderQuantity = 0,
+                    IsReorderAlarmEnabled = false,
+                    AverageCostUsd = unitCostUsd,
+                    AverageCostLbp = _currencyService.ConvertUsdToLbp(unitCostUsd, exchangeRate),
+                    LastRestockedAt = DateTimeOffset.UtcNow
+                };
+                await _db.Inventories.AddAsync(inventory, cancellationToken);
         }
 
         var existingQty = inventory.QuantityOnHand;
