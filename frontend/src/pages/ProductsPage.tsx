@@ -26,6 +26,7 @@ type ProductFormValues = {
   price: string;
   currency: 'USD' | 'LBP';
   isPinned: boolean;
+  reorderPoint: string;
 };
 
 const emptyValues: ProductFormValues = {
@@ -35,7 +36,8 @@ const emptyValues: ProductFormValues = {
   categoryName: '',
   price: '',
   currency: 'USD',
-  isPinned: false
+  isPinned: false,
+  reorderPoint: '3'
 };
 
 export function ProductsPage() {
@@ -198,13 +200,16 @@ export function ProductsPage() {
     const barcode = values.barcode.trim();
     const categoryName = values.categoryName.trim();
     const parsedPrice = Number(values.price);
+    const parsedReorderPoint = Number(values.reorderPoint);
 
     if (
       !name ||
       !barcode ||
       !categoryName ||
       !Number.isFinite(parsedPrice) ||
-      parsedPrice < 0
+      parsedPrice < 0 ||
+      !Number.isFinite(parsedReorderPoint) ||
+      parsedReorderPoint < 0
     ) {
       return { error: t('inventoryFormIncomplete') };
     }
@@ -217,6 +222,7 @@ export function ProductsPage() {
         price: parsedPrice,
         currency: values.currency,
         isPinned: values.isPinned,
+        reorderPoint: parsedReorderPoint,
         ...(sku ? { sku } : {})
       }
     };
@@ -266,6 +272,7 @@ export function ProductsPage() {
         price: product.priceUsd,
         currency: 'USD',
         isPinned: !product.isPinned,
+        reorderPoint: product.reorderPoint ?? 3,
         ...(product.sku && product.sku.trim() ? { sku: product.sku } : {})
       });
       setBanner({
@@ -415,7 +422,8 @@ export function ProductsPage() {
             categoryName: dialog.product.categoryName ?? dialog.product.category ?? '',
             price: dialog.product.priceUsd.toString(),
             currency: 'USD',
-            isPinned: dialog.product.isPinned
+            isPinned: dialog.product.isPinned,
+            reorderPoint: (dialog.product.reorderPoint ?? 3).toString()
           }}
           onClose={closeDialog}
           onSubmit={(nextValues) => handleEditSubmit(nextValues, dialog.product)}
@@ -562,6 +570,23 @@ function ProductFormDialog({
               <option value="LBP">LBP</option>
             </select>
           </div>
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-reorder-point">
+            {t('inventoryReorderPointLabel')}
+          </label>
+          <Input
+            id="product-reorder-point"
+            type="number"
+            min="0"
+            step="1"
+            value={formValues.reorderPoint}
+            onChange={handleChange('reorderPoint')}
+            required
+          />
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {t('inventoryReorderPointDescription')}
+          </p>
         </div>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="flex items-start gap-3">

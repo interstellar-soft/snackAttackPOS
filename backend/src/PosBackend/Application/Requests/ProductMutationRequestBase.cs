@@ -30,6 +30,8 @@ public abstract class ProductMutationRequestBase
 
     public bool IsPinned { get; set; }
 
+    public decimal? ReorderPoint { get; set; }
+
     private static readonly Regex CategoryWhitespaceRegex = new("\\s+", RegexOptions.Compiled);
     private string _categoryName = string.Empty;
 
