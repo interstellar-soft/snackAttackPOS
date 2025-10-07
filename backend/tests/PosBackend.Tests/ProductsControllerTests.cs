@@ -34,7 +34,8 @@ public class ProductsControllerTests
             Barcode = "1234567890123",
             Price = 2.5m,
             Currency = "USD",
-            CategoryName = "Snacks"
+            CategoryName = "Snacks",
+            ReorderPoint = 7m
         };
 
         var result = await controller.CreateProduct(request, CancellationToken.None);
@@ -45,12 +46,18 @@ public class ProductsControllerTests
         Assert.Equal(request.Name, response.Name);
         Assert.Equal(request.Sku, response.Sku);
         Assert.Equal(request.CategoryName, response.CategoryName);
+        Assert.Equal(7m, response.ReorderPoint);
 
         var stored = await context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == response.Id);
         Assert.NotNull(stored);
         Assert.Equal(request.Barcode, stored!.Barcode);
         Assert.Equal(2.5m, stored.PriceUsd);
         Assert.Equal(225000m, stored.PriceLbp);
+
+        var storedInventory = await context.Inventories.AsNoTracking().FirstOrDefaultAsync(i => i.ProductId == response.Id);
+        Assert.NotNull(storedInventory);
+        Assert.Equal(7m, storedInventory!.ReorderPoint);
+        Assert.True(storedInventory.IsReorderAlarmEnabled);
 
         var category = await context.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == stored.CategoryId);
         Assert.NotNull(category);
@@ -139,8 +146,20 @@ public class ProductsControllerTests
             PriceLbp = 90000m
         };
 
+        var inventory = new Inventory
+        {
+            Product = product,
+            QuantityOnHand = 5m,
+            AverageCostUsd = 1m,
+            AverageCostLbp = 90000m,
+            ReorderPoint = 3m,
+            ReorderQuantity = 0m,
+            IsReorderAlarmEnabled = true
+        };
+
         context.Categories.AddRange(originalCategory, newCategory);
         context.Products.Add(product);
+        context.Inventories.Add(inventory);
         context.SaveChanges();
 
         var controller = CreateController(context);
@@ -151,7 +170,8 @@ public class ProductsControllerTests
             Barcode = "321321321321",
             Price = 270000m,
             Currency = "LBP",
-            CategoryName = newCategory.Name
+            CategoryName = newCategory.Name,
+            ReorderPoint = 9m
         };
 
         var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
@@ -160,12 +180,16 @@ public class ProductsControllerTests
         var response = Assert.IsType<ProductResponse>(ok.Value);
         Assert.Equal(request.Name, response.Name);
         Assert.Equal(newCategory.Name, response.CategoryName);
+        Assert.Equal(9m, response.ReorderPoint);
 
         var stored = await context.Products.Include(p => p.Category).FirstAsync(p => p.Id == product.Id);
         Assert.Equal(request.Sku, stored.Sku);
         Assert.Equal(newCategory.Id, stored.CategoryId);
         Assert.Equal(3m, stored.PriceUsd);
         Assert.Equal(270000m, stored.PriceLbp);
+
+        var updatedInventory = await context.Inventories.AsNoTracking().FirstAsync(i => i.ProductId == product.Id);
+        Assert.Equal(9m, updatedInventory.ReorderPoint);
     }
 
     [Fact]

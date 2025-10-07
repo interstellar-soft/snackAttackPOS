@@ -110,7 +110,21 @@ public class ProductsController : ControllerBase
             Category = category
         };
 
+        var inventory = new Inventory
+        {
+            Product = product,
+            QuantityOnHand = 0m,
+            ReorderPoint = request.ReorderPoint ?? 3m,
+            ReorderQuantity = 0m,
+            AverageCostUsd = 0m,
+            AverageCostLbp = 0m,
+            IsReorderAlarmEnabled = true
+        };
+
+        product.Inventory = inventory;
+
         _db.Products.Add(product);
+        await _db.Inventories.AddAsync(inventory, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         var response = ToResponse(product);
@@ -121,6 +135,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<ProductResponse>> UpdateProduct(Guid id, [FromBody] UpdateProductRequest request, CancellationToken cancellationToken)
     {
         var product = await _db.Products.Include(p => p.Category)
+            .Include(p => p.Inventory)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (product is null)
         {
@@ -162,6 +177,33 @@ public class ProductsController : ControllerBase
         product.IsPinned = request.IsPinned;
         product.Category = category;
         product.UpdatedAt = DateTime.UtcNow;
+
+        if (request.ReorderPoint is decimal reorderPoint)
+        {
+            var inventory = product.Inventory;
+
+            if (inventory is null)
+            {
+                inventory = new Inventory
+                {
+                    Product = product,
+                    ProductId = product.Id,
+                    QuantityOnHand = 0m,
+                    ReorderPoint = reorderPoint,
+                    ReorderQuantity = 0m,
+                    AverageCostUsd = 0m,
+                    AverageCostLbp = 0m,
+                    IsReorderAlarmEnabled = true
+                };
+
+                await _db.Inventories.AddAsync(inventory, cancellationToken);
+                product.Inventory = inventory;
+            }
+            else
+            {
+                inventory.ReorderPoint = reorderPoint;
+            }
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -234,6 +276,8 @@ public class ProductsController : ControllerBase
         var flagged = rapid || (anomaly?.IsAnomaly ?? false);
         var reason = rapid ? "rapid_repeat_scan" : anomaly?.Reason;
 
+        var inventory = product.Inventory;
+
         return new ProductResponse
         {
             Id = product.Id,
@@ -247,13 +291,17 @@ public class ProductsController : ControllerBase
             IsPinned = product.IsPinned,
             IsFlagged = flagged,
             FlagReason = reason,
-            QuantityOnHand = product.Inventory?.QuantityOnHand ?? 0,
-            AverageCostUsd = product.Inventory?.AverageCostUsd ?? 0
+            QuantityOnHand = inventory?.QuantityOnHand ?? 0,
+            AverageCostUsd = inventory?.AverageCostUsd ?? 0,
+            ReorderPoint = inventory?.ReorderPoint ?? 3m,
+            IsReorderAlarmEnabled = inventory?.IsReorderAlarmEnabled ?? true
         };
     }
 
     private ProductResponse ToResponse(Product product)
     {
+        var inventory = product.Inventory;
+
         return new ProductResponse
         {
             Id = product.Id,
@@ -265,8 +313,10 @@ public class ProductsController : ControllerBase
             Description = product.Description,
             CategoryName = product.Category?.Name ?? string.Empty,
             IsPinned = product.IsPinned,
-            QuantityOnHand = product.Inventory?.QuantityOnHand ?? 0,
-            AverageCostUsd = product.Inventory?.AverageCostUsd ?? 0
+            QuantityOnHand = inventory?.QuantityOnHand ?? 0,
+            AverageCostUsd = inventory?.AverageCostUsd ?? 0,
+            ReorderPoint = inventory?.ReorderPoint ?? 3m,
+            IsReorderAlarmEnabled = inventory?.IsReorderAlarmEnabled ?? true
         };
     }
 
@@ -323,6 +373,11 @@ public class ProductsController : ControllerBase
         else
         {
             request.CategoryName = request.CategoryName.Trim();
+        }
+
+        if (request.ReorderPoint is decimal reorderPoint && reorderPoint < 0)
+        {
+            AddError(errors, nameof(request.ReorderPoint), "Reorder point cannot be negative.");
         }
 
         if (request.Sku is not null)
