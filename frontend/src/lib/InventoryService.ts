@@ -29,6 +29,10 @@ export interface InventoryItemSummary {
   averageCostLbp: number;
   totalCostUsd: number;
   totalCostLbp: number;
+  reorderPoint: number;
+  reorderQuantity: number;
+  isReorderAlarmEnabled: boolean;
+  needsReorder: boolean;
 }
 
 const inventoryKeys = {

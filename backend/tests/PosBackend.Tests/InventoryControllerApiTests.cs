@@ -93,8 +93,9 @@ public class InventoryControllerApiTests : IClassFixture<InventoryApiFactory>
                 QuantityOnHand = 10m,
                 AverageCostUsd = 1.50m,
                 AverageCostLbp = 135000m,
-                ReorderPoint = 5m,
+                ReorderPoint = 12m,
                 ReorderQuantity = 10m,
+                IsReorderAlarmEnabled = true,
                 LastRestockedAt = DateTimeOffset.UtcNow.AddDays(-2)
             },
             new Inventory
@@ -103,8 +104,9 @@ public class InventoryControllerApiTests : IClassFixture<InventoryApiFactory>
                 QuantityOnHand = 5m,
                 AverageCostUsd = 1.60m,
                 AverageCostLbp = 144000m,
-                ReorderPoint = 5m,
+                ReorderPoint = 12m,
                 ReorderQuantity = 10m,
+                IsReorderAlarmEnabled = true,
                 LastRestockedAt = DateTimeOffset.UtcNow.AddDays(-1)
             },
             new Inventory
@@ -115,6 +117,7 @@ public class InventoryControllerApiTests : IClassFixture<InventoryApiFactory>
                 AverageCostLbp = 180000m,
                 ReorderPoint = 5m,
                 ReorderQuantity = 10m,
+                IsReorderAlarmEnabled = false,
                 LastRestockedAt = DateTimeOffset.UtcNow.AddDays(-3)
             });
 
@@ -133,6 +136,67 @@ public class InventoryControllerApiTests : IClassFixture<InventoryApiFactory>
         Assert.Equal(23m, summary.Items.Single(i => i.ProductId == chocolateBar.Id).TotalCostUsd);
         Assert.Equal(1, summary.Categories.Count(c => c.CategoryName == category.Name));
         Assert.Equal(1, summary.Items.Count(i => i.ProductId == chocolateBar.Id));
+        var chocolateItem = summary.Items.Single(i => i.ProductId == chocolateBar.Id);
+        Assert.True(chocolateItem.IsReorderAlarmEnabled);
+        Assert.Equal(12m, chocolateItem.ReorderPoint);
+        Assert.False(chocolateItem.NeedsReorder);
+        Assert.Equal(10m, chocolateItem.ReorderQuantity);
+    }
+
+    [Fact]
+    public async Task GetInventorySummary_FlagsReorderAlarmWhenQuantityBelowThreshold()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+        var manager = await context.Users.FirstAsync(u => u.Username == "manager");
+        var token = tokenService.CreateToken(manager);
+
+        var snacks = new Category { Name = "Trail Snacks" };
+        var trailMix = new Product
+        {
+            Name = "Trail Mix",
+            Sku = "SNK-001",
+            Barcode = "9000000000001",
+            Category = snacks,
+            CategoryId = snacks.Id,
+            PriceUsd = 5m,
+            PriceLbp = 450000m
+        };
+
+        await context.Categories.AddAsync(snacks);
+        await context.Products.AddAsync(trailMix);
+
+        await context.Inventories.AddAsync(new Inventory
+        {
+            Product = trailMix,
+            QuantityOnHand = 4m,
+            AverageCostUsd = 3m,
+            AverageCostLbp = 270000m,
+            ReorderPoint = 6m,
+            ReorderQuantity = 12m,
+            IsReorderAlarmEnabled = true,
+            LastRestockedAt = DateTimeOffset.UtcNow.AddDays(-5)
+        });
+
+        await context.SaveChangesAsync();
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.GetAsync("/api/inventory/summary");
+        response.EnsureSuccessStatusCode();
+
+        var summary = await response.Content.ReadFromJsonAsync<InventorySummaryResponse>();
+        Assert.NotNull(summary);
+
+        var trailMixSummary = summary!.Items.Single(i => i.ProductId == trailMix.Id);
+        Assert.True(trailMixSummary.IsReorderAlarmEnabled);
+        Assert.True(trailMixSummary.NeedsReorder);
+        Assert.Equal(6m, trailMixSummary.ReorderPoint);
+        Assert.Equal(4m, trailMixSummary.QuantityOnHand);
+        Assert.Equal(12m, trailMixSummary.ReorderQuantity);
     }
 }
 

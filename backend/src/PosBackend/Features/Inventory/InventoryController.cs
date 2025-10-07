@@ -52,6 +52,8 @@ public class InventoryController : ControllerBase
                 var averageCostLbp = totalQuantity > 0
                     ? Round(totalCostLbpRaw / totalQuantity)
                     : Round(sample.AverageCostLbp);
+                var isAlarmEnabled = sample.IsReorderAlarmEnabled;
+                var needsReorder = isAlarmEnabled && totalQuantity <= sample.ReorderPoint;
 
                 return new InventoryItemSummary
                 {
@@ -65,7 +67,11 @@ public class InventoryController : ControllerBase
                     AverageCostUsd = averageCostUsd,
                     AverageCostLbp = averageCostLbp,
                     TotalCostUsd = totalCostUsd,
-                    TotalCostLbp = totalCostLbp
+                    TotalCostLbp = totalCostLbp,
+                    ReorderPoint = sample.ReorderPoint,
+                    ReorderQuantity = sample.ReorderQuantity,
+                    IsReorderAlarmEnabled = isAlarmEnabled,
+                    NeedsReorder = needsReorder
                 };
             })
             .OrderByDescending(item => item.TotalCostUsd)
