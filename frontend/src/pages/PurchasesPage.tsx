@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/pos/TopBar';
@@ -196,14 +196,7 @@ export function PurchasesPage() {
     };
 
     const runSelection = () => {
-      const originalType = input.type;
-      let didSwapType = false;
       try {
-        if (originalType === 'number') {
-          input.type = 'text';
-          didSwapType = true;
-        }
-
         if (typeof input.select === 'function') {
           input.select();
         } else if (typeof input.setSelectionRange === 'function') {
@@ -211,10 +204,6 @@ export function PurchasesPage() {
         }
       } catch {
         // Some browsers throw for selection APIs on number inputs; ignore and retry.
-      } finally {
-        if (didSwapType) {
-          input.type = originalType;
-        }
       }
     };
 
@@ -349,46 +338,7 @@ export function PurchasesPage() {
     ? items.find((item) => item.id === lastScannedItemId)?.quantity
     : undefined;
 
-  const focusAndSelectQuantityInput = useCallback((input: HTMLInputElement) => {
-    const focusInput = () => {
-      if (typeof input.focus === 'function') {
-        input.focus({ preventScroll: true });
-      }
-    };
-
-    const runSelection = () => {
-      try {
-        if (typeof input.select === 'function') {
-          input.select();
-          return;
-        }
-        if (typeof input.setSelectionRange === 'function') {
-          input.setSelectionRange(0, input.value.length);
-        }
-      } catch {
-        // Some browsers throw for selection APIs on number inputs; ignore and retry.
-      }
-    };
-
-    const focusAndSelect = () => {
-      focusInput();
-      runSelection();
-    };
-
-    focusAndSelect();
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(focusAndSelect);
-      requestAnimationFrame(focusAndSelect);
-    }
-
-    const retryDelays = [0, 24, 64, 120];
-    for (const delay of retryDelays) {
-      window.setTimeout(focusAndSelect, delay);
-    }
-  }, []);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!lastScannedItemId) {
       return;
     }
@@ -778,6 +728,7 @@ export function PurchasesPage() {
                   )}
                   {items.map((item) => {
                     const isHighlighted = lastScannedItemId === item.id;
+                    const quantityInputType = isHighlighted ? 'text' : 'number';
                     const rowClasses = `align-top text-slate-700 transition-colors dark:text-slate-200 ${
                       isHighlighted ? 'bg-emerald-50 dark:bg-emerald-900/30' : ''
                     }`;
@@ -824,7 +775,8 @@ export function PurchasesPage() {
                         </td>
                         <td className="px-4 py-3">
                           <Input
-                            type="number"
+                            type={quantityInputType}
+                            inputMode="decimal"
                             min="0"
                             step="0.01"
                             value={item.quantity}
