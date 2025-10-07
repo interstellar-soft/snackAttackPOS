@@ -295,24 +295,43 @@ export function PurchasesPage() {
     ? items.find((item) => item.id === lastScannedItemId)?.quantity
     : undefined;
 
-  const selectQuantityInput = useCallback((input: HTMLInputElement) => {
-    const runSelection = () => {
-      if (typeof input.select === 'function') {
-        input.select();
-        return;
-      }
-      if (typeof input.setSelectionRange === 'function') {
-        input.setSelectionRange(0, input.value.length);
+  const focusAndSelectQuantityInput = useCallback((input: HTMLInputElement) => {
+    const focusInput = () => {
+      if (typeof input.focus === 'function') {
+        input.focus({ preventScroll: true });
       }
     };
 
-    runSelection();
+    const runSelection = () => {
+      try {
+        if (typeof input.select === 'function') {
+          input.select();
+          return;
+        }
+        if (typeof input.setSelectionRange === 'function') {
+          input.setSelectionRange(0, input.value.length);
+        }
+      } catch {
+        // Some browsers throw for selection APIs on number inputs; ignore and retry.
+      }
+    };
+
+    const focusAndSelect = () => {
+      focusInput();
+      runSelection();
+    };
+
+    focusAndSelect();
 
     if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(runSelection);
+      requestAnimationFrame(focusAndSelect);
+      requestAnimationFrame(focusAndSelect);
     }
 
-    window.setTimeout(runSelection, 0);
+    const retryDelays = [0, 24, 64, 120];
+    for (const delay of retryDelays) {
+      window.setTimeout(focusAndSelect, delay);
+    }
   }, []);
 
   useEffect(() => {
@@ -321,174 +340,9 @@ export function PurchasesPage() {
     }
     const input = quantityInputRefs.current[lastScannedItemId];
     if (input) {
-      input.focus();
-      selectQuantityInput(input);
+      focusAndSelectQuantityInput(input);
     }
-  }, [lastScannedItemId, highlightedQuantity, selectQuantityInput]);
-
-  const submitScannedBarcode = useCallback(
-    (code: string) => {
-      void addBarcode(code);
-    },
-    [addBarcode]
-  );
-
-  useEffect(() => {
-    const scannerThresholdMs = 100;
-
-    const clearPendingEditable = () => {
-      pendingFirstCharRef.current = '';
-      pendingEditableRef.current = null;
-      if (pendingEditableTimeoutRef.current !== null) {
-        window.clearTimeout(pendingEditableTimeoutRef.current);
-        pendingEditableTimeoutRef.current = null;
-      }
-    };
-
-    const clearBuffer = (clearInput = false) => {
-      barcodeBufferRef.current = '';
-      if (barcodeTimeoutRef.current !== null) {
-        window.clearTimeout(barcodeTimeoutRef.current);
-        barcodeTimeoutRef.current = null;
-      }
-      if (clearInput) {
-        setBarcode('');
-      }
-      clearPendingEditable();
-    };
-
-    const scheduleBufferReset = () => {
-      if (barcodeTimeoutRef.current !== null) {
-        window.clearTimeout(barcodeTimeoutRef.current);
-      }
-      barcodeTimeoutRef.current = window.setTimeout(() => {
-        clearBuffer(true);
-      }, scannerThresholdMs);
-    };
-
-    const applyPendingFirstChar = () => {
-      if (!pendingFirstCharRef.current) {
-        return '';
-      }
-      const firstChar = pendingFirstCharRef.current;
-      const pendingEditable = pendingEditableRef.current;
-      if (pendingEditable) {
-        const { element, value, selectionStart, selectionEnd } = pendingEditable;
-        element.value = value;
-        if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
-          element.setSelectionRange(selectionStart, selectionEnd);
-        }
-      }
-      clearPendingEditable();
-      return firstChar;
-    };
-
-    const handleKeydown = (event: KeyboardEvent) => {
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (activeElement === barcodeInputRef.current) {
-        return;
-      }
-
-      if (event.ctrlKey || event.metaKey || event.altKey) {
-        return;
-      }
-
-      const isPrintableKey = event.key.length === 1 && event.key !== 'Enter';
-      const isEnter = event.key === 'Enter';
-
-      if (!isPrintableKey && !isEnter) {
-        return;
-      }
-
-      const now = performance.now();
-      const timeSinceLast = now - lastScannerTimeRef.current;
-      lastScannerTimeRef.current = now;
-
-      if (isPrintableKey) {
-        const shouldHandle =
-          barcodeBufferRef.current.length > 0 ||
-          pendingFirstCharRef.current !== '' ||
-          timeSinceLast <= scannerThresholdMs;
-
-        if (!shouldHandle) {
-          pendingFirstCharRef.current = event.key;
-
-          const target = event.target;
-          if (
-            target instanceof HTMLInputElement ||
-            target instanceof HTMLTextAreaElement
-          ) {
-            if (target !== barcodeInputRef.current && !target.readOnly && !target.disabled) {
-              pendingEditableRef.current = {
-                element: target,
-                value: target.value,
-                selectionStart: target.selectionStart,
-                selectionEnd: target.selectionEnd
-              };
-            } else {
-              pendingEditableRef.current = null;
-            }
-          } else {
-            pendingEditableRef.current = null;
-          }
-
-          if (pendingEditableTimeoutRef.current !== null) {
-            window.clearTimeout(pendingEditableTimeoutRef.current);
-          }
-          pendingEditableTimeoutRef.current = window.setTimeout(() => {
-            pendingFirstCharRef.current = '';
-            pendingEditableRef.current = null;
-            pendingEditableTimeoutRef.current = null;
-          }, scannerThresholdMs);
-          return;
-        }
-
-        event.preventDefault();
-        focusBarcodeInput();
-
-        if (!barcodeBufferRef.current) {
-          const firstChar = applyPendingFirstChar();
-          barcodeBufferRef.current = firstChar;
-        }
-
-        const nextValue = `${barcodeBufferRef.current}${event.key}`;
-        barcodeBufferRef.current = nextValue;
-        setBarcode(nextValue);
-        scheduleBufferReset();
-        return;
-      }
-
-      const shouldHandleEnter =
-        barcodeBufferRef.current.length > 0 || pendingFirstCharRef.current !== '';
-
-      if (!shouldHandleEnter) {
-        return;
-      }
-
-      event.preventDefault();
-      focusBarcodeInput();
-
-      if (!barcodeBufferRef.current) {
-        const firstChar = applyPendingFirstChar();
-        barcodeBufferRef.current = firstChar;
-      }
-
-      const pendingValue = barcodeBufferRef.current || barcodeInputRef.current?.value || '';
-      const trimmed = pendingValue.trim();
-      clearBuffer();
-
-      if (trimmed) {
-        setBarcode(trimmed);
-        submitScannedBarcode(trimmed);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeydown);
-    return () => {
-      window.removeEventListener('keydown', handleKeydown);
-      clearBuffer();
-    };
-  }, [focusBarcodeInput, submitScannedBarcode]);
+  }, [focusAndSelectQuantityInput, lastScannedItemId, highlightedQuantity]);
 
   const submitScannedBarcode = useCallback(
     (code: string) => {
