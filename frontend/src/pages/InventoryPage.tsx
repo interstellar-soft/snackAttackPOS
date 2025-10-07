@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/pos/TopBar';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
 import { useInventorySummary } from '../lib/InventoryService';
 import { formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../stores/authStore';
@@ -35,6 +36,11 @@ export function InventoryPage() {
   const summaryData = inventorySummary.data;
   const categories = summaryData?.categories ?? [];
   const items = summaryData?.items ?? [];
+  const restockAlerts = useMemo(
+    () =>
+      items.filter((item) => item.isReorderAlarmEnabled && item.needsReorder),
+    [items]
+  );
 
   const handleViewChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value === 'items' ? 'items' : 'categories';
@@ -104,6 +110,29 @@ export function InventoryPage() {
               </div>
             </div>
           </Card>
+          {restockAlerts.length > 0 && (
+            <Card className="space-y-3 border border-red-200 bg-red-50 p-6 dark:border-red-500/40 dark:bg-red-500/10">
+              <div>
+                <h3 className="text-xl font-semibold text-red-700 dark:text-red-200">
+                  {t('inventoryReorderAlertsTitle')}
+                </h3>
+                <p className="text-sm text-red-600 dark:text-red-300">
+                  {t('inventoryReorderAlertsDescription')}
+                </p>
+              </div>
+              <ul className="space-y-2">
+                {restockAlerts.map((alert) => (
+                  <li key={alert.productId} className="text-sm text-red-700 dark:text-red-200">
+                    {t('inventoryReorderAlertItem', {
+                      name: alert.productName,
+                      quantity: numberFormatter.format(alert.quantityOnHand ?? 0),
+                      reorderPoint: numberFormatter.format(alert.reorderPoint ?? 0)
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           <Card className="space-y-4 p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -211,6 +240,28 @@ export function InventoryPage() {
                         {item.categoryName || t('inventoryCategoryUnknown')}
                       </p>
                     </div>
+                    {item.isReorderAlarmEnabled && (
+                      <div
+                        className={`mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs font-medium ${
+                          item.needsReorder
+                            ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200'
+                            : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/50 dark:bg-amber-500/10 dark:text-amber-200'
+                        }`}
+                      >
+                        <span>
+                          {item.needsReorder
+                            ? t('inventoryReorderAlarmTriggered')
+                            : t('inventoryReorderAlarmEnabled', {
+                                reorderPoint: numberFormatter.format(item.reorderPoint ?? 0)
+                              })}
+                        </span>
+                        {item.needsReorder && (
+                          <Badge className="bg-red-600 text-white hover:bg-red-500 dark:bg-red-500 dark:text-white">
+                            {t('inventoryReorderAlarmBadge')}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                     <div className="mt-3 grid gap-1 text-sm">
                       <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                         <span>{t('inventorySummaryTotalUsd')}</span>
