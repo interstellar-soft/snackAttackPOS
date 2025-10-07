@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/pos/TopBar';
@@ -338,7 +338,7 @@ export function PurchasesPage() {
     ? items.find((item) => item.id === lastScannedItemId)?.quantity
     : undefined;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!lastScannedItemId) {
       return;
     }
