@@ -30,4 +30,8 @@ public class InventoryItemSummary
     public decimal AverageCostLbp { get; set; }
     public decimal TotalCostUsd { get; set; }
     public decimal TotalCostLbp { get; set; }
+    public decimal ReorderPoint { get; set; }
+    public decimal ReorderQuantity { get; set; }
+    public bool IsReorderAlarmEnabled { get; set; }
+    public bool NeedsReorder { get; set; }
 }

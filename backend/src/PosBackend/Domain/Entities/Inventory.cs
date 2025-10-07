@@ -10,4 +10,5 @@ public class Inventory : BaseEntity
     public decimal AverageCostUsd { get; set; }
     public decimal AverageCostLbp { get; set; }
     public DateTimeOffset? LastRestockedAt { get; set; }
+    public bool IsReorderAlarmEnabled { get; set; }
 }
