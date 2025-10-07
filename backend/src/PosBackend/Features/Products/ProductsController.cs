@@ -110,7 +110,7 @@ public class ProductsController : ControllerBase
             Category = category
         };
 
-        var inventory = new Inventory
+        var inventory = new PosBackend.Domain.Entities.Inventory
         {
             Product = product,
             QuantityOnHand = 0m,
@@ -184,7 +184,7 @@ public class ProductsController : ControllerBase
 
             if (inventory is null)
             {
-                inventory = new Inventory
+                inventory = new PosBackend.Domain.Entities.Inventory
                 {
                     Product = product,
                     ProductId = product.Id,
