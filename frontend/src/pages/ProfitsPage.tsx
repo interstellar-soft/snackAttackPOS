@@ -224,12 +224,6 @@ export function ProfitsPage() {
     () =>
       [...filteredPoints]
         .sort((a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime())
-  const chartData = useMemo(
-    () =>
-      [...(profitSummary[scope]?.points ?? [])]
-        .sort(
-          (a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime()
-        )
         .map((point) => ({
           label: formatPeriodLabel(scope, point.periodStart, locale),
           grossProfit: Number(point.grossProfitUsd ?? 0),
@@ -238,7 +232,6 @@ export function ProfitsPage() {
           cost: Number(point.costUsd ?? 0)
         })),
     [filteredPoints, locale, scope]
-    [locale, profitSummary, scope]
   );
 
   const totals = useMemo(
@@ -299,95 +292,80 @@ export function ProfitsPage() {
             <CardTitle>{t('profitOverviewTitle')}</CardTitle>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('profitOverviewDescription')}</p>
           </div>
-          <div className="flex flex-wrap items-end gap-4">
-            <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
-              <span className="mb-1 font-medium">{t('profitScopeLabel')}</span>
-              <select
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                value={scope}
-                onChange={(event) => {
-                  const value = event.target.value as ProfitScope;
-                  setScope(value);
-                }}
-              >
-                <option value="daily">{t('profitScopeDaily')}</option>
-                <option value="monthly">{t('profitScopeMonthly')}</option>
-                <option value="yearly">{t('profitScopeYearly')}</option>
-              </select>
-            </label>
-            <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
-              <span className="mb-1 font-medium">{periodPickerLabel}</span>
-              <select
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                value={selectedPeriodValue}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setSelectedPeriods((prev) => ({
-                    ...prev,
-                    [scope]: value || undefined
-                  }));
-                }}
-                disabled={periodOptions.length === 0}
-              >
-                {periodOptions.length === 0 ? (
-                  <option value="">{t('profitPeriodUnavailable')}</option>
-                ) : (
-                  periodOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
+                <span className="mb-1 font-medium">{t('profitScopeLabel')}</span>
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  value={scope}
+                  onChange={(event) => {
+                    const value = event.target.value as ProfitScope;
+                    setScope(value);
+                  }}
+                >
+                  <option value="daily">{t('profitScopeDaily')}</option>
+                  <option value="monthly">{t('profitScopeMonthly')}</option>
+                  <option value="yearly">{t('profitScopeYearly')}</option>
+                </select>
+              </label>
+              <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
+                <span className="mb-1 font-medium">{periodPickerLabel}</span>
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  value={selectedPeriodValue}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSelectedPeriods((prev) => ({
+                      ...prev,
+                      [scope]: value || undefined
+                    }));
+                  }}
+                  disabled={periodOptions.length === 0}
+                >
+                  {periodOptions.length === 0 ? (
+                    <option value="">{t('profitPeriodUnavailable')}</option>
+                  ) : (
+                    periodOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+            </div>
           </div>
-          <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
-            <span className="mb-1 font-medium">{t('profitScopeLabel')}</span>
-            <select
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-              value={scope}
-              onChange={(event) => {
-                const value = event.target.value as ProfitScope;
-                setScope(value);
-              }}
-            >
-              <option value="daily">{t('profitScopeDaily')}</option>
-              <option value="monthly">{t('profitScopeMonthly')}</option>
-              <option value="yearly">{t('profitScopeYearly')}</option>
-            </select>
-          </label>
-        </div>
-      </Card>
+        </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="space-y-2 p-4">
-          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalNet')}</p>
-          <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
-            {formatCurrency(totals.netProfit, 'USD', locale)}
-          </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t('profitAveragePerPeriod', { period: periodLabel })}: {formatCurrency(averageNet, 'USD', locale)}
-          </p>
-        </Card>
-        <Card className="space-y-2 p-4">
-          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalGross')}</p>
-          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-            {formatCurrency(totals.grossProfit, 'USD', locale)}
-          </p>
-        </Card>
-        <Card className="space-y-2 p-4">
-          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalRevenue')}</p>
-          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-            {formatCurrency(totals.revenue, 'USD', locale)}
-          </p>
-        </Card>
-        <Card className="space-y-2 p-4">
-          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalCost')}</p>
-          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-            {formatCurrency(totals.cost, 'USD', locale)}
-          </p>
-        </Card>
-      </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="space-y-2 p-4">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalNet')}</p>
+            <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
+              {formatCurrency(totals.netProfit, 'USD', locale)}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('profitAveragePerPeriod', { period: periodLabel })}: {formatCurrency(averageNet, 'USD', locale)}
+            </p>
+          </Card>
+          <Card className="space-y-2 p-4">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalGross')}</p>
+            <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              {formatCurrency(totals.grossProfit, 'USD', locale)}
+            </p>
+          </Card>
+          <Card className="space-y-2 p-4">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalRevenue')}</p>
+            <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              {formatCurrency(totals.revenue, 'USD', locale)}
+            </p>
+          </Card>
+          <Card className="space-y-2 p-4">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalCost')}</p>
+            <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              {formatCurrency(totals.cost, 'USD', locale)}
+            </p>
+          </Card>
+        </div>
 
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
