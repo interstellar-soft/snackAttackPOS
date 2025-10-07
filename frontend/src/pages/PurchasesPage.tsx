@@ -196,16 +196,25 @@ export function PurchasesPage() {
     };
 
     const runSelection = () => {
+      const originalType = input.type;
+      let didSwapType = false;
       try {
+        if (originalType === 'number') {
+          input.type = 'text';
+          didSwapType = true;
+        }
+
         if (typeof input.select === 'function') {
           input.select();
-          return;
-        }
-        if (typeof input.setSelectionRange === 'function') {
+        } else if (typeof input.setSelectionRange === 'function') {
           input.setSelectionRange(0, input.value.length);
         }
       } catch {
         // Some browsers throw for selection APIs on number inputs; ignore and retry.
+      } finally {
+        if (didSwapType) {
+          input.type = originalType;
+        }
       }
     };
 
@@ -221,7 +230,7 @@ export function PurchasesPage() {
       requestAnimationFrame(focusAndSelect);
     }
 
-    const retryDelays = [0, 24, 64, 120];
+    const retryDelays = [0, 24, 64, 120, 240];
     for (const delay of retryDelays) {
       window.setTimeout(focusAndSelect, delay);
     }
