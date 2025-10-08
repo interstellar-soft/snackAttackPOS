@@ -25,4 +25,10 @@ The root `.env` file is passed to Compose so environment configuration can be ce
 
 ## Desktop Builds
 
-The `frontend/` package now ships an Electron wrapper so Aurora POS can be run as a desktop application with automatic updates. See [`docs/electron.md`](docs/electron.md) for development instructions, packaging commands, and update configuration.
+The `frontend/` package now ships an Electron wrapper so Aurora POS can be run as a desktop application with automatic updates.
+See [`docs/electron.md`](docs/electron.md) for development instructions, packaging commands, and update configuration.
+
+## Installing JavaScript dependencies
+
+This monorepo uses npm workspaces. Running `npm install` from the repository root will install the `frontend/` dependencies automatically.
+If you prefer to manage the frontend in isolation you can continue to run `npm install` directly from the `frontend/` directory.
