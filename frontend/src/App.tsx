@@ -7,13 +7,13 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProfitsPage } from './pages/ProfitsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
-import { ProfitsPage } from './pages/ProfitsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PurchasesPage } from './pages/PurchasesPage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { queryClient } from './lib/api';
 import { useAuthStore } from './stores/authStore';
 import { useStoreProfileStore } from './stores/storeProfileStore';
+import type { UpdaterMessage } from './types/electron';
 
 interface ProtectedRouteProps {
   children: JSX.Element;
@@ -42,6 +42,34 @@ export default function App() {
   useEffect(() => {
     document.title = `${storeName} POS`;
   }, [storeName]);
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onUpdateStatus) {
+      return;
+    }
+
+    const unsubscribe = api.onUpdateStatus((message: UpdaterMessage) => {
+      if (message.status === 'downloaded') {
+        const shouldRestart = window.confirm(
+          'A new Aurora POS update is ready. Restart now to install it?'
+        );
+        if (shouldRestart) {
+          api.restartToUpdate?.();
+        }
+      } else if (message.status === 'error') {
+        console.error('Aurora POS updater error:', message);
+      } else {
+        console.info('Aurora POS updater:', message);
+      }
+    });
+
+    api.checkForUpdates?.();
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

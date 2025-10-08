@@ -22,3 +22,7 @@ docker compose --env-file .env -f infra/docker-compose.yml up -d --build
 ```
 
 The root `.env` file is passed to Compose so environment configuration can be centralized even though the compose file lives in `infra/`.
+
+## Desktop Builds
+
+The `frontend/` package now ships an Electron wrapper so Aurora POS can be run as a desktop application with automatic updates. See [`docs/electron.md`](docs/electron.md) for development instructions, packaging commands, and update configuration.
