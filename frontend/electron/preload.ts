@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { IpcRendererEvent } from 'electron';
 
 type UpdaterMessage = {
   status: string;
@@ -11,7 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('updater/check-now'),
   restartToUpdate: () => ipcRenderer.invoke('updater/restart-and-install'),
   onUpdateStatus: (callback: (message: UpdaterMessage) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: UpdaterMessage) => {
+    const handler = (_event: IpcRendererEvent, payload: UpdaterMessage) => {
       callback(payload);
     };
 
