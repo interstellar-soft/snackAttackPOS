@@ -13,6 +13,73 @@ interface AuthState {
   logout: () => void;
 }
 
+type StorageLike = {
+  getItem: (name: string) => string | null;
+  setItem: (name: string, value: string) => void;
+  removeItem: (name: string) => void;
+};
+
+const createMemoryStorage = (): StorageLike => {
+  const storage: Record<string, string> = {};
+
+  return {
+    getItem: (name) => (Object.prototype.hasOwnProperty.call(storage, name) ? storage[name] : null),
+    setItem: (name, value) => {
+      storage[name] = value;
+    },
+    removeItem: (name) => {
+      delete storage[name];
+    }
+  };
+};
+
+const fallbackStorage = createMemoryStorage();
+let cachedSessionStorage: StorageLike | null = null;
+let sessionStorageWarningLogged = false;
+
+const resolveSessionStorage = (): StorageLike => {
+  if (cachedSessionStorage) {
+    return cachedSessionStorage;
+  }
+
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      cachedSessionStorage = {
+        getItem: (name) => window.sessionStorage.getItem(name),
+        setItem: (name, value) => {
+          window.sessionStorage.setItem(name, value);
+        },
+        removeItem: (name) => {
+          window.sessionStorage.removeItem(name);
+        }
+      };
+
+      return cachedSessionStorage;
+    }
+  } catch (error) {
+    if (!sessionStorageWarningLogged) {
+      sessionStorageWarningLogged = true;
+      console.debug('Session storage is unavailable, falling back to in-memory auth store.', error);
+    }
+  }
+
+  if (!sessionStorageWarningLogged) {
+    sessionStorageWarningLogged = true;
+    console.debug('Session storage is unavailable, falling back to in-memory auth store.');
+  }
+
+  return fallbackStorage;
+};
+
+const sessionAwareStorage = {
+  getItem: (name: string) => resolveSessionStorage().getItem(name),
+  setItem: (name: string, value: string) => {
+    resolveSessionStorage().setItem(name, value);
+  },
+  removeItem: (name: string) => {
+    resolveSessionStorage().removeItem(name);
+  }
+};
 const createNoopStorage = (): StateStorage => ({
   getItem: () => null,
   setItem: () => undefined,
