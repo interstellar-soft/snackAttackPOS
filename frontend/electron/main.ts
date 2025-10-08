@@ -1,7 +1,12 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
-import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { autoUpdater } from 'electron-updater';
+import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo, UpdateCheckResult } from 'electron-updater';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
@@ -53,15 +58,15 @@ const registerAutoUpdaterEvents = () => {
     sendUpdaterStatus({ status: 'checking' });
   });
 
-  autoUpdater.on('update-available', (info) => {
+  autoUpdater.on('update-available', (info: UpdateInfo) => {
     sendUpdaterStatus({ status: 'available', version: info.version });
   });
 
-  autoUpdater.on('update-not-available', (info) => {
+  autoUpdater.on('update-not-available', (info: UpdateInfo) => {
     sendUpdaterStatus({ status: 'not-available', version: info.version });
   });
 
-  autoUpdater.on('download-progress', (progress) => {
+  autoUpdater.on('download-progress', (progress: ProgressInfo) => {
     sendUpdaterStatus({
       status: 'downloading',
       percent: Math.round(progress.percent * 100) / 100,
@@ -70,14 +75,14 @@ const registerAutoUpdaterEvents = () => {
     });
   });
 
-  autoUpdater.on('error', (error) => {
+  autoUpdater.on('error', (error: Error) => {
     sendUpdaterStatus({
       status: 'error',
-      message: error == null ? 'unknown' : (error as Error).message ?? String(error)
+      message: error?.message ?? String(error)
     });
   });
 
-  autoUpdater.on('update-downloaded', (info) => {
+  autoUpdater.on('update-downloaded', (info: UpdateDownloadedEvent) => {
     sendUpdaterStatus({ status: 'downloaded', version: info.version });
   });
 };
@@ -102,9 +107,11 @@ app.whenReady().then(() => {
   registerAutoUpdaterEvents();
 
   if (!isDev) {
-    autoUpdater.checkForUpdates().catch((error) => {
-      log.error('Failed to check for updates', error);
-    });
+    autoUpdater
+      .checkForUpdates()
+      .catch((error: unknown) => {
+        log.error('Failed to check for updates', error);
+      });
   }
 
   app.on('activate', () => {
@@ -121,9 +128,9 @@ ipcMain.handle('updater/check-now', async () => {
   }
 
   try {
-    const result = await autoUpdater.checkForUpdates();
+    const result: UpdateCheckResult | null = await autoUpdater.checkForUpdates();
     return { result };
-  } catch (error) {
+  } catch (error: unknown) {
     sendUpdaterStatus({
       status: 'error',
       message: error instanceof Error ? error.message : String(error)

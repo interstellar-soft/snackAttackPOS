@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2021",
-    "module": "CommonJS",
+    "module": "ESNext",
     "outDir": "dist-electron",
     "rootDir": "electron",
     "moduleResolution": "Node",
