@@ -1,19 +1,38 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Suspense, useEffect } from 'react';
-import { POSPage } from './pages/POSPage';
-import { LoginPage } from './pages/LoginPage';
-import { AnalyticsPage } from './pages/AnalyticsPage';
-import { ProfitsPage } from './pages/ProfitsPage';
-import { InventoryPage } from './pages/InventoryPage';
-import { ProductsPage } from './pages/ProductsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { PurchasesPage } from './pages/PurchasesPage';
-import { InvoicesPage } from './pages/InvoicesPage';
+import { Suspense, useEffect, lazy } from 'react';
 import { queryClient } from './lib/api';
 import { useAuthStore } from './stores/authStore';
 import { useStoreProfileStore } from './stores/storeProfileStore';
 import type { UpdaterMessage } from './types/electron';
+
+const POSPage = lazy(async () => ({
+  default: (await import('./pages/POSPage')).POSPage
+}));
+const LoginPage = lazy(async () => ({
+  default: (await import('./pages/LoginPage')).LoginPage
+}));
+const AnalyticsPage = lazy(async () => ({
+  default: (await import('./pages/AnalyticsPage')).AnalyticsPage
+}));
+const ProfitsPage = lazy(async () => ({
+  default: (await import('./pages/ProfitsPage')).ProfitsPage
+}));
+const InventoryPage = lazy(async () => ({
+  default: (await import('./pages/InventoryPage')).InventoryPage
+}));
+const ProductsPage = lazy(async () => ({
+  default: (await import('./pages/ProductsPage')).ProductsPage
+}));
+const SettingsPage = lazy(async () => ({
+  default: (await import('./pages/SettingsPage')).SettingsPage
+}));
+const PurchasesPage = lazy(async () => ({
+  default: (await import('./pages/PurchasesPage')).PurchasesPage
+}));
+const InvoicesPage = lazy(async () => ({
+  default: (await import('./pages/InvoicesPage')).InvoicesPage
+}));
 
 interface ProtectedRouteProps {
   children: JSX.Element;
