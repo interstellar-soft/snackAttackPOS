@@ -32,3 +32,15 @@ See [`docs/electron.md`](docs/electron.md) for development instructions, packagi
 
 This monorepo uses npm workspaces. Running `npm install` from the repository root will install the `frontend/` dependencies automatically.
 If you prefer to manage the frontend in isolation you can continue to run `npm install` directly from the `frontend/` directory.
+
+## Building the frontend bundle
+
+Once dependencies are installed you can produce an optimized production build of the POS interface with Vite:
+
+```sh
+cd frontend
+npm run build
+```
+
+The command emits static assets to `frontend/dist/` that can be served by the Electron shell, Nginx, or any other static file
+host. The build is cross-platform — the same command works on Windows, macOS, and Linux shells.
