@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist, StateStorage } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { StateStorage } from 'zustand/middleware';
 import { apiFetch, LoginResponse } from '../lib/api';
 
 interface AuthState {
@@ -30,37 +31,38 @@ const fallbackStorage = createMemoryStorage();
 let cachedStorage: StateStorage | null = null;
 let warningLogged = false;
 
+const logSessionStorageWarning = (error?: unknown) => {
+  if (warningLogged) {
+    return;
+  }
+
+  warningLogged = true;
+  if (typeof error !== 'undefined') {
+    console.debug('Session storage is unavailable, falling back to in-memory auth store.', error);
+  } else {
+    console.debug('Session storage is unavailable, falling back to in-memory auth store.');
+  }
+};
+
 const resolveSessionStorage = (): StateStorage => {
   if (cachedStorage) {
     return cachedStorage;
   }
 
-  try {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      cachedStorage = {
-        getItem: (name) => window.sessionStorage.getItem(name),
-        setItem: (name, value) => {
-          window.sessionStorage.setItem(name, value);
-        },
-        removeItem: (name) => {
-          window.sessionStorage.removeItem(name);
-        }
-      };
+  if (typeof window !== 'undefined') {
+    try {
+      const { sessionStorage } = window;
 
-      return cachedStorage;
-    }
-  } catch (error) {
-    if (!warningLogged) {
-      warningLogged = true;
-      console.debug('Session storage is unavailable, falling back to in-memory auth store.', error);
+      if (sessionStorage) {
+        cachedStorage = sessionStorage;
+        return cachedStorage;
+      }
+    } catch (error) {
+      logSessionStorageWarning(error);
     }
   }
 
-  if (!warningLogged) {
-    warningLogged = true;
-    console.debug('Session storage is unavailable, falling back to in-memory auth store.');
-  }
-
+  logSessionStorageWarning();
   cachedStorage = fallbackStorage;
   return cachedStorage;
 };
