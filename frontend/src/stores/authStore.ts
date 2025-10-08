@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist, StateStorage } from 'zustand/middleware';
 import { apiFetch, LoginResponse } from '../lib/api';
 
 interface AuthState {
@@ -11,6 +11,59 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
+
+const createMemoryStorage = (): StateStorage => {
+  const storage: Record<string, string> = {};
+
+  return {
+    getItem: (name) => (Object.prototype.hasOwnProperty.call(storage, name) ? storage[name] : null),
+    setItem: (name, value) => {
+      storage[name] = value;
+    },
+    removeItem: (name) => {
+      delete storage[name];
+    }
+  };
+};
+
+const fallbackStorage = createMemoryStorage();
+let cachedStorage: StateStorage | null = null;
+let warningLogged = false;
+
+const resolveSessionStorage = (): StateStorage => {
+  if (cachedStorage) {
+    return cachedStorage;
+  }
+
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      cachedStorage = {
+        getItem: (name) => window.sessionStorage.getItem(name),
+        setItem: (name, value) => {
+          window.sessionStorage.setItem(name, value);
+        },
+        removeItem: (name) => {
+          window.sessionStorage.removeItem(name);
+        }
+      };
+
+      return cachedStorage;
+    }
+  } catch (error) {
+    if (!warningLogged) {
+      warningLogged = true;
+      console.debug('Session storage is unavailable, falling back to in-memory auth store.', error);
+    }
+  }
+
+  if (!warningLogged) {
+    warningLogged = true;
+    console.debug('Session storage is unavailable, falling back to in-memory auth store.');
+  }
+
+  cachedStorage = fallbackStorage;
+  return cachedStorage;
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -47,7 +100,8 @@ export const useAuthStore = create<AuthState>()(
       logout: () => set({ token: null, displayName: null, role: null })
     }),
     {
-      name: 'aurora-auth'
+      name: 'aurora-auth',
+      storage: createJSONStorage(resolveSessionStorage)
     }
   )
 );
