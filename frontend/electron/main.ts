@@ -1,14 +1,12 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import log from 'electron-log';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo, UpdateCheckResult } from 'electron-updater';
 import electronUpdater from 'electron-updater';
 
 const { autoUpdater } = electronUpdater;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const preloadPath = path.join(__dirname, 'preload.js');
 
 const isDev = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
@@ -33,7 +31,7 @@ const createMainWindow = () => {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: preloadPath
     }
   });
 
