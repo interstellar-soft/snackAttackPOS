@@ -2,8 +2,10 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import log from 'electron-log';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { autoUpdater } from 'electron-updater';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo, UpdateCheckResult } from 'electron-updater';
+import electronUpdater from 'electron-updater';
+
+const { autoUpdater } = electronUpdater;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
