@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiFetch, LoginResponse } from '../lib/api';
 
 interface AuthState {
@@ -11,6 +11,15 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
+
+const noopStorage = {
+  getItem: () => null,
+  setItem: () => undefined,
+  removeItem: () => undefined,
+  clear: () => undefined,
+  key: () => null,
+  length: 0
+} as Storage;
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -47,7 +56,10 @@ export const useAuthStore = create<AuthState>()(
       logout: () => set({ token: null, displayName: null, role: null })
     }),
     {
-      name: 'aurora-auth'
+      name: 'aurora-auth',
+      storage: createJSONStorage(() =>
+        typeof window !== 'undefined' ? window.sessionStorage : noopStorage
+      )
     }
   )
 );
