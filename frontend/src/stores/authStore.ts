@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { create, type StateCreator } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { StateStorage } from 'zustand/middleware';
 import { apiFetch, LoginResponse } from '../lib/api';
 
@@ -13,7 +13,13 @@ interface AuthState {
   logout: () => void;
 }
 
-const createMemoryStorage = (): StateStorage => {
+type StorageLike = {
+  getItem: (name: string) => string | null;
+  setItem: (name: string, value: string) => void;
+  removeItem: (name: string) => void;
+};
+
+const createMemoryStorage = (): StorageLike => {
   const storage: Record<string, string> = {};
 
   return {
@@ -28,44 +34,83 @@ const createMemoryStorage = (): StateStorage => {
 };
 
 const fallbackStorage = createMemoryStorage();
-let cachedStorage: StateStorage | null = null;
-let warningLogged = false;
+let cachedSessionStorage: StorageLike | null = null;
+let sessionStorageWarningLogged = false;
 
-const logSessionStorageWarning = (error?: unknown) => {
-  if (warningLogged) {
-    return;
+const resolveSessionStorage = (): StorageLike => {
+  if (cachedSessionStorage) {
+    return cachedSessionStorage;
   }
 
-  warningLogged = true;
-  if (typeof error !== 'undefined') {
-    console.debug('Session storage is unavailable, falling back to in-memory auth store.', error);
-  } else {
-    console.debug('Session storage is unavailable, falling back to in-memory auth store.');
-  }
-};
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      cachedSessionStorage = {
+        getItem: (name) => window.sessionStorage.getItem(name),
+        setItem: (name, value) => {
+          window.sessionStorage.setItem(name, value);
+        },
+        removeItem: (name) => {
+          window.sessionStorage.removeItem(name);
+        }
+      };
 
-const resolveSessionStorage = (): StateStorage => {
-  if (cachedStorage) {
-    return cachedStorage;
-  }
-
-  if (typeof window !== 'undefined') {
-    try {
-      const { sessionStorage } = window;
-
-      if (sessionStorage) {
-        cachedStorage = sessionStorage;
-        return cachedStorage;
-      }
-    } catch (error) {
-      logSessionStorageWarning(error);
+      return cachedSessionStorage;
+    }
+  } catch (error) {
+    if (!sessionStorageWarningLogged) {
+      sessionStorageWarningLogged = true;
+      console.debug('Session storage is unavailable, falling back to in-memory auth store.', error);
     }
   }
 
-  logSessionStorageWarning();
-  cachedStorage = fallbackStorage;
-  return cachedStorage;
+  if (!sessionStorageWarningLogged) {
+    sessionStorageWarningLogged = true;
+    console.debug('Session storage is unavailable, falling back to in-memory auth store.');
+  }
+
+  return fallbackStorage;
 };
+
+const sessionAwareStorage = {
+  getItem: (name: string) => resolveSessionStorage().getItem(name),
+  setItem: (name: string, value: string) => {
+    resolveSessionStorage().setItem(name, value);
+  },
+  removeItem: (name: string) => {
+    resolveSessionStorage().removeItem(name);
+  }
+};
+const createNoopStorage = (): StateStorage => ({
+  getItem: () => null,
+  setItem: () => undefined,
+  removeItem: () => undefined
+});
+
+const resolveSessionStorage = (): StateStorage => {
+const resolveSessionStorage = (): StateStorage | undefined => {
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    return window.sessionStorage;
+  }
+
+  if (typeof globalThis !== 'undefined') {
+    const { sessionStorage } = globalThis as unknown as {
+      sessionStorage?: StateStorage;
+    };
+
+    if (sessionStorage) {
+      return sessionStorage;
+    }
+  }
+
+  return createNoopStorage();
+const noopStorage = {
+  getItem: () => null,
+  setItem: () => undefined,
+  removeItem: () => undefined,
+  clear: () => undefined,
+  key: () => null,
+  length: 0
+} as Storage;
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -103,7 +148,60 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'aurora-auth',
-      storage: createJSONStorage(resolveSessionStorage)
+      storage: createJSONStorage(() =>
+        typeof window !== 'undefined' ? window.sessionStorage : noopStorage
+      )
     }
-  )
+  }
+
+  return undefined;
+};
+
+const authStoreCreator: StateCreator<AuthState> = (set) => ({
+  token: null,
+  displayName: null,
+  role: null,
+  isLoading: false,
+  error: null,
+  login: async (username: string, password: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await apiFetch<LoginResponse>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password })
+      });
+      set({
+        token: response.token,
+        displayName: response.displayName,
+        role: response.role,
+        isLoading: false
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Login failed',
+        isLoading: false,
+        token: null,
+        displayName: null,
+        role: null
+      });
+      throw error;
+    }
+  },
+  logout: () => set({ token: null, displayName: null, role: null })
+});
+
+export const useAuthStore = create<AuthState>()(
+  persist(authStoreCreator, {
+    name: 'aurora-auth',
+    storage: createJSONStorage(resolveSessionStorage)
+  })
+const sessionStorageInstance = resolveSessionStorage();
+
+export const useAuthStore = create<AuthState>()(
+  sessionStorageInstance
+    ? persist(authStoreCreator, {
+        name: 'aurora-auth',
+        storage: createJSONStorage(() => sessionStorageInstance)
+      })
+    : authStoreCreator
 );
