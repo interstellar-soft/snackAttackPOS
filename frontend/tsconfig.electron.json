@@ -1,16 +1,16 @@
 {
   "compilerOptions": {
     "target": "ES2021",
-    "module": "ESNext",
+    "module": "NodeNext",
     "outDir": "dist-electron",
     "rootDir": "electron",
-    "moduleResolution": "Node",
+    "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
     "sourceMap": true,
-    "types": ["node"],
+    "types": ["node", "electron"],
     "forceConsistentCasingInFileNames": true
   },
   "include": ["electron/**/*.ts"]
