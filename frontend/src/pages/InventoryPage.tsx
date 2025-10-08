@@ -36,11 +36,7 @@ export function InventoryPage() {
   const summaryData = inventorySummary.data;
   const categories = summaryData?.categories ?? [];
   const items = summaryData?.items ?? [];
-  const restockAlerts = useMemo(
-    () =>
-      items.filter((item) => item.isReorderAlarmEnabled && item.needsReorder),
-    [items]
-  );
+  const restockAlerts = items.filter((item) => item.isReorderAlarmEnabled && item.needsReorder);
 
   const handleViewChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value === 'items' ? 'items' : 'categories';
