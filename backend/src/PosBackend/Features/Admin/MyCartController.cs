@@ -40,33 +40,28 @@ public class MyCartController : ControllerBase
 
         var baseQuery = _db.PersonalPurchases.AsNoTracking().Where(p => p.UserId == userId.Value);
 
-        var dailyTotals = await baseQuery
-            .Where(p => p.PurchaseDate >= startOfDay && p.PurchaseDate < endOfDay)
-            .GroupBy(_ => 1)
-            .Select(g => new { TotalUsd = g.Sum(p => p.TotalUsd), TotalLbp = g.Sum(p => p.TotalLbp) })
-            .FirstOrDefaultAsync(cancellationToken);
+        var dailyQuery = baseQuery.Where(p => p.PurchaseDate >= startOfDay && p.PurchaseDate < endOfDay);
+        var monthlyQuery = baseQuery.Where(p => p.PurchaseDate >= startOfMonth && p.PurchaseDate < endOfMonth);
+        var yearlyQuery = baseQuery.Where(p => p.PurchaseDate >= startOfYear && p.PurchaseDate < endOfYear);
 
-        var monthlyTotals = await baseQuery
-            .Where(p => p.PurchaseDate >= startOfMonth && p.PurchaseDate < endOfMonth)
-            .GroupBy(_ => 1)
-            .Select(g => new { TotalUsd = g.Sum(p => p.TotalUsd), TotalLbp = g.Sum(p => p.TotalLbp) })
-            .FirstOrDefaultAsync(cancellationToken);
+        var dailyTotalUsd = await dailyQuery.SumAsync(p => (decimal?)p.TotalUsd, cancellationToken) ?? 0m;
+        var dailyTotalLbp = await dailyQuery.SumAsync(p => (decimal?)p.TotalLbp, cancellationToken) ?? 0m;
 
-        var yearlyTotals = await baseQuery
-            .Where(p => p.PurchaseDate >= startOfYear && p.PurchaseDate < endOfYear)
-            .GroupBy(_ => 1)
-            .Select(g => new { TotalUsd = g.Sum(p => p.TotalUsd), TotalLbp = g.Sum(p => p.TotalLbp) })
-            .FirstOrDefaultAsync(cancellationToken);
+        var monthlyTotalUsd = await monthlyQuery.SumAsync(p => (decimal?)p.TotalUsd, cancellationToken) ?? 0m;
+        var monthlyTotalLbp = await monthlyQuery.SumAsync(p => (decimal?)p.TotalLbp, cancellationToken) ?? 0m;
+
+        var yearlyTotalUsd = await yearlyQuery.SumAsync(p => (decimal?)p.TotalUsd, cancellationToken) ?? 0m;
+        var yearlyTotalLbp = await yearlyQuery.SumAsync(p => (decimal?)p.TotalLbp, cancellationToken) ?? 0m;
 
         var response = new MyCartSummaryResponse
         {
             ReferenceDate = referenceDate,
-            DailyTotalUsd = dailyTotals?.TotalUsd ?? 0m,
-            DailyTotalLbp = dailyTotals?.TotalLbp ?? 0m,
-            MonthlyTotalUsd = monthlyTotals?.TotalUsd ?? 0m,
-            MonthlyTotalLbp = monthlyTotals?.TotalLbp ?? 0m,
-            YearlyTotalUsd = yearlyTotals?.TotalUsd ?? 0m,
-            YearlyTotalLbp = yearlyTotals?.TotalLbp ?? 0m
+            DailyTotalUsd = dailyTotalUsd,
+            DailyTotalLbp = dailyTotalLbp,
+            MonthlyTotalUsd = monthlyTotalUsd,
+            MonthlyTotalLbp = monthlyTotalLbp,
+            YearlyTotalUsd = yearlyTotalUsd,
+            YearlyTotalLbp = yearlyTotalLbp
         };
 
         return Ok(response);
