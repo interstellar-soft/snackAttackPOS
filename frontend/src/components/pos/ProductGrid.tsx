@@ -63,8 +63,24 @@ export function ProductGrid({ onScan }: ProductGridProps) {
           <span className="text-[0.7rem] text-slate-500">{product.sku?.trim() || '—'}</span>
         </div>
         {product.isPinned && (
-          <Badge className="shrink-0 bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
-            {t('pinnedBadge', 'Pinned')}
+          <Badge
+            className="shrink-0 bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
+            aria-label={t('pinnedBadge', 'Pinned')}
+            title={t('pinnedBadge', 'Pinned')}
+          >
+            <svg
+              className="h-3.5 w-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m4.75 9 2.9-2.9a2.121 2.121 0 0 1 2.6-.32l.11.06a2.12 2.12 0 0 0 1.98 0l3.32-1.75a1 1 0 0 1 1.36 1.36l-1.75 3.32a2.12 2.12 0 0 0 0 1.98l.06.11a2.121 2.121 0 0 1-.32 2.6L12 16.75m0 0 1.75 1.75M12 16.75l-5.25 5.25" />
+            </svg>
+            <span className="sr-only">{t('pinnedBadge', 'Pinned')}</span>
           </Badge>
         )}
       </div>
