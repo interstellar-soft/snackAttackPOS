@@ -1,6 +1,7 @@
-import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Suspense, useEffect, lazy } from 'react';
+import { Suspense, useEffect, lazy, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { queryClient } from './lib/api';
 import { useAuthStore } from './stores/authStore';
 import { useStoreProfileStore } from './stores/storeProfileStore';
@@ -37,6 +38,25 @@ const InvoicesPage = lazy(async () => ({
 interface ProtectedRouteProps {
   children: JSX.Element;
   roles?: string[];
+}
+
+function RouterProvider({ children }: { children: ReactNode }) {
+  const router = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const hasElectronApi = Boolean(window.electronAPI);
+      const isFileProtocol = window.location?.protocol === 'file:';
+
+      if (hasElectronApi || isFileProtocol) {
+        return HashRouter;
+      }
+    }
+
+    return BrowserRouter;
+  }, []);
+
+  const RouterComponent = router;
+
+  return <RouterComponent>{children}</RouterComponent>;
 }
 
 function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
@@ -108,7 +128,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div className="p-6">Loading…</div>}>
-        <BrowserRouter>
+        <RouterProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route
@@ -177,7 +197,7 @@ export default function App() {
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </BrowserRouter>
+        </RouterProvider>
       </Suspense>
     </QueryClientProvider>
   );
