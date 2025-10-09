@@ -79,7 +79,20 @@ export default function App() {
       } else if (message.status === 'disabled') {
         console.info('Aurora POS updater disabled.');
       } else if (message.status === 'error') {
-        console.error('Aurora POS updater error:', message);
+        const errorMessage =
+          typeof message.message === 'string' ? message.message : undefined;
+        const isResolvableNetworkError =
+          errorMessage === 'net::ERR_NAME_NOT_RESOLVED' ||
+          errorMessage === 'net::ERR_INTERNET_DISCONNECTED';
+
+        if (isResolvableNetworkError) {
+          console.warn(
+            'Aurora POS updater network issue detected. Update check will be retried later.',
+            message
+          );
+        } else {
+          console.error('Aurora POS updater error:', message);
+        }
       } else {
         console.info('Aurora POS updater:', message);
       }
