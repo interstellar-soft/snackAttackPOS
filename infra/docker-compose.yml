@@ -3,6 +3,7 @@ version: '3.9'
 services:
   db:
     image: postgres:15-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -20,6 +21,7 @@ services:
   backend:
     build:
       context: ../backend
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -37,6 +39,7 @@ services:
   ml:
     build:
       context: ../ml
+    restart: unless-stopped
     environment:
       TZ: ${APP_TIMEZONE}
     ports:
@@ -45,6 +48,7 @@ services:
   frontend:
     build:
       context: ../frontend
+    restart: unless-stopped
     environment:
       VITE_API_URL: ${FRONTEND_API_URL}
       VITE_ML_URL: ${FRONTEND_ML_URL}

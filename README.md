@@ -21,7 +21,7 @@ To start all services locally, ensure you have Docker and Docker Compose install
 docker compose --env-file .env -f infra/docker-compose.yml up -d --build
 ```
 
-The root `.env` file is passed to Compose so environment configuration can be centralized even though the compose file lives in `infra/`.
+The root `.env` file is passed to Compose so environment configuration can be centralized even though the compose file lives in `infra/`. Every service in the compose file now uses `restart: unless-stopped`, so Docker automatically brings the stack back online on the next boot (unless you manually stop the containers).
 
 ## Desktop Builds
 
