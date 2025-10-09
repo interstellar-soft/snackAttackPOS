@@ -637,6 +637,7 @@ export function POSPage() {
   const canEditRate = canManageInventory;
   const canSeeAnalytics = canManageInventory;
   const canSaveToMyCart = normalizedRole === 'admin';
+  const canEditCartTotals = normalizedRole === 'admin';
 
   const handleSaveRate = async (nextRate: number, notes?: string) => {
     if (!token) return;
@@ -721,6 +722,7 @@ export function POSPage() {
                     focusBarcodeInput();
                   }}
                   canMarkWaste={normalizedRole === 'admin'}
+                  canEditTotals={canEditCartTotals}
                 />
               </div>
               <div className="flex h-full min-h-0 w-full overflow-hidden">
