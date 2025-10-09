@@ -105,7 +105,7 @@ export function ProductGrid({ onScan }: ProductGridProps) {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
           {t('pinnedShelfTitle', 'Pinned shelf')}
         </p>
-        <div className="grid grid-cols-2 gap-2.5 pr-1 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 pr-1 sm:grid-cols-3 lg:grid-cols-3">
           {pinnedProducts.map((product) => renderProductButton(product))}
           {showPinnedEmptyState && (
             <div className="col-span-full rounded-md border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-slate-700">
