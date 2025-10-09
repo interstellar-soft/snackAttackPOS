@@ -207,7 +207,8 @@ public class BackupService
                     CostUsd = l.CostUsd,
                     CostLbp = l.CostLbp,
                     ProfitUsd = l.ProfitUsd,
-                    ProfitLbp = l.ProfitLbp
+                    ProfitLbp = l.ProfitLbp,
+                    IsWaste = l.IsWaste
                 })
                 .ToListAsync(cancellationToken),
             CurrencyRates = await _db.CurrencyRates
@@ -489,7 +490,8 @@ public class BackupService
             CostUsd = l.CostUsd,
             CostLbp = l.CostLbp,
             ProfitUsd = l.ProfitUsd,
-            ProfitLbp = l.ProfitLbp
+            ProfitLbp = l.ProfitLbp,
+            IsWaste = l.IsWaste
         }).ToList();
         if (transactionLines.Count > 0)
         {

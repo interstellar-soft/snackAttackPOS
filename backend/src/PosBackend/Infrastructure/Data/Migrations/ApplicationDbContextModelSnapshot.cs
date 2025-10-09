@@ -197,6 +197,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<Guid>("TransactionId").HasColumnType("uuid");
                 b.Property<decimal>("TotalLbp").HasColumnType("numeric(18,2)");
                 b.Property<decimal>("TotalUsd").HasColumnType("numeric(14,2)");
+                b.Property<bool>("IsWaste").HasColumnType("boolean").HasDefaultValue(false);
                 b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
                 b.Property<decimal>("UnitPriceLbp").HasColumnType("numeric(18,2)");

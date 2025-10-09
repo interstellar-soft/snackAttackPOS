@@ -24,6 +24,7 @@ export interface TransactionLine {
   profitUsd: number;
   profitLbp: number;
   quantityOnHand: number;
+  isWaste: boolean;
 }
 
 export interface Transaction {
@@ -48,6 +49,7 @@ export interface TransactionItemInput {
   quantity: number;
   priceRuleId?: string | null;
   manualDiscountPercent?: number | null;
+  isWaste?: boolean;
 }
 
 export interface UpdateTransactionInput {

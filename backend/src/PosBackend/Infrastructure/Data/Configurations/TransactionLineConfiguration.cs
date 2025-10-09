@@ -19,5 +19,6 @@ public class TransactionLineConfiguration : IEntityTypeConfiguration<Transaction
         builder.Property(l => l.CostLbp).HasColumnType("numeric(18,2)");
         builder.Property(l => l.ProfitUsd).HasColumnType("numeric(14,2)");
         builder.Property(l => l.ProfitLbp).HasColumnType("numeric(18,2)");
+        builder.Property(l => l.IsWaste).HasColumnType("boolean").HasDefaultValue(false);
     }
 }

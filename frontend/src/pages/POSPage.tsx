@@ -135,9 +135,9 @@ export function POSPage() {
         priceUsd: product.priceUsd,
         priceLbp: product.priceLbp,
         quantity: 1,
-        discountPercent: 0
+        discountPercent: 0,
+        isWaste: false
       });
-      setLastAddedItemId(product.id);
       const displaySku = product.sku?.trim();
       setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
       setBarcode('');
@@ -568,7 +568,8 @@ export function POSPage() {
           items: items.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
-            manualDiscountPercent: item.discountPercent
+            manualDiscountPercent: item.discountPercent,
+            isWaste: item.isWaste
           }))
         })
       },
@@ -675,6 +676,7 @@ export function POSPage() {
                     setLastAddedItemId(null);
                     focusBarcodeInput();
                   }}
+                  canMarkWaste={normalizedRole === 'admin'}
                 />
               </div>
               <div className="flex h-full min-h-0 w-full overflow-hidden">

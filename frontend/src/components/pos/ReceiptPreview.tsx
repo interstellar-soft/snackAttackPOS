@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
 import { useCartStore } from '../../stores/cartStore';
 import { formatCurrency } from '../../lib/utils';
 import { useStoreProfileStore } from '../../stores/storeProfileStore';
@@ -24,19 +25,30 @@ export function ReceiptPreview() {
         <div className="flex-1 space-y-2 overflow-y-auto pr-1">
           {items.length > 0 ? (
             items.map((item) => (
-              <div key={item.productId} className="flex items-start justify-between gap-2">
+              <div key={item.lineId} className="flex items-start justify-between gap-2">
                 <div className="flex-1">
                   <p className="truncate font-medium text-slate-700 dark:text-slate-200">{item.name}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">x{item.quantity}</p>
+                  {item.isWaste && (
+                    <Badge className="mt-1 bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
+                      {t('cartWasteBadge')}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">
-                    {formatCurrency(item.priceUsd * item.quantity * (1 - item.discountPercent / 100), 'USD', locale)}
+                    {formatCurrency(
+                      item.isWaste
+                        ? 0
+                        : item.priceUsd * item.quantity * (1 - item.discountPercent / 100),
+                      'USD',
+                      locale
+                    )}
                   </p>
                   <button
                     type="button"
                     aria-label={t('removeItem') ?? 'Remove item'}
-                    onClick={() => removeItem(item.productId)}
+                    onClick={() => removeItem(item.lineId)}
                     className="ml-2 rounded-full p-1 text-xs font-semibold text-red-600 transition-colors hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 dark:text-red-400 dark:hover:text-red-300"
                   >
                     ×
