@@ -30,12 +30,12 @@ public class MyCartController : ControllerBase
             return Unauthorized();
         }
 
-        var referenceDate = (date ?? DateTime.UtcNow).Date;
+        var referenceDate = DateTime.SpecifyKind((date ?? DateTime.UtcNow).Date, DateTimeKind.Utc);
         var startOfDay = referenceDate;
         var endOfDay = startOfDay.AddDays(1);
-        var startOfMonth = new DateTime(referenceDate.Year, referenceDate.Month, 1);
+        var startOfMonth = new DateTime(referenceDate.Year, referenceDate.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfMonth = startOfMonth.AddMonths(1);
-        var startOfYear = new DateTime(referenceDate.Year, 1, 1);
+        var startOfYear = new DateTime(referenceDate.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfYear = startOfYear.AddYears(1);
 
         var baseQuery = _db.PersonalPurchases.AsNoTracking().Where(p => p.UserId == userId.Value);
