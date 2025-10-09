@@ -9,7 +9,11 @@ public record CartItemRequest(
     decimal Quantity,
     Guid? PriceRuleId,
     decimal? ManualDiscountPercent,
-    bool IsWaste = false);
+    bool IsWaste = false,
+    decimal? ManualUnitPriceUsd = null,
+    decimal? ManualUnitPriceLbp = null,
+    decimal? ManualTotalUsd = null,
+    decimal? ManualTotalLbp = null);
 
 public class CartPricingService
 {
@@ -25,6 +29,7 @@ public class CartPricingService
     public async Task<(decimal totalUsd, decimal totalLbp, List<TransactionLine> lines)> PriceCartAsync(
         IEnumerable<CartItemRequest> items,
         decimal exchangeRate,
+        bool allowManualPricing = false,
         CancellationToken cancellationToken = default)
     {
         var productIds = items.Select(i => i.ProductId).ToList();
@@ -48,6 +53,56 @@ public class CartPricingService
             var unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
             var lineTotalUsd = unitPriceUsd * item.Quantity;
             var lineTotalLbp = unitPriceLbp * item.Quantity;
+
+            var manualOverrideApplied = false;
+            var manualUsdOverride = false;
+            var manualLbpOverride = false;
+
+            if (allowManualPricing && !isWaste)
+            {
+                if (item.ManualUnitPriceUsd.HasValue)
+                {
+                    unitPriceUsd = item.ManualUnitPriceUsd.Value;
+                    lineTotalUsd = unitPriceUsd * item.Quantity;
+                    manualOverrideApplied = true;
+                    manualUsdOverride = true;
+                }
+
+                if (item.ManualTotalUsd.HasValue)
+                {
+                    lineTotalUsd = item.ManualTotalUsd.Value;
+                    unitPriceUsd = item.Quantity == 0 ? 0m : lineTotalUsd / item.Quantity;
+                    manualOverrideApplied = true;
+                    manualUsdOverride = true;
+                }
+
+                if (item.ManualUnitPriceLbp.HasValue)
+                {
+                    unitPriceLbp = item.ManualUnitPriceLbp.Value;
+                    lineTotalLbp = unitPriceLbp * item.Quantity;
+                    manualOverrideApplied = true;
+                    manualLbpOverride = true;
+                }
+
+                if (item.ManualTotalLbp.HasValue)
+                {
+                    lineTotalLbp = item.ManualTotalLbp.Value;
+                    unitPriceLbp = item.Quantity == 0 ? 0m : lineTotalLbp / item.Quantity;
+                    manualOverrideApplied = true;
+                    manualLbpOverride = true;
+                }
+
+                if (manualUsdOverride && !manualLbpOverride)
+                {
+                    unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
+                    lineTotalLbp = _currencyService.ConvertUsdToLbp(lineTotalUsd, exchangeRate);
+                }
+                else if (manualLbpOverride && !manualUsdOverride)
+                {
+                    unitPriceUsd = _currencyService.ConvertLbpToUsd(unitPriceLbp, exchangeRate);
+                    lineTotalUsd = _currencyService.ConvertLbpToUsd(lineTotalLbp, exchangeRate);
+                }
+            }
 
             var inventoryCost = product.Inventory?.AverageCostUsd ?? baseUnitPriceUsd * 0.6m;
             var lineCostUsd = inventoryCost * item.Quantity;
@@ -79,7 +134,8 @@ public class CartPricingService
                 CostLbp = _currencyService.RoundLbp(lineCostLbp),
                 ProfitUsd = _currencyService.RoundUsd(profitUsd),
                 ProfitLbp = _currencyService.RoundLbp(profitLbp),
-                IsWaste = isWaste
+                IsWaste = isWaste,
+                HasManualPriceOverride = allowManualPricing && manualOverrideApplied
             };
             line.Product = product;
             line.PriceRule = priceRule;

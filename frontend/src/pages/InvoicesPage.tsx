@@ -310,6 +310,7 @@ export function InvoicesPage() {
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
+        onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
         isInvoices
       />
       <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">

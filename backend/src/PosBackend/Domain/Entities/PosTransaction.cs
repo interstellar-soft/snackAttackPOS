@@ -19,6 +19,7 @@ public class PosTransaction : BaseEntity
     public decimal PaidLbp { get; set; }
     public decimal BalanceUsd { get; set; }
     public decimal BalanceLbp { get; set; }
+    public bool HasManualTotalOverride { get; set; }
     public string? ReceiptHtml { get; set; }
     public ICollection<TransactionLine> Lines { get; set; } = new List<TransactionLine>();
 }

@@ -12,6 +12,12 @@ public class UpdateTransactionRequest
 
     public decimal PaidLbp { get; set; }
 
+    public decimal? ManualTotalUsd { get; set; }
+
+    public decimal? ManualTotalLbp { get; set; }
+
+    public bool SaveToMyCart { get; set; }
+
     [MinLength(1)]
     public List<CartItemRequest> Items { get; set; } = new();
 }

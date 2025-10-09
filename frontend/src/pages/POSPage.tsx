@@ -32,6 +32,7 @@ interface CheckoutResponse extends BalanceResponse {
   receiptPdfBase64: string;
   requiresOverride: boolean;
   overrideReason?: string | null;
+  hasManualTotalOverride: boolean;
 }
 
 interface ProductResponse {
@@ -53,7 +54,18 @@ export function POSPage() {
   const token = useAuthStore((state) => state.token);
   const role = useAuthStore((state) => state.role);
   const logout = useAuthStore((state) => state.logout);
-  const { addItem, clear, items, subtotalUsd, rate, setRate, lastAddedItemId, setLastAddedItemId } = useCartStore((state) => ({
+  const {
+    addItem,
+    clear,
+    items,
+    subtotalUsd,
+    rate,
+    setRate,
+    lastAddedItemId,
+    setLastAddedItemId,
+    manualCartTotalUsd,
+    manualCartTotalLbp
+  } = useCartStore((state) => ({
     addItem: state.addItem,
     clear: state.clear,
     items: state.items,
@@ -61,7 +73,9 @@ export function POSPage() {
     rate: state.rate,
     setRate: state.setRate,
     lastAddedItemId: state.lastAddedItemId,
-    setLastAddedItemId: state.setLastAddedItemId
+    setLastAddedItemId: state.setLastAddedItemId,
+    manualCartTotalUsd: state.manualCartTotalUsd,
+    manualCartTotalLbp: state.manualCartTotalLbp
   }));
   const [barcode, setBarcode] = useState('');
   const [lastScan, setLastScan] = useState<string | undefined>();
@@ -73,6 +87,7 @@ export function POSPage() {
   const [rateModalOpen, setRateModalOpen] = useState(false);
   const [overrideRequired, setOverrideRequired] = useState(false);
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
+  const [saveToMyCart, setSaveToMyCart] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
   const barcodeTimeoutRef = useRef<number | null>(null);
@@ -540,6 +555,7 @@ export function POSPage() {
       setPaidLbpAmount(0);
       setOverrideRequired(false);
       setOverrideReason(null);
+      setSaveToMyCart(false);
     }
   }, [items.length]);
 
@@ -557,21 +573,43 @@ export function POSPage() {
     if (parsedLbp !== paidLbpAmount) {
       setPaidLbpAmount(parsedLbp);
     }
+    const checkoutPayload: Record<string, unknown> = {
+      exchangeRate: rate,
+      paidUsd: parsedUsd,
+      paidLbp: parsedLbp,
+      items: items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        manualDiscountPercent: item.discountPercent,
+        isWaste: item.isWaste,
+        manualTotalUsd:
+          item.manualTotalUsd !== null && item.manualTotalUsd !== undefined
+            ? item.manualTotalUsd
+            : undefined,
+        manualTotalLbp:
+          item.manualTotalLbp !== null && item.manualTotalLbp !== undefined
+            ? item.manualTotalLbp
+            : undefined
+      }))
+    };
+
+    if (manualCartTotalUsd !== null && manualCartTotalUsd !== undefined) {
+      checkoutPayload.manualTotalUsd = manualCartTotalUsd;
+    }
+
+    if (manualCartTotalLbp !== null && manualCartTotalLbp !== undefined) {
+      checkoutPayload.manualTotalLbp = manualCartTotalLbp;
+    }
+
+    if (normalizedRole === 'admin') {
+      checkoutPayload.saveToMyCart = saveToMyCart;
+    }
+
     const response = await apiFetch<CheckoutResponse>(
       '/api/transactions/checkout',
       {
         method: 'POST',
-        body: JSON.stringify({
-          exchangeRate: rate,
-          paidUsd: parsedUsd,
-          paidLbp: parsedLbp,
-          items: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            manualDiscountPercent: item.discountPercent,
-            isWaste: item.isWaste
-          }))
-        })
+        body: JSON.stringify(checkoutPayload)
       },
       token
     );
@@ -590,6 +628,7 @@ export function POSPage() {
     setPaidUsdAmount(0);
     setPaidLbpText('');
     setPaidLbpAmount(0);
+    setSaveToMyCart(false);
     alert(`Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`);
   };
 
@@ -597,6 +636,7 @@ export function POSPage() {
   const canManageInventory = normalizedRole === 'admin' || normalizedRole === 'manager';
   const canEditRate = canManageInventory;
   const canSeeAnalytics = canManageInventory;
+  const canSaveToMyCart = normalizedRole === 'admin';
 
   const handleSaveRate = async (nextRate: number, notes?: string) => {
     if (!token) return;
@@ -623,6 +663,7 @@ export function POSPage() {
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
+        onNavigateMyCart={canSaveToMyCart ? () => navigate('/my-cart') : undefined}
       />
       <div className="row-start-2 h-full min-h-0">
         <div className="grid h-full min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.55fr)] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.65fr)]">
@@ -665,6 +706,9 @@ export function POSPage() {
                 onOpenRateModal={() => canEditRate && setRateModalOpen(true)}
                 canEditRate={canEditRate}
                 disabled={overrideRequired}
+                canSaveToMyCart={canSaveToMyCart}
+                saveToMyCart={saveToMyCart}
+                onToggleSaveToMyCart={setSaveToMyCart}
               />
             </div>
             <div className="grid h-full min-h-0 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">

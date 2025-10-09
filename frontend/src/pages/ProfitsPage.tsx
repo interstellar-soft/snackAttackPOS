@@ -277,6 +277,7 @@ export function ProfitsPage() {
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
+        onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
       />
 
       {isLoading && <Card className="p-6 text-sm text-slate-500">{t('profitLoading')}</Card>}
