@@ -93,12 +93,14 @@ public class TransactionsController : ControllerBase
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<TransactionResponse>> Update(Guid id, [FromBody] UpdateTransactionRequest request, CancellationToken cancellationToken)
     {
+        var allowManualPricing = User.IsInRole("Admin");
+        var currentUserId = User.GetCurrentUserId();
         if (!ModelState.IsValid)
         {
             return ValidationProblem(ModelState);
         }
 
-        if (request.Items.Any(i => i.IsWaste) && !User.IsInRole("Admin"))
+        if (request.Items.Any(i => i.IsWaste) && !allowManualPricing)
         {
             return Forbid();
         }
@@ -106,6 +108,11 @@ public class TransactionsController : ControllerBase
         if (request.Items.Count == 0)
         {
             return BadRequest(new { message = "At least one item is required." });
+        }
+
+        if (request.SaveToMyCart && !allowManualPricing)
+        {
+            return Forbid();
         }
 
         var transaction = await _db.Transactions
@@ -126,7 +133,14 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : transaction.ExchangeRateUsed;
 
-        var (totalUsd, totalLbp, pricedLines) = await _pricingService.PriceCartAsync(request.Items, rate, cancellationToken);
+        var (computedTotalUsd, _, pricedLines) = await _pricingService.PriceCartAsync(request.Items, rate, allowManualPricing, cancellationToken);
+
+        var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = ResolveManualTotals(
+            computedTotalUsd,
+            rate,
+            allowManualPricing,
+            request.ManualTotalUsd,
+            request.ManualTotalLbp);
 
         foreach (var existingLine in transaction.Lines.ToList())
         {
@@ -141,7 +155,7 @@ public class TransactionsController : ControllerBase
         _db.TransactionLines.RemoveRange(transaction.Lines);
         transaction.Lines.Clear();
 
-        var balance = _currencyService.ComputeBalance(totalUsd, request.PaidUsd, request.PaidLbp, rate);
+        var balance = _currencyService.ComputeBalance(effectiveTotalUsd, request.PaidUsd, request.PaidLbp, rate, totalLbpOverride);
 
         transaction.ExchangeRateUsed = rate;
         transaction.TotalUsd = balance.totalUsd;
@@ -151,6 +165,7 @@ public class TransactionsController : ControllerBase
         transaction.BalanceUsd = balance.balanceUsd;
         transaction.BalanceLbp = balance.balanceLbp;
         transaction.UpdatedAt = DateTime.UtcNow;
+        transaction.HasManualTotalOverride = hasManualTotalOverride;
 
         foreach (var line in pricedLines)
         {
@@ -166,12 +181,42 @@ public class TransactionsController : ControllerBase
             }
         }
 
+        if (allowManualPricing)
+        {
+            var existingPersonalPurchase = await _db.PersonalPurchases
+                .FirstOrDefaultAsync(p => p.TransactionId == transaction.Id, cancellationToken);
+
+            if (request.SaveToMyCart)
+            {
+                if (existingPersonalPurchase is null)
+                {
+                    await _db.PersonalPurchases.AddAsync(new PersonalPurchase
+                    {
+                        TransactionId = transaction.Id,
+                        UserId = transaction.UserId,
+                        TotalUsd = transaction.TotalUsd,
+                        TotalLbp = transaction.TotalLbp,
+                        PurchaseDate = DateTime.UtcNow
+                    }, cancellationToken);
+                }
+                else
+                {
+                    existingPersonalPurchase.TotalUsd = transaction.TotalUsd;
+                    existingPersonalPurchase.TotalLbp = transaction.TotalLbp;
+                    existingPersonalPurchase.PurchaseDate = DateTime.UtcNow;
+                }
+            }
+            else if (existingPersonalPurchase is not null)
+            {
+                _db.PersonalPurchases.Remove(existingPersonalPurchase);
+            }
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
-        var userId = User.GetCurrentUserId();
-        if (userId.HasValue)
+        if (currentUserId.HasValue)
         {
-            await _auditLogger.LogAsync(userId.Value, "UpdateTransaction", nameof(PosTransaction), transaction.Id, new
+            await _auditLogger.LogAsync(currentUserId.Value, "UpdateTransaction", nameof(PosTransaction), transaction.Id, new
             {
                 transaction.TransactionNumber,
                 transaction.TotalUsd,
@@ -190,7 +235,12 @@ public class TransactionsController : ControllerBase
         {
             return Unauthorized();
         }
-        if (request.Items.Any(i => i.IsWaste) && !User.IsInRole("Admin"))
+        var allowManualPricing = User.IsInRole("Admin");
+        if (request.Items.Any(i => i.IsWaste) && !allowManualPricing)
+        {
+            return Forbid();
+        }
+        if (request.SaveToMyCart && !allowManualPricing)
         {
             return Forbid();
         }
@@ -198,9 +248,16 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : (await _currencyService.GetCurrentRateAsync(cancellationToken)).Rate;
 
-        var (totalUsd, totalLbp, lines) = await _pricingService.PriceCartAsync(request.Items, currentRate, cancellationToken);
+        var (computedTotalUsd, _, lines) = await _pricingService.PriceCartAsync(request.Items, currentRate, allowManualPricing, cancellationToken);
 
-        var balance = _currencyService.ComputeBalance(totalUsd, request.PaidUsd, request.PaidLbp, currentRate);
+        var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = ResolveManualTotals(
+            computedTotalUsd,
+            currentRate,
+            allowManualPricing,
+            request.ManualTotalUsd,
+            request.ManualTotalLbp);
+
+        var balance = _currencyService.ComputeBalance(effectiveTotalUsd, request.PaidUsd, request.PaidLbp, currentRate, totalLbpOverride);
 
         var transaction = new PosTransaction
         {
@@ -212,7 +269,8 @@ public class TransactionsController : ControllerBase
             PaidLbp = _currencyService.RoundLbp(request.PaidLbp),
             ExchangeRateUsed = currentRate,
             BalanceUsd = balance.balanceUsd,
-            BalanceLbp = balance.balanceLbp
+            BalanceLbp = balance.balanceLbp,
+            HasManualTotalOverride = hasManualTotalOverride
         };
 
         foreach (var line in lines)
@@ -241,6 +299,18 @@ public class TransactionsController : ControllerBase
         if (!visionFlags.Any())
         {
             await _db.Transactions.AddAsync(transaction, cancellationToken);
+
+            if (allowManualPricing && request.SaveToMyCart)
+            {
+                await _db.PersonalPurchases.AddAsync(new PersonalPurchase
+                {
+                    TransactionId = transaction.Id,
+                    UserId = transaction.UserId,
+                    TotalUsd = transaction.TotalUsd,
+                    TotalLbp = transaction.TotalLbp,
+                    PurchaseDate = DateTime.UtcNow
+                }, cancellationToken);
+            }
 
             foreach (var line in lines)
             {
@@ -288,7 +358,8 @@ public class TransactionsController : ControllerBase
             Lines = responseLines,
             ReceiptPdfBase64 = receiptBase64,
             RequiresOverride = visionFlags.Any(),
-            OverrideReason = visionFlags.Any() ? string.Join(";", visionFlags) : null
+            OverrideReason = visionFlags.Any() ? string.Join(";", visionFlags) : null,
+            HasManualTotalOverride = transaction.HasManualTotalOverride
         };
     }
 
@@ -427,6 +498,32 @@ public class TransactionsController : ControllerBase
         };
     }
 
+    private (decimal totalUsd, decimal? totalLbpOverride, bool hasManualOverride) ResolveManualTotals(
+        decimal computedTotalUsd,
+        decimal exchangeRate,
+        bool allowManualPricing,
+        decimal? manualTotalUsd,
+        decimal? manualTotalLbp)
+    {
+        if (!allowManualPricing)
+        {
+            return (computedTotalUsd, null, false);
+        }
+
+        if (manualTotalUsd.HasValue)
+        {
+            return (manualTotalUsd.Value, manualTotalLbp, true);
+        }
+
+        if (manualTotalLbp.HasValue)
+        {
+            var convertedTotalUsd = _currencyService.ConvertLbpToUsd(manualTotalLbp.Value, exchangeRate);
+            return (convertedTotalUsd, manualTotalLbp, true);
+        }
+
+        return (computedTotalUsd, null, false);
+    }
+
     private TransactionResponse ToResponse(PosTransaction transaction)
     {
         return new TransactionResponse
@@ -444,6 +541,7 @@ public class TransactionsController : ControllerBase
             BalanceLbp = transaction.BalanceLbp,
             CreatedAt = transaction.CreatedAt,
             UpdatedAt = transaction.UpdatedAt,
+            HasManualTotalOverride = transaction.HasManualTotalOverride,
             Lines = transaction.Lines.Select(CheckoutLineResponse.FromEntity).ToList()
         };
     }

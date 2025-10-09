@@ -23,6 +23,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CurrencyRate> CurrencyRates => Set<CurrencyRate>();
     public DbSet<StoreProfile> StoreProfiles => Set<StoreProfile>();
+    public DbSet<PersonalPurchase> PersonalPurchases => Set<PersonalPurchase>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

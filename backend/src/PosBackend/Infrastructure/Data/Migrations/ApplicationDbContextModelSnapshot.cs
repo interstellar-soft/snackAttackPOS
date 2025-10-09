@@ -202,6 +202,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
                 b.Property<decimal>("UnitPriceLbp").HasColumnType("numeric(18,2)");
                 b.Property<decimal>("UnitPriceUsd").HasColumnType("numeric(14,2)");
+                b.Property<bool>("HasManualPriceOverride").HasColumnType("boolean").HasDefaultValue(false);
                 b.HasKey("Id");
                 b.HasIndex("PriceRuleId");
                 b.HasIndex("ProductId");
@@ -224,11 +225,28 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<Guid>("UserId").HasColumnType("uuid");
                 b.Property<decimal>("TotalLbp").HasColumnType("numeric(18,2)");
                 b.Property<decimal>("TotalUsd").HasColumnType("numeric(14,2)");
+                b.Property<bool>("HasManualTotalOverride").HasColumnType("boolean").HasDefaultValue(false);
                 b.Property<string>("TransactionNumber").HasColumnType("text");
                 b.HasKey("Id");
                 b.HasIndex("TransactionNumber").IsUnique();
                 b.HasIndex("UserId");
                 b.ToTable("transactions", (string)null);
+            });
+
+            modelBuilder.Entity("PosBackend.Domain.Entities.PersonalPurchase", b =>
+            {
+                b.Property<Guid>("Id").HasColumnType("uuid");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.Property<Guid>("UserId").HasColumnType("uuid");
+                b.Property<Guid>("TransactionId").HasColumnType("uuid");
+                b.Property<decimal>("TotalUsd").HasColumnType("numeric(14,2)");
+                b.Property<decimal>("TotalLbp").HasColumnType("numeric(18,2)");
+                b.Property<DateTime>("PurchaseDate").HasColumnType("timestamp with time zone");
+                b.HasKey("Id");
+                b.HasIndex("TransactionId").IsUnique();
+                b.HasIndex("UserId", "PurchaseDate");
+                b.ToTable("personal_purchases", (string)null);
             });
 
             modelBuilder.Entity("PosBackend.Domain.Entities.Supplier", b =>
@@ -353,6 +371,24 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Navigation("PriceRule");
                 b.Navigation("Product");
                 b.Navigation("Transaction");
+            });
+
+            modelBuilder.Entity("PosBackend.Domain.Entities.PersonalPurchase", b =>
+            {
+                b.HasOne("PosBackend.Domain.Entities.PosTransaction", "Transaction")
+                    .WithMany()
+                    .HasForeignKey("TransactionId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("PosBackend.Domain.Entities.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("Transaction");
+                b.Navigation("User");
             });
 
             modelBuilder.Entity("PosBackend.Domain.Entities.PosTransaction", b =>

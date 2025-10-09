@@ -26,4 +26,5 @@ public class TransactionLine : BaseEntity
     public decimal ProfitUsd { get; set; }
     public decimal ProfitLbp { get; set; }
     public bool IsWaste { get; set; }
+    public bool HasManualPriceOverride { get; set; }
 }

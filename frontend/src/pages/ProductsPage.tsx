@@ -308,6 +308,7 @@ export function ProductsPage() {
         onNavigateSettings={canSeeAnalytics ? () => navigate('/settings') : undefined}
         onNavigateProducts={canSeeAnalytics ? () => navigate('/products') : undefined}
         onNavigateInventory={canSeeAnalytics ? () => navigate('/inventory') : undefined}
+        onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
         isProducts
       />
       {banner && (

@@ -38,13 +38,19 @@ public class CurrencyService
         decimal totalUsd,
         decimal paidUsd,
         decimal paidLbp,
-        decimal exchangeRate)
+        decimal exchangeRate,
+        decimal? totalLbpOverride = null)
     {
-        var totalLbp = ConvertUsdToLbp(totalUsd, exchangeRate);
-        var paidUsdEquivalent = paidUsd + ConvertLbpToUsd(paidLbp, exchangeRate);
-        var balanceUsd = RoundUsd(totalUsd - paidUsdEquivalent);
-        var paidLbpEquivalent = paidLbp + ConvertUsdToLbp(paidUsd, exchangeRate);
-        var balanceLbp = RoundLbp(totalLbp - paidLbpEquivalent);
-        return (RoundUsd(totalUsd), totalLbp, balanceUsd, balanceLbp);
+        var roundedTotalUsd = RoundUsd(totalUsd);
+        var roundedTotalLbp = totalLbpOverride.HasValue
+            ? RoundLbp(totalLbpOverride.Value)
+            : ConvertUsdToLbp(roundedTotalUsd, exchangeRate);
+        var roundedPaidUsd = RoundUsd(paidUsd);
+        var roundedPaidLbp = RoundLbp(paidLbp);
+        var paidUsdEquivalent = roundedPaidUsd + ConvertLbpToUsd(roundedPaidLbp, exchangeRate);
+        var balanceUsd = RoundUsd(roundedTotalUsd - paidUsdEquivalent);
+        var paidLbpEquivalent = roundedPaidLbp + ConvertUsdToLbp(roundedPaidUsd, exchangeRate);
+        var balanceLbp = RoundLbp(roundedTotalLbp - paidLbpEquivalent);
+        return (roundedTotalUsd, roundedTotalLbp, balanceUsd, balanceLbp);
     }
 }

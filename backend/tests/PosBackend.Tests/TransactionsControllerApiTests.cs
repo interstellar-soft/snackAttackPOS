@@ -135,6 +135,61 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
             JwtSecurityTokenHandler.DefaultMapInboundClaims = originalMapInboundClaims;
         }
     }
+
+    [Fact]
+    public async Task Checkout_WithManualOverrides_CreatesPersonalPurchase()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+
+        var admin = await context.Users.FirstAsync(u => u.Username == "admin");
+        var product = await context.Products.AsNoTracking().FirstAsync();
+
+        var token = tokenService.CreateToken(admin);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var request = new CheckoutRequest
+        {
+            ExchangeRate = 90000m,
+            PaidUsd = 10m,
+            PaidLbp = 0m,
+            ManualTotalUsd = 10m,
+            SaveToMyCart = true,
+            Items = new[]
+            {
+                new CartItemRequest(product.Id, 1, null, null, false, null, null, 10m, null)
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/api/transactions/checkout", request);
+
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadFromJsonAsync<CheckoutResponse>();
+        Assert.NotNull(body);
+        Assert.True(body!.HasManualTotalOverride);
+
+        using var verificationScope = _factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var persisted = await verificationContext.Transactions
+            .Include(t => t.Lines)
+            .FirstOrDefaultAsync(t => t.Id == body.TransactionId);
+
+        Assert.NotNull(persisted);
+        Assert.True(persisted!.HasManualTotalOverride);
+        Assert.All(persisted.Lines, line => Assert.True(line.HasManualPriceOverride));
+
+        var personalPurchase = await verificationContext.PersonalPurchases
+            .FirstOrDefaultAsync(p => p.TransactionId == persisted.Id);
+
+        Assert.NotNull(personalPurchase);
+        Assert.Equal(admin.Id, personalPurchase!.UserId);
+        Assert.Equal(persisted.TotalUsd, personalPurchase.TotalUsd);
+        Assert.Equal(persisted.TotalLbp, personalPurchase.TotalLbp);
+    }
 }
 
 public class TransactionsApiFactory : WebApplicationFactory<Program>

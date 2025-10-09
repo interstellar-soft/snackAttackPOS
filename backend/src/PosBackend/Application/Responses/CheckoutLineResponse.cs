@@ -26,6 +26,7 @@ public class CheckoutLineResponse
     public decimal ProfitLbp { get; set; }
     public decimal QuantityOnHand { get; set; }
     public bool IsWaste { get; set; }
+    public bool HasManualPriceOverride { get; set; }
 
     public static CheckoutLineResponse FromEntity(TransactionLine line)
     {
@@ -52,7 +53,8 @@ public class CheckoutLineResponse
             ProfitUsd = line.ProfitUsd,
             ProfitLbp = line.ProfitLbp,
             QuantityOnHand = line.Product?.Inventory?.QuantityOnHand ?? 0,
-            IsWaste = line.IsWaste
+            IsWaste = line.IsWaste,
+            HasManualPriceOverride = line.HasManualPriceOverride
         };
     }
 }

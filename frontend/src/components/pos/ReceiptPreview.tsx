@@ -34,13 +34,21 @@ export function ReceiptPreview() {
                       {t('cartWasteBadge')}
                     </Badge>
                   )}
+                  {!item.isWaste &&
+                    (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined ||
+                      item.manualTotalLbp !== null && item.manualTotalLbp !== undefined) && (
+                      <Badge className="mt-1 bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200">
+                        {t('cartManualOverrideApplied')}
+                      </Badge>
+                    )}
                 </div>
                 <div className="flex items-center gap-1">
                   <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">
                     {formatCurrency(
                       item.isWaste
                         ? 0
-                        : item.priceUsd * item.quantity * (1 - item.discountPercent / 100),
+                        : item.manualTotalUsd ??
+                          item.priceUsd * item.quantity * (1 - item.discountPercent / 100),
                       'USD',
                       locale
                     )}

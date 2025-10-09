@@ -15,4 +15,5 @@ public class CheckoutResponse
     public string ReceiptPdfBase64 { get; set; } = string.Empty;
     public bool RequiresOverride { get; set; }
     public string? OverrideReason { get; set; }
+    public bool HasManualTotalOverride { get; set; }
 }

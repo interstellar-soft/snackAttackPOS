@@ -8,6 +8,20 @@ const generateLineId = () => {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
+const clampUsd = (value: number | null | undefined) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.round(value * 100) / 100;
+};
+
+const clampLbp = (value: number | null | undefined) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.round(value);
+};
+
 export interface CartItem {
   lineId: string;
   productId: string;
@@ -19,6 +33,8 @@ export interface CartItem {
   quantity: number;
   discountPercent: number;
   isWaste: boolean;
+  manualTotalUsd?: number | null;
+  manualTotalLbp?: number | null;
 }
 
 export type CartItemInput = Omit<CartItem, 'lineId' | 'isWaste'> & {
@@ -35,11 +51,19 @@ interface CartState {
   updateDiscount: (lineId: string, discount: number) => void;
   removeItem: (lineId: string) => void;
   setItemWaste: (lineId: string, isWaste: boolean) => void;
+  setItemManualTotals: (
+    lineId: string,
+    totals: { totalUsd?: number | null; totalLbp?: number | null }
+  ) => void;
+  setCartManualTotals: (totals: { totalUsd?: number | null; totalLbp?: number | null }) => void;
+  clearCartManualTotals: () => void;
   setRate: (rate: number) => void;
   clear: () => void;
   subtotalUsd: () => number;
   subtotalLbp: () => number;
   setLastAddedItemId: (lineId: string | null) => void;
+  manualCartTotalUsd: number | null;
+  manualCartTotalLbp: number | null;
 }
 
 export const useCartStore = create<CartState>()(
@@ -48,11 +72,15 @@ export const useCartStore = create<CartState>()(
       items: [],
       rate: 90000,
       lastAddedItemId: null,
+      manualCartTotalUsd: null,
+      manualCartTotalLbp: null,
       addItem: (item) => {
         const normalized: CartItem = {
           ...item,
           isWaste: item.isWaste ?? false,
-          lineId: generateLineId()
+          lineId: generateLineId(),
+          manualTotalUsd: clampUsd(item.manualTotalUsd),
+          manualTotalLbp: clampLbp(item.manualTotalLbp)
         };
         const existingIndex = get().items.findIndex(
           (i) => i.productId === normalized.productId && i.isWaste === normalized.isWaste
@@ -114,7 +142,9 @@ export const useCartStore = create<CartState>()(
           const updatedItem: CartItem = {
             ...currentItem,
             isWaste,
-            discountPercent: isWaste ? 0 : currentItem.discountPercent
+            discountPercent: isWaste ? 0 : currentItem.discountPercent,
+            manualTotalUsd: isWaste ? null : currentItem.manualTotalUsd,
+            manualTotalLbp: isWaste ? null : currentItem.manualTotalLbp
           };
           items.splice(index, 1);
           const mergeIndex = items.findIndex(
@@ -132,25 +162,104 @@ export const useCartStore = create<CartState>()(
           return { items, lastAddedItemId: updatedItem.lineId };
         });
       },
+      setItemManualTotals: (lineId, totals) =>
+        set((state) => {
+          const index = state.items.findIndex((item) => item.lineId === lineId);
+          if (index === -1) {
+            return {};
+          }
+          const items = [...state.items];
+          const current = items[index];
+          const nextUsd =
+            Object.prototype.hasOwnProperty.call(totals, 'totalUsd')
+              ? clampUsd(totals.totalUsd ?? null)
+              : current.manualTotalUsd ?? null;
+          const nextLbp =
+            Object.prototype.hasOwnProperty.call(totals, 'totalLbp')
+              ? clampLbp(totals.totalLbp ?? null)
+              : current.manualTotalLbp ?? null;
+          items[index] = {
+            ...current,
+            manualTotalUsd: current.isWaste ? null : nextUsd,
+            manualTotalLbp: current.isWaste ? null : nextLbp
+          };
+          return { items };
+        }),
+      setCartManualTotals: (totals) =>
+        set((state) => {
+          const nextUsd = Object.prototype.hasOwnProperty.call(totals, 'totalUsd')
+            ? clampUsd(totals.totalUsd ?? null)
+            : state.manualCartTotalUsd;
+          const nextLbp = Object.prototype.hasOwnProperty.call(totals, 'totalLbp')
+            ? clampLbp(totals.totalLbp ?? null)
+            : state.manualCartTotalLbp;
+          return {
+            manualCartTotalUsd: nextUsd,
+            manualCartTotalLbp: nextLbp
+          };
+        }),
+      clearCartManualTotals: () => set({ manualCartTotalUsd: null, manualCartTotalLbp: null }),
       setRate: (rate) => set({ rate }),
-      clear: () => set({ items: [], lastAddedItemId: null }),
-      subtotalUsd: () =>
-        get().items.reduce(
-          (total, item) =>
-            total + (item.isWaste ? 0 : item.priceUsd * (1 - item.discountPercent / 100) * item.quantity),
-          0
-        ),
-      subtotalLbp: () =>
-        get().items.reduce(
-          (total, item) =>
-            total + (item.isWaste ? 0 : item.priceLbp * (1 - item.discountPercent / 100) * item.quantity),
-          0
-        ),
+      clear: () =>
+        set({
+          items: [],
+          lastAddedItemId: null,
+          manualCartTotalUsd: null,
+          manualCartTotalLbp: null
+        }),
+      subtotalUsd: () => {
+        const state = get();
+        const { rate } = state;
+        if (state.manualCartTotalUsd !== null) {
+          return state.manualCartTotalUsd;
+        }
+        if (state.manualCartTotalLbp !== null && rate > 0) {
+          return Math.round((state.manualCartTotalLbp / rate) * 100) / 100;
+        }
+        return state.items.reduce((total, item) => {
+          if (item.isWaste) {
+            return total;
+          }
+          if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
+            return total + item.manualTotalUsd;
+          }
+          if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined && rate > 0) {
+            return total + Math.round((item.manualTotalLbp / rate) * 100) / 100;
+          }
+          return (
+            total + item.priceUsd * (1 - item.discountPercent / 100) * item.quantity
+          );
+        }, 0);
+      },
+      subtotalLbp: () => {
+        const state = get();
+        const { rate } = state;
+        if (state.manualCartTotalLbp !== null) {
+          return state.manualCartTotalLbp;
+        }
+        if (state.manualCartTotalUsd !== null) {
+          return Math.round(state.manualCartTotalUsd * rate);
+        }
+        return state.items.reduce((total, item) => {
+          if (item.isWaste) {
+            return total;
+          }
+          if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined) {
+            return total + item.manualTotalLbp;
+          }
+          if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
+            return total + Math.round(item.manualTotalUsd * rate);
+          }
+          return (
+            total + item.priceLbp * (1 - item.discountPercent / 100) * item.quantity
+          );
+        }, 0);
+      },
       setLastAddedItemId: (lineId) => set({ lastAddedItemId: lineId })
     }),
     {
       name: 'aurora-cart',
-      version: 2,
+      version: 3,
       migrate: (persistedState) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState;
@@ -161,13 +270,29 @@ export const useCartStore = create<CartState>()(
               ...item,
               sku: item.sku && String(item.sku).trim() ? String(item.sku) : undefined,
               lineId: item.lineId ?? generateLineId(),
-              isWaste: Boolean(item.isWaste)
+              isWaste: Boolean(item.isWaste),
+              manualTotalUsd:
+                item.manualTotalUsd !== undefined && item.manualTotalUsd !== null
+                  ? clampUsd(Number(item.manualTotalUsd))
+                  : null,
+              manualTotalLbp:
+                item.manualTotalLbp !== undefined && item.manualTotalLbp !== null
+                  ? clampLbp(Number(item.manualTotalLbp))
+                  : null
             }))
           : [];
         return {
           ...state,
           items,
-          lastAddedItemId: null
+          lastAddedItemId: null,
+          manualCartTotalUsd:
+            state.manualCartTotalUsd !== undefined && state.manualCartTotalUsd !== null
+              ? clampUsd(Number(state.manualCartTotalUsd))
+              : null,
+          manualCartTotalLbp:
+            state.manualCartTotalLbp !== undefined && state.manualCartTotalLbp !== null
+              ? clampLbp(Number(state.manualCartTotalLbp))
+              : null
         } satisfies CartState;
       }
     }

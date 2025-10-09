@@ -17,5 +17,6 @@ public class TransactionResponse
     public decimal BalanceLbp { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public bool HasManualTotalOverride { get; set; }
     public List<CheckoutLineResponse> Lines { get; set; } = new();
 }

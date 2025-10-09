@@ -20,6 +20,9 @@ interface TenderPanelProps {
   onOpenRateModal: () => void;
   canEditRate: boolean;
   disabled?: boolean;
+  canSaveToMyCart?: boolean;
+  saveToMyCart?: boolean;
+  onToggleSaveToMyCart?: (next: boolean) => void;
 }
 
 export function TenderPanel({
@@ -35,7 +38,10 @@ export function TenderPanel({
   exchangeRate,
   onOpenRateModal,
   canEditRate,
-  disabled = false
+  disabled = false,
+  canSaveToMyCart = false,
+  saveToMyCart = false,
+  onToggleSaveToMyCart
 }: TenderPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
@@ -122,6 +128,16 @@ export function TenderPanel({
             <span className={balanceLbp > 0 ? 'text-red-500' : balanceLbp < 0 ? 'text-emerald-500' : ''}>{balanceLbpText}</span>
           </div>
         </div>
+        {canSaveToMyCart && (
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={saveToMyCart}
+              onChange={(event) => onToggleSaveToMyCart?.(event.target.checked)}
+            />
+            <span>{t('tenderSaveToMyCart')}</span>
+          </label>
+        )}
         <Button type="button" className="w-full" onClick={onCheckout} disabled={disabled}>
           {t('checkout')}
         </Button>
