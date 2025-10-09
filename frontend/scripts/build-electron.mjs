@@ -40,13 +40,14 @@ const buildOptions = {
     resolve(projectRoot, 'electron/main.ts'),
     resolve(projectRoot, 'electron/preload.ts')
   ],
-  bundle: false,
+  bundle: true,
   format: 'cjs',
   platform: 'node',
   target: ['node18'],
   outdir,
   sourcemap: true,
-  tsconfig: resolve(projectRoot, 'tsconfig.electron.json')
+  tsconfig: resolve(projectRoot, 'tsconfig.electron.json'),
+  external: ['electron', 'electron-log', 'electron-updater']
 };
 
 const runBuild = async () => {
