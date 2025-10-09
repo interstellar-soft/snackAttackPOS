@@ -167,7 +167,6 @@ export function CartPanel({ onClear, highlightedItemId, onQuantityConfirm }: Car
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold">{item.name}</p>
-                    <p className="text-xs text-slate-500">{item.sku?.trim() || '—'}</p>
                   </div>
                   <button
                     type="button"

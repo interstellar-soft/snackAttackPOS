@@ -19,7 +19,7 @@ export function LoginPage() {
   const storeName = useStoreProfileStore((state) => state.name);
   const [username, setUsername] = useState('cashier');
   const [password, setPassword] = useState('ChangeMe123!');
-  const { status: backendStatus, error: backendError, checkHealth } = useBackendHealth();
+  const { status: backendStatus, error: backendError } = useBackendHealth();
 
   const backendOnline = backendStatus === 'online';
   const showConnectivityBanner = backendStatus !== 'online';
@@ -51,42 +51,37 @@ export function LoginPage() {
         <CardContent>
           <div className="space-y-4">
             {showConnectivityBanner && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-                <p className="font-semibold">
-                  {backendStatus === 'checking'
-                    ? t('backendStatusCheckingTitle')
-                    : t('backendStatusOfflineTitle')}
-                </p>
-                <p className="mt-2 text-amber-800 dark:text-amber-200">
-                  {backendStatus === 'checking'
-                    ? t('backendStatusCheckingDescription', { apiUrl: API_BASE_URL })
-                    : t('backendStatusOfflineDescription', { apiUrl: API_BASE_URL })}
-                </p>
-                {backendStatus === 'offline' && (
-                  <>
-                    <p className="mt-3 text-amber-800 dark:text-amber-200">
-                      {t('backendStatusOfflineAction')}
+              <div className="rounded-md border border-slate-200 bg-white/90 p-4 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40">
+                    <svg
+                      className="h-6 w-6 animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <title>{t('backendStatusCheckingTitle')}</title>
+                      <circle className="opacity-25" cx="12" cy="12" r="10" />
+                      <path className="opacity-75" d="M12 2a10 10 0 0 1 10 10" />
+                    </svg>
+                    <span className="sr-only">{t('backendStatusCheckingTitle')}</span>
+                  </span>
+                  <div>
+                    <p className="font-semibold text-slate-700 dark:text-slate-100">
+                      {t('backendStatusCheckingTitle')}
                     </p>
-                    <code className="mt-2 block rounded bg-amber-100 px-2 py-1 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100">
-                      docker compose --env-file .env -f infra/docker-compose.yml up -d
-                    </code>
-                    {backendError && (
-                      <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">{backendError}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                      {t('backendStatusCheckingDescription', { apiUrl: API_BASE_URL })}
+                    </p>
+                    {backendStatus === 'offline' && backendError && (
+                      <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">{backendError}</p>
                     )}
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-amber-700 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800"
-                        onClick={() => {
-                          void checkHealth();
-                        }}
-                        disabled={backendStatus === 'checking'}
-                      >
-                        {backendStatus === 'checking' ? t('backendStatusCheckingButton') : t('retry')}
-                      </button>
-                    </div>
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
             )}
             <form className="space-y-4" onSubmit={handleSubmit}>

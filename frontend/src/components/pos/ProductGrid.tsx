@@ -60,7 +60,6 @@ export function ProductGrid({ onScan }: ProductGridProps) {
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0">
           <p className="truncate font-medium">{product.name}</p>
-          <span className="text-[0.7rem] text-slate-500">{product.sku?.trim() || '—'}</span>
         </div>
         {product.isPinned && (
           <Badge
