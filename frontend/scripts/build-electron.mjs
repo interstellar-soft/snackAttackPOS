@@ -20,9 +20,11 @@ const ensureOutDir = () => {
   writeFileSync(packageJsonPath, `${packageJson}\n`);
 };
 
+const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+
 const runTypeCheck = () =>
   new Promise((resolvePromise, rejectPromise) => {
-    const tsc = spawn('npx', ['tsc', '--project', 'tsconfig.electron.json', '--noEmit'], {
+    const tsc = spawn(npxCommand, ['tsc', '--project', 'tsconfig.electron.json', '--noEmit'], {
       cwd: projectRoot,
       stdio: 'inherit'
     });
