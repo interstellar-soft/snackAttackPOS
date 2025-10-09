@@ -49,6 +49,39 @@ public class InventoryControllerApiTests : IClassFixture<InventoryApiFactory>
     }
 
     [Fact]
+    public async Task GetInventorySummary_IncludesEmptyCategories_WhenNoInventory()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+        var manager = await context.Users.FirstAsync(u => u.Username == "manager");
+        var token = tokenService.CreateToken(manager);
+
+        context.Inventories.RemoveRange(context.Inventories);
+        context.Products.RemoveRange(context.Products);
+        context.Categories.RemoveRange(context.Categories);
+        await context.SaveChangesAsync();
+
+        await context.Categories.AddRangeAsync(
+            new Category { Name = "Beverages" },
+            new Category { Name = "Snacks" });
+        await context.SaveChangesAsync();
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.GetAsync("/api/inventory/summary");
+        response.EnsureSuccessStatusCode();
+
+        var summary = await response.Content.ReadFromJsonAsync<InventorySummaryResponse>();
+        Assert.NotNull(summary);
+        Assert.Empty(summary!.Items);
+        Assert.Contains(summary.Categories, c => c.CategoryName == "Beverages" && c.TotalCostUsd == 0);
+        Assert.Contains(summary.Categories, c => c.CategoryName == "Snacks" && c.QuantityOnHand == 0);
+    }
+
+    [Fact]
     public async Task GetInventorySummary_AggregatesByCategoryAndProduct()
     {
         var client = _factory.CreateClient();

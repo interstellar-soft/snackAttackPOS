@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -27,10 +32,10 @@ public class InventoryController : ControllerBase
             .ThenInclude(p => p!.Category)
             .ToListAsync(cancellationToken);
 
-        if (inventories.Count == 0)
-        {
-            return new InventorySummaryResponse();
-        }
+        var categories = await _db.Categories
+            .AsNoTracking()
+            .OrderBy(c => c.Name)
+            .ToListAsync(cancellationToken);
 
         static decimal Round(decimal value, int decimals = 2) => decimal.Round(value, decimals, MidpointRounding.AwayFromZero);
 
@@ -78,31 +83,50 @@ public class InventoryController : ControllerBase
             .ThenBy(item => item.ProductName)
             .ToList();
 
-        var categorySummaries = inventories
-            .GroupBy(inventory =>
-            {
-                var category = inventory.Product?.Category;
-                return new
+        var categoryAggregates = inventories
+            .GroupBy(inventory => inventory.Product?.CategoryId ?? Guid.Empty)
+            .ToDictionary(
+                group => group.Key,
+                group =>
                 {
-                    Id = category?.Id ?? Guid.Empty,
-                    Name = category?.Name ?? "Uncategorized"
-                };
-            })
-            .Select(group =>
-            {
-                var totalQuantity = group.Sum(item => item.QuantityOnHand);
-                var totalCostUsd = Round(group.Sum(item => item.QuantityOnHand * item.AverageCostUsd));
-                var totalCostLbp = Round(group.Sum(item => item.QuantityOnHand * item.AverageCostLbp));
+                    var totalQuantity = group.Sum(item => item.QuantityOnHand);
+                    var totalCostUsd = Round(group.Sum(item => item.QuantityOnHand * item.AverageCostUsd));
+                    var totalCostLbp = Round(group.Sum(item => item.QuantityOnHand * item.AverageCostLbp));
 
-                return new InventoryCategorySummary
-                {
-                    CategoryId = group.Key.Id,
-                    CategoryName = group.Key.Name,
-                    QuantityOnHand = totalQuantity,
-                    TotalCostUsd = totalCostUsd,
-                    TotalCostLbp = totalCostLbp
-                };
-            })
+                    return (QuantityOnHand: totalQuantity, TotalCostUsd: totalCostUsd, TotalCostLbp: totalCostLbp);
+                });
+
+        var categorySummaries = new List<InventoryCategorySummary>();
+
+        foreach (var category in categories)
+        {
+            var totals = categoryAggregates.TryGetValue(category.Id, out var value)
+                ? value
+                : (QuantityOnHand: 0m, TotalCostUsd: 0m, TotalCostLbp: 0m);
+
+            categorySummaries.Add(new InventoryCategorySummary
+            {
+                CategoryId = category.Id,
+                CategoryName = category.Name,
+                QuantityOnHand = totals.QuantityOnHand,
+                TotalCostUsd = totals.TotalCostUsd,
+                TotalCostLbp = totals.TotalCostLbp
+            });
+        }
+
+        if (categoryAggregates.TryGetValue(Guid.Empty, out var uncategorizedTotals))
+        {
+            categorySummaries.Add(new InventoryCategorySummary
+            {
+                CategoryId = Guid.Empty,
+                CategoryName = "Uncategorized",
+                QuantityOnHand = uncategorizedTotals.QuantityOnHand,
+                TotalCostUsd = uncategorizedTotals.TotalCostUsd,
+                TotalCostLbp = uncategorizedTotals.TotalCostLbp
+            });
+        }
+
+        categorySummaries = categorySummaries
             .OrderByDescending(category => category.TotalCostUsd)
             .ThenBy(category => category.CategoryName)
             .ToList();
