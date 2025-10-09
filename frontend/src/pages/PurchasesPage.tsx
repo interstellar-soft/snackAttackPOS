@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/pos/TopBar';
@@ -7,12 +15,13 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { API_BASE_URL } from '../lib/api';
-import { ProductsService, type Product } from '../lib/ProductsService';
+import type { Product } from '../lib/ProductsService';
 import { PurchasesService, type Purchase, type PurchaseItemInput } from '../lib/PurchasesService';
 import { useAuthStore } from '../stores/authStore';
 import { useStoreProfileStore } from '../stores/storeProfileStore';
 import { formatCurrency } from '../lib/utils';
 import { CategorySelect } from '../components/purchases/CategorySelect';
+import { CategoriesService } from '../lib/CategoriesService';
 
 interface DraftItem {
   id: string;
@@ -45,6 +54,8 @@ export function PurchasesPage() {
   const [exchangeRate, setExchangeRate] = useState('90000');
   const [items, setItems] = useState<DraftItem[]>([]);
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [categoryBanner, setCategoryBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null);
@@ -63,17 +74,28 @@ export function PurchasesPage() {
   const pendingEditableTimeoutRef = useRef<number | null>(null);
 
   const purchasesQuery = PurchasesService.usePurchases();
-  const inventoryProductsQuery = ProductsService.useInventoryProducts();
+  const categoriesQuery = CategoriesService.useCategories();
+  const createCategory = CategoriesService.useCreateCategory();
   const createPurchase = PurchasesService.useCreatePurchase();
   const updatePurchase = PurchasesService.useUpdatePurchase();
 
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
   const categoryOptions = useMemo(() => {
-    const items = inventoryProductsQuery.data ?? [];
+    const itemsFromCategories = categoriesQuery.data ?? [];
     const map = new Map<string, string>();
-    for (const product of items) {
-      const raw = (product.categoryName ?? product.category ?? '').trim();
+    for (const category of itemsFromCategories) {
+      const raw = category.name.trim();
+      if (!raw) {
+        continue;
+      }
+      const key = raw.toLocaleLowerCase();
+      if (!map.has(key)) {
+        map.set(key, raw);
+      }
+    }
+    for (const item of items) {
+      const raw = item.categoryName.trim();
       if (!raw) {
         continue;
       }
@@ -84,7 +106,7 @@ export function PurchasesPage() {
     }
     const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
     return Array.from(map.values()).sort((a, b) => collator.compare(a, b));
-  }, [inventoryProductsQuery.data]);
+  }, [categoriesQuery.data, items]);
 
   const focusBarcodeInput = useCallback(() => {
     const element = barcodeInputRef.current;
@@ -109,6 +131,14 @@ export function PurchasesPage() {
     const timeout = window.setTimeout(() => setBanner(null), 4000);
     return () => window.clearTimeout(timeout);
   }, [banner]);
+
+  useEffect(() => {
+    if (!categoryBanner) {
+      return;
+    }
+    const timeout = window.setTimeout(() => setCategoryBanner(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [categoryBanner]);
 
   useEffect(() => {
     if (!editingPurchaseId) {
@@ -153,6 +183,27 @@ export function PurchasesPage() {
     setEditingPurchaseId(null);
     setEditingLabel(null);
     setLastScannedItemId(null);
+  };
+
+  const handleCreateCategory = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    try {
+      setCategoryBanner(null);
+      await createCategory.mutateAsync({ name: trimmed });
+      setNewCategoryName('');
+      setCategoryBanner({ type: 'success', message: t('purchasesCategoriesSuccess') });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : t('purchasesCategoriesError');
+      setCategoryBanner({ type: 'error', message });
+    }
   };
 
   const handleEditPurchase = (purchase: Purchase) => {
@@ -884,64 +935,138 @@ export function PurchasesPage() {
             </div>
           </Card>
         </form>
-        <Card className="space-y-4 p-6">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('purchasesHistoryTitle')}</h2>
-          {purchasesQuery.isLoading && <p className="text-sm text-slate-500">{t('inventoryLoading')}</p>}
-          {purchasesQuery.isError && <p className="text-sm text-red-600">{t('purchasesError')}</p>}
-          {purchasesQuery.data && purchasesQuery.data.length === 0 && !purchasesQuery.isLoading && (
-            <p className="text-sm text-slate-500">{t('purchasesHistoryEmpty')}</p>
-          )}
-          <div className="space-y-3">
-            {purchasesQuery.data?.map((purchase) => {
-              const isEditingCard = editingPurchaseId === purchase.id;
-              const cardClasses = `rounded-lg border p-4 text-sm transition-colors ${
-                isEditingCard
-                  ? 'border-emerald-400 bg-emerald-50 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-900/20'
-                  : 'border-slate-200 dark:border-slate-700'
-              }`;
-              return (
-                <div key={purchase.id} className={cardClasses}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">{purchase.supplierName}</p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(purchase.orderedAt).toLocaleString()} · {purchase.reference ?? t('purchasesNoReference')}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 text-right">
+        <div className="space-y-4">
+          <Card className="space-y-4 p-6">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                {t('purchasesCategoriesTitle')}
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('purchasesCategoriesDescription')}
+              </p>
+            </div>
+            <form className="space-y-3" onSubmit={handleCreateCategory}>
+              <div className="space-y-1">
+                <label
+                  className="text-sm font-medium text-slate-600 dark:text-slate-300"
+                  htmlFor="purchase-category-name"
+                >
+                  {t('inventoryCategoryName')}
+                </label>
+                <Input
+                  id="purchase-category-name"
+                  value={newCategoryName}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                  placeholder={t('inventoryCategoryNamePlaceholder')}
+                  disabled={!canManageInventory || createCategory.isPending}
+                  required
+                />
+              </div>
+              {categoryBanner && (
+                <div
+                  className={`rounded-md border px-3 py-2 text-sm ${
+                    categoryBanner.type === 'success'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200'
+                      : 'border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200'
+                  }`}
+                >
+                  {categoryBanner.message}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="submit"
+                  className="bg-emerald-500 hover:bg-emerald-400"
+                  disabled={!canManageInventory || createCategory.isPending}
+                >
+                  {createCategory.isPending
+                    ? t('inventorySaving')
+                    : t('purchasesCategoriesCreateButton')}
+                </Button>
+              </div>
+            </form>
+            <div>
+              {categoriesQuery.isLoading ? (
+                <p className="text-sm text-slate-500">{t('inventoryLoading')}</p>
+              ) : categoriesQuery.isError ? (
+                <p className="text-sm text-red-600">{t('purchasesCategoriesError')}</p>
+              ) : categoriesQuery.data && categoriesQuery.data.length > 0 ? (
+                <ul className="flex flex-wrap gap-2">
+                  {categoriesQuery.data.map((category) => (
+                    <li
+                      key={category.id}
+                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                    >
+                      {category.name}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t('purchasesCategoriesEmpty')}
+                </p>
+              )}
+            </div>
+          </Card>
+          <Card className="space-y-4 p-6">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('purchasesHistoryTitle')}</h2>
+            {purchasesQuery.isLoading && <p className="text-sm text-slate-500">{t('inventoryLoading')}</p>}
+            {purchasesQuery.isError && <p className="text-sm text-red-600">{t('purchasesError')}</p>}
+            {purchasesQuery.data && purchasesQuery.data.length === 0 && !purchasesQuery.isLoading && (
+              <p className="text-sm text-slate-500">{t('purchasesHistoryEmpty')}</p>
+            )}
+            <div className="space-y-3">
+              {purchasesQuery.data?.map((purchase) => {
+                const isEditingCard = editingPurchaseId === purchase.id;
+                const cardClasses = `rounded-lg border p-4 text-sm transition-colors ${
+                  isEditingCard
+                    ? 'border-emerald-400 bg-emerald-50 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-900/20'
+                    : 'border-slate-200 dark:border-slate-700'
+                }`;
+                return (
+                  <div key={purchase.id} className={cardClasses}>
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-emerald-600 dark:text-emerald-300">
-                          {formatCurrency(purchase.totalCostUsd, 'USD')}
-                        </p>
+                        <p className="font-semibold text-slate-800 dark:text-slate-200">{purchase.supplierName}</p>
                         <p className="text-xs text-slate-500">
-                          {t('purchasesHistoryItems', { count: purchase.lines.length })}
+                          {new Date(purchase.orderedAt).toLocaleString()} · {purchase.reference ?? t('purchasesNoReference')}
                         </p>
                       </div>
-                      {isEditingCard ? (
-                        <Badge className="bg-emerald-500 text-white">{t('purchasesEditing')}</Badge>
-                      ) : (
-                        <Button
-                          type="button"
-                          className="bg-emerald-500 hover:bg-emerald-400"
-                          onClick={() => handleEditPurchase(purchase)}
-                        >
-                          {t('purchasesEditAction')}
-                        </Button>
-                      )}
+                      <div className="flex flex-col items-end gap-2 text-right">
+                        <div>
+                          <p className="font-semibold text-emerald-600 dark:text-emerald-300">
+                            {formatCurrency(purchase.totalCostUsd, 'USD')}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {t('purchasesHistoryItems', { count: purchase.lines.length })}
+                          </p>
+                        </div>
+                        {isEditingCard ? (
+                          <Badge className="bg-emerald-500 text-white">{t('purchasesEditing')}</Badge>
+                        ) : (
+                          <Button
+                            type="button"
+                            className="bg-emerald-500 hover:bg-emerald-400"
+                            onClick={() => handleEditPurchase(purchase)}
+                          >
+                            {t('purchasesEditAction')}
+                          </Button>
+                        )}
+                      </div>
                     </div>
+                    <ul className="mt-3 space-y-1 text-xs text-slate-500">
+                      {purchase.lines.map((line) => (
+                        <li key={line.id}>
+                          {line.productName} · {line.quantity.toLocaleString()} × {formatCurrency(line.unitCostUsd, 'USD')}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="mt-3 space-y-1 text-xs text-slate-500">
-                    {purchase.lines.map((line) => (
-                      <li key={line.id}>
-                        {line.productName} · {line.quantity.toLocaleString()} × {formatCurrency(line.unitCostUsd, 'USD')}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
