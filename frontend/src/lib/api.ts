@@ -53,10 +53,20 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, token
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers
-  });
+  let res: Response;
+
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers
+    });
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error && error.message ? ` ${error.message}` : '';
+    throw new Error(
+      `Unable to reach the Aurora POS backend at ${API_BASE_URL}. Ensure the infrastructure stack is running before signing in.${errorMessage}`
+    );
+  }
 
   if (!res.ok) {
     const message = await res.text();
