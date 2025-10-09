@@ -69,8 +69,21 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, token
   }
 
   if (!res.ok) {
-    const message = await res.text();
-    throw new Error(message || `Request failed with status ${res.status}`);
+    const errorText = await res.text();
+    let message = errorText.trim();
+
+    if (errorText) {
+      const parsedMessage = parseErrorMessage(errorText);
+      if (parsedMessage) {
+        message = parsedMessage;
+      }
+    }
+
+    if (!message) {
+      message = `Request failed with status ${res.status}`;
+    }
+
+    throw new Error(message);
   }
 
   if (res.status === 204) {
@@ -78,6 +91,53 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, token
   }
 
   return (await res.json()) as T;
+}
+
+function parseErrorMessage(errorText: string): string | null {
+  try {
+    const data = JSON.parse(errorText) as unknown;
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
+
+    const maybeProblem = data as {
+      title?: unknown;
+      detail?: unknown;
+      errors?: unknown;
+    };
+
+    const validationMessages: string[] = [];
+    if (maybeProblem.errors && typeof maybeProblem.errors === 'object') {
+      const entries = Object.values(maybeProblem.errors as Record<string, unknown>);
+      for (const value of entries) {
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            if (typeof item === 'string' && item.trim()) {
+              validationMessages.push(item.trim());
+            }
+          }
+        } else if (typeof value === 'string' && value.trim()) {
+          validationMessages.push(value.trim());
+        }
+      }
+    }
+
+    if (validationMessages.length > 0) {
+      return validationMessages.join(' ');
+    }
+
+    if (typeof maybeProblem.detail === 'string' && maybeProblem.detail.trim()) {
+      return maybeProblem.detail.trim();
+    }
+
+    if (typeof maybeProblem.title === 'string' && maybeProblem.title.trim()) {
+      return maybeProblem.title.trim();
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
 }
 
 export async function createProduct(
