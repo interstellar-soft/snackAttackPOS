@@ -29,6 +29,7 @@ builder.Services.AddScoped<StoreProfileService>();
 builder.Services.AddScoped<ReceiptRenderer>();
 builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddScoped<CurrencyService>();
+builder.Services.AddScoped<BackupService>();
 builder.Services.AddHttpClient<MlClient>();
 
 var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
