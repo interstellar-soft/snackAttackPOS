@@ -24,6 +24,7 @@ interface InvoiceDraftItem {
   quantity: string;
   manualDiscount: string;
   quantityOnHand: number;
+  isWaste: boolean;
 }
 
 const createDraftFromLine = (line: TransactionLine): InvoiceDraftItem => ({
@@ -37,7 +38,8 @@ const createDraftFromLine = (line: TransactionLine): InvoiceDraftItem => ({
   unitPriceUsd: line.unitPriceUsd,
   quantity: line.quantity.toString(),
   manualDiscount: line.priceRuleId ? '' : line.discountPercent > 0 ? line.discountPercent.toString() : '',
-  quantityOnHand: line.quantityOnHand ?? 0
+  quantityOnHand: line.quantityOnHand ?? 0,
+  isWaste: line.isWaste
 });
 
 const createId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
@@ -183,7 +185,8 @@ export function InvoicesPage() {
           unitPriceUsd: unitPrice,
           quantity: '1',
           manualDiscount: '',
-          quantityOnHand: product.quantityOnHand ?? 0
+          quantityOnHand: product.quantityOnHand ?? 0,
+          isWaste: false
         };
         setLastFocusedId(draft.id);
         return [...previous, draft];
@@ -196,7 +199,7 @@ export function InvoicesPage() {
     }
   };
 
-  const handleLineChange = (id: string, field: keyof InvoiceDraftItem, value: string) => {
+  const handleLineChange = (id: string, field: 'quantity' | 'manualDiscount', value: string) => {
     setItems((previous) =>
       previous.map((item) => {
         if (item.id !== id) {
@@ -266,7 +269,8 @@ export function InvoicesPage() {
         manualDiscountPercent:
           item.priceRuleId || !Number.isFinite(manualDiscount) || manualDiscount <= 0
             ? undefined
-            : manualDiscount
+            : manualDiscount,
+        isWaste: item.isWaste || undefined
       });
     }
 
@@ -478,6 +482,11 @@ export function InvoicesPage() {
                                 {item.priceRuleDescription && (
                                   <Badge className="w-fit bg-indigo-500">{item.priceRuleDescription}</Badge>
                                 )}
+                                {item.isWaste && (
+                                  <Badge className="w-fit bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
+                                    {t('cartWasteBadge')}
+                                  </Badge>
+                                )}
                               </div>
                             </td>
                             <td className="px-4 py-3">
@@ -506,7 +515,7 @@ export function InvoicesPage() {
                                 step="0.01"
                                 value={item.manualDiscount}
                                 onChange={(event) => handleLineChange(item.id, 'manualDiscount', event.target.value)}
-                                disabled={!!item.priceRuleId}
+                                disabled={!!item.priceRuleId || item.isWaste}
                                 placeholder={item.priceRuleId ? t('purchasesExistingBadge') : '0'}
                               />
                             </td>

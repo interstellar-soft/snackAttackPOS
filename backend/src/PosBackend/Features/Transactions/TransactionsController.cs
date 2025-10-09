@@ -98,6 +98,11 @@ public class TransactionsController : ControllerBase
             return ValidationProblem(ModelState);
         }
 
+        if (request.Items.Any(i => i.IsWaste) && !User.IsInRole("Admin"))
+        {
+            return Forbid();
+        }
+
         if (request.Items.Count == 0)
         {
             return BadRequest(new { message = "At least one item is required." });
@@ -184,6 +189,10 @@ public class TransactionsController : ControllerBase
         if (userId is null)
         {
             return Unauthorized();
+        }
+        if (request.Items.Any(i => i.IsWaste) && !User.IsInRole("Admin"))
+        {
+            return Forbid();
         }
         var currentRate = request.ExchangeRate > 0
             ? request.ExchangeRate
@@ -314,7 +323,8 @@ public class TransactionsController : ControllerBase
             CostUsd = -Math.Abs(l.CostUsd),
             CostLbp = -Math.Abs(l.CostLbp),
             ProfitUsd = -Math.Abs(l.ProfitUsd),
-            ProfitLbp = -Math.Abs(l.ProfitLbp)
+            ProfitLbp = -Math.Abs(l.ProfitLbp),
+            IsWaste = l.IsWaste
         }).ToList();
 
         var totalUsd = _currencyService.RoundUsd(lines.Sum(l => l.TotalUsd));

@@ -154,6 +154,7 @@ public class TransactionLineBackup : BackupEntityBase
     public decimal CostLbp { get; set; }
     public decimal ProfitUsd { get; set; }
     public decimal ProfitLbp { get; set; }
+    public bool IsWaste { get; set; }
 }
 
 public class CurrencyRateBackup : BackupEntityBase

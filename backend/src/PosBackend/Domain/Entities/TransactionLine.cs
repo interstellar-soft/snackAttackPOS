@@ -25,4 +25,5 @@ public class TransactionLine : BaseEntity
     public decimal CostLbp { get; set; }
     public decimal ProfitUsd { get; set; }
     public decimal ProfitLbp { get; set; }
+    public bool IsWaste { get; set; }
 }

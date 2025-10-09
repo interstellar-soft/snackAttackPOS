@@ -51,7 +51,12 @@ public class ReceiptRenderer
 
                         foreach (var line in lines)
                         {
-                            table.Cell().Text(line.Product?.Name ?? line.ProductId.ToString());
+                            var label = line.Product?.Name ?? line.ProductId.ToString();
+                            if (line.IsWaste)
+                            {
+                                label = $"{label} (Waste)";
+                            }
+                            table.Cell().Text(label);
                             table.Cell().AlignRight().Text(line.Quantity.ToString("0.##"));
                             table.Cell().AlignRight().Text($"${line.TotalUsd:0.00}");
                         }

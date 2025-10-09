@@ -4,7 +4,12 @@ using PosBackend.Infrastructure.Data;
 
 namespace PosBackend.Application.Services;
 
-public record CartItemRequest(Guid ProductId, decimal Quantity, Guid? PriceRuleId, decimal? ManualDiscountPercent);
+public record CartItemRequest(
+    Guid ProductId,
+    decimal Quantity,
+    Guid? PriceRuleId,
+    decimal? ManualDiscountPercent,
+    bool IsWaste = false);
 
 public class CartPricingService
 {
@@ -35,7 +40,8 @@ public class CartPricingService
         {
             var product = products.First(p => p.Id == item.ProductId);
             var priceRule = product.PriceRules.FirstOrDefault(r => r.Id == item.PriceRuleId && r.IsActive);
-            var discountPercent = priceRule?.DiscountPercent ?? item.ManualDiscountPercent ?? 0m;
+            var isWaste = item.IsWaste;
+            var discountPercent = isWaste ? 0m : priceRule?.DiscountPercent ?? item.ManualDiscountPercent ?? 0m;
             var baseUnitPriceUsd = product.PriceUsd;
             var baseUnitPriceLbp = _currencyService.ConvertUsdToLbp(baseUnitPriceUsd, exchangeRate);
             var unitPriceUsd = baseUnitPriceUsd * (1 - discountPercent / 100m);
@@ -46,8 +52,16 @@ public class CartPricingService
             var inventoryCost = product.Inventory?.AverageCostUsd ?? baseUnitPriceUsd * 0.6m;
             var lineCostUsd = inventoryCost * item.Quantity;
             var lineCostLbp = _currencyService.ConvertUsdToLbp(lineCostUsd, exchangeRate);
-            var profitUsd = lineTotalUsd - lineCostUsd;
-            var profitLbp = lineTotalLbp - lineCostLbp;
+            if (isWaste)
+            {
+                unitPriceUsd = 0m;
+                unitPriceLbp = 0m;
+                lineTotalUsd = 0m;
+                lineTotalLbp = 0m;
+            }
+
+            var profitUsd = isWaste ? -lineCostUsd : lineTotalUsd - lineCostUsd;
+            var profitLbp = isWaste ? -lineCostLbp : lineTotalLbp - lineCostLbp;
 
             var line = new TransactionLine
             {
@@ -64,7 +78,8 @@ public class CartPricingService
                 CostUsd = _currencyService.RoundUsd(lineCostUsd),
                 CostLbp = _currencyService.RoundLbp(lineCostLbp),
                 ProfitUsd = _currencyService.RoundUsd(profitUsd),
-                ProfitLbp = _currencyService.RoundLbp(profitLbp)
+                ProfitLbp = _currencyService.RoundLbp(profitLbp),
+                IsWaste = isWaste
             };
             line.Product = product;
             line.PriceRule = priceRule;

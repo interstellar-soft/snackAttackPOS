@@ -25,6 +25,7 @@ public class CheckoutLineResponse
     public decimal ProfitUsd { get; set; }
     public decimal ProfitLbp { get; set; }
     public decimal QuantityOnHand { get; set; }
+    public bool IsWaste { get; set; }
 
     public static CheckoutLineResponse FromEntity(TransactionLine line)
     {
@@ -50,7 +51,8 @@ public class CheckoutLineResponse
             CostLbp = line.CostLbp,
             ProfitUsd = line.ProfitUsd,
             ProfitLbp = line.ProfitLbp,
-            QuantityOnHand = line.Product?.Inventory?.QuantityOnHand ?? 0
+            QuantityOnHand = line.Product?.Inventory?.QuantityOnHand ?? 0,
+            IsWaste = line.IsWaste
         };
     }
 }
