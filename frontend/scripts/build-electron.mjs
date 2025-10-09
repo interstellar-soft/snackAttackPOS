@@ -20,11 +20,22 @@ const ensureOutDir = () => {
   writeFileSync(packageJsonPath, `${packageJson}\n`);
 };
 
-const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-
 const runTypeCheck = () =>
   new Promise((resolvePromise, rejectPromise) => {
-    const tsc = spawn(npxCommand, ['tsc', '--project', 'tsconfig.electron.json', '--noEmit'], {
+    const resolveTscPath = () => {
+      const candidates = [
+        resolve(projectRoot, 'node_modules', 'typescript', 'lib', 'tsc.js'),
+        resolve(projectRoot, '..', 'node_modules', 'typescript', 'lib', 'tsc.js')
+      ];
+      for (const candidate of candidates) {
+        if (existsSync(candidate)) {
+          return candidate;
+        }
+      }
+      throw new Error('Unable to locate the TypeScript compiler binary');
+    };
+    const tscExecutable = resolveTscPath();
+    const tsc = spawn(process.execPath, [tscExecutable, '--project', 'tsconfig.electron.json', '--noEmit'], {
       cwd: projectRoot,
       stdio: 'inherit'
     });
