@@ -27,7 +27,10 @@ the ML microservice that power the UI described below.
 
    The compose file provisions three services (`db`, `backend`, and `ml`) plus a
    static frontend container for local browsers. The desktop app talks to the
-   backend directly on port `5000`.
+   backend directly on port `5000`. Each container uses the
+   `restart: unless-stopped` policy, so after this initial boot the stack comes
+   back automatically the next time Docker Desktop starts (for example, after a
+   computer reboot).
 5. Confirm everything is healthy:
 
    ```sh
