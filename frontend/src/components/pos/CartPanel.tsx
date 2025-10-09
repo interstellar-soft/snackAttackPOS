@@ -69,8 +69,7 @@ export function CartPanel({
     const nextDrafts = items.reduce<Record<string, DraftLineValues>>((acc, item) => {
       acc[item.lineId] = {
         quantity: String(item.quantity),
-        discount: String(item.discountPercent),
-        total: ''
+        discount: String(item.discountPercent)
       };
       return acc;
     }, {});
@@ -102,8 +101,7 @@ export function CartPanel({
         ...prev,
         [lineId]: {
           quantity: String(item.quantity),
-          discount: prev[lineId]?.discount ?? String(item.discountPercent),
-          total: ''
+          discount: prev[lineId]?.discount ?? String(item.discountPercent)
         }
       }));
       return;
@@ -115,7 +113,7 @@ export function CartPanel({
         [lineId]: {
           quantity: String(item.quantity),
           discount: prev[lineId]?.discount ?? String(item.discountPercent),
-          total: prev[lineId]?.total ?? ''
+          total: prev[lineId]?.total
         }
       }));
       return;
@@ -126,8 +124,7 @@ export function CartPanel({
       ...prev,
       [lineId]: {
         quantity: String(nextQuantity),
-        discount: prev[lineId]?.discount ?? String(item.discountPercent),
-        total: ''
+        discount: prev[lineId]?.discount ?? String(item.discountPercent)
       }
     }));
     if (highlightedItemId === lineId) {
@@ -149,8 +146,7 @@ export function CartPanel({
         ...prev,
         [lineId]: {
           quantity: prev[lineId]?.quantity ?? String(item.quantity),
-          discount: String(item.discountPercent),
-          total: ''
+          discount: String(item.discountPercent)
         }
       }));
       return;
@@ -162,7 +158,7 @@ export function CartPanel({
         [lineId]: {
           quantity: prev[lineId]?.quantity ?? String(item.quantity),
           discount: String(item.discountPercent),
-          total: prev[lineId]?.total ?? ''
+          total: prev[lineId]?.total
         }
       }));
       return;
@@ -173,8 +169,7 @@ export function CartPanel({
       ...prev,
       [lineId]: {
         quantity: prev[lineId]?.quantity ?? String(item.quantity),
-        discount: String(nextDiscount),
-        total: ''
+        discount: String(nextDiscount)
       }
     }));
   };
@@ -190,8 +185,7 @@ export function CartPanel({
         ...prev,
         [lineId]: {
           quantity: prev[lineId]?.quantity ?? String(item.quantity),
-          discount: prev[lineId]?.discount ?? String(item.discountPercent),
-          total: ''
+          discount: prev[lineId]?.discount ?? String(item.discountPercent)
         }
       }));
       return;
@@ -202,8 +196,7 @@ export function CartPanel({
         ...prev,
         [lineId]: {
           quantity: prev[lineId]?.quantity ?? String(item.quantity),
-          discount: prev[lineId]?.discount ?? String(item.discountPercent),
-          total: ''
+          discount: prev[lineId]?.discount ?? String(item.discountPercent)
         }
       }));
       return;
@@ -214,8 +207,7 @@ export function CartPanel({
         ...prev,
         [lineId]: {
           quantity: prev[lineId]?.quantity ?? String(item.quantity),
-          discount: '0',
-          total: ''
+          discount: '0'
         }
       }));
       updateDiscount(lineId, 0);
@@ -229,8 +221,7 @@ export function CartPanel({
       ...prev,
       [lineId]: {
         quantity: prev[lineId]?.quantity ?? String(item.quantity),
-        discount: String(nextDiscount),
-        total: ''
+        discount: String(nextDiscount)
       }
     }));
   };
@@ -312,7 +303,7 @@ export function CartPanel({
                           [item.lineId]: {
                             quantity: value,
                             discount: prev[item.lineId]?.discount ?? String(item.discountPercent),
-                            total: prev[item.lineId]?.total ?? ''
+                            total: prev[item.lineId]?.total
                           }
                         }));
                       }}
@@ -340,7 +331,7 @@ export function CartPanel({
                           [item.lineId]: {
                             quantity: prev[item.lineId]?.quantity ?? String(item.quantity),
                             discount: value,
-                            total: prev[item.lineId]?.total ?? ''
+                            total: prev[item.lineId]?.total
                           }
                         }));
                       }}
