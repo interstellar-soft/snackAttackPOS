@@ -112,10 +112,11 @@ using (var scope = app.Services.CreateScope())
     await SeedData.InitializeAsync(db);
 }
 
-app.UseCors();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.UseRouting();
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
