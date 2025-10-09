@@ -17,6 +17,23 @@ autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
 const updateFeedUrl = process.env.ELECTRON_UPDATE_URL;
+let hasLoggedMissingFeed = false;
+
+const isUpdateConfigured = () => {
+  if (updateFeedUrl) {
+    return true;
+  }
+
+  try {
+    return Boolean(autoUpdater.getFeedURL());
+  } catch (error) {
+    if (!hasLoggedMissingFeed) {
+      log.warn('Auto update feed URL not configured', error);
+      hasLoggedMissingFeed = true;
+    }
+    return false;
+  }
+};
 
 const sendUpdaterStatus = (payload: Record<string, unknown>) => {
   log.info('[auto-updater]', payload);
@@ -106,12 +123,16 @@ app.whenReady().then(() => {
   createMainWindow();
   registerAutoUpdaterEvents();
 
-  if (!isDev) {
+  const updateConfigured = isUpdateConfigured();
+
+  if (!isDev && updateConfigured) {
     autoUpdater
       .checkForUpdates()
       .catch((error: unknown) => {
         log.error('Failed to check for updates', error);
       });
+  } else if (!updateConfigured) {
+    sendUpdaterStatus({ status: 'disabled' });
   }
 
   app.on('activate', () => {
@@ -127,6 +148,11 @@ ipcMain.handle('updater/check-now', async () => {
     return { mode: 'dev' };
   }
 
+  if (!isUpdateConfigured()) {
+    sendUpdaterStatus({ status: 'disabled' });
+    return { mode: 'disabled' };
+  }
+
   try {
     const result: UpdateCheckResult | null = await autoUpdater.checkForUpdates();
     return { result };
@@ -135,7 +161,8 @@ ipcMain.handle('updater/check-now', async () => {
       status: 'error',
       message: error instanceof Error ? error.message : String(error)
     });
-    throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    return { error: message };
   }
 });
 

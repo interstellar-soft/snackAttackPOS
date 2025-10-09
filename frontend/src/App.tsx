@@ -76,6 +76,8 @@ export default function App() {
         if (shouldRestart) {
           api.restartToUpdate?.();
         }
+      } else if (message.status === 'disabled') {
+        console.info('Aurora POS updater disabled.');
       } else if (message.status === 'error') {
         console.error('Aurora POS updater error:', message);
       } else {

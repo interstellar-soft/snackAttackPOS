@@ -6,6 +6,7 @@ export type UpdaterMessage =
   | { status: 'downloaded'; version?: string }
   | { status: 'error'; message: string }
   | { status: 'dev-mode' }
+  | { status: 'disabled' }
   | { status: string; [key: string]: unknown };
 
 type UpdateStatusCallback = (message: UpdaterMessage) => void;
