@@ -62,6 +62,13 @@ the ML microservice that power the UI described below.
     `http://localhost:5000` unless overridden with the `VITE_API_URL`
     environment variable during packaging. If you need to point at a remote
     server, set `VITE_API_URL` before running `npm run electron:package`.
+- **"Unable to load preload script" after an update?** Windows sometimes keeps
+  a partially written `app.asar` when an update is interrupted. Relaunching the
+  installer repairs the bundle—there is no need to uninstall first. Download
+  the current installer, close Aurora POS, and run the installer again. It
+  replaces the files under
+  `%LOCALAPPDATA%\Programs\aurora-pos-frontend\resources\app.asar` with a
+  fresh copy so the preload script can be loaded normally.
 - **Resetting the demo data:** stop the containers, delete the `postgres-data`
   Docker volume, and re-run the `docker compose` command. The backend migrates
   the database and re-seeds users and inventory on startup.
