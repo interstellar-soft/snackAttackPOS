@@ -15,8 +15,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "build:electron": "tsc -p tsconfig.electron.json",
-    "build:electron:watch": "tsc -p tsconfig.electron.json --watch",
+    "build:electron": "node scripts/build-electron.mjs",
+    "build:electron:watch": "node scripts/build-electron.mjs --watch",
     "electron:serve": "wait-on tcp:5173 file:dist-electron/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "electron:dev": "concurrently -k \"npm:dev\" \"npm:build:electron:watch\" \"npm:electron:serve\"",
     "electron:package": "npm run build && npm run build:electron && electron-builder"
@@ -28,9 +28,9 @@
     "@types/react-dom": "^18.2.18",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
-    "i18next": "^23.7.11",
     "electron-log": "^5.1.4",
     "electron-updater": "^6.1.7",
+    "i18next": "^23.7.11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-i18next": "13.5.0",
@@ -40,15 +40,16 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
+    "@types/react-router-dom": "^5.3.3",
     "@typescript-eslint/eslint-plugin": "^6.20.0",
     "@typescript-eslint/parser": "^6.20.0",
-    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "38.2.2",
     "electron-builder": "^24.9.1",
+    "esbuild": "^0.25.10",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -72,18 +73,26 @@
       "package.json"
     ],
     "mac": {
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "maintainer": "Aurora POS Team <support@example.com>",
       "category": "Utility"
     },
