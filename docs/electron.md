@@ -45,20 +45,41 @@ are consumed by `electron-builder` when packaging the application.
 
 ## Building Installers
 
-1. Create a production renderer bundle and compile the Electron entry points:
+1. Install dependencies (if you only ran the dev command previously you already
+   have them):
+
+   ```sh
+   cd frontend
+   npm install
+   ```
+
+2. Create a production renderer bundle and compile the Electron entry points:
 
    ```sh
    npm run electron:package
    ```
 
-2. Generated installers are written to `frontend/release/`. The current
+   The script wraps `vite build`, runs the TypeScript compiler for the main and
+   preload processes, and then calls `electron-builder` to produce installers.
+
+3. Generated installers are written to `frontend/release/`. The current
    configuration produces:
 
-   - Windows NSIS installer (`.exe`).
-   - macOS disk image (`.dmg`) and ZIP archive.
-   - Linux AppImage and Debian package.
+   - Windows NSIS installer (`.exe`). Double-click the file to launch a guided
+     setup wizard that adds Aurora POS to the Start Menu and creates an
+     uninstall entry.
+   - macOS disk image (`.dmg`) and ZIP archive. Open the `.dmg`, drag **Aurora
+     POS** into `/Applications`, or unzip the archive and move the app bundle to
+     your preferred folder.
+   - Linux AppImage and Debian package. Mark the AppImage as executable and run
+     it directly, or install the `.deb` with `sudo dpkg -i *.deb` on Debian/
+     Ubuntu systems.
 
-3. Add application icons in `frontend/build/` (for example `icon.icns`,
+   To build for a single platform (for example just Windows on CI), append the
+   electron-builder target flag: `npm run electron:package -- --win`, `--mac`,
+   or `--linux`.
+
+4. Add application icons in `frontend/build/` (for example `icon.icns`,
    `icon.ico`, and `icon.png`) to customize the installer branding.
 
 ## Auto-Updater
