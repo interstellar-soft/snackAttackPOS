@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import log from 'electron-log';
 import path from 'node:path';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo, UpdateCheckResult } from 'electron-updater';
 import electronUpdater from 'electron-updater';
+import { bootstrapInfrastructure } from './docker';
 
 const { autoUpdater } = electronUpdater;
 
@@ -110,7 +111,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (isDev) {
     process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
   }
@@ -118,6 +119,14 @@ app.whenReady().then(() => {
   if (updateFeedUrl) {
     // Allow overriding the update feed at runtime without rebuilding the app.
     autoUpdater.setFeedURL({ provider: 'generic', url: updateFeedUrl });
+  }
+
+  try {
+    await bootstrapInfrastructure({ isDev });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error('Failed to bootstrap infrastructure', error);
+    dialog.showErrorBox('Infrastructure error', message);
   }
 
   createMainWindow();
