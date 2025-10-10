@@ -101,7 +101,12 @@ export const useCartStore = create<CartState>()(
           manualTotalLbp: clampLbp(item.manualTotalLbp)
         };
         const existingIndex = get().items.findIndex(
-          (i) => i.productId === normalized.productId && i.isWaste === normalized.isWaste
+          (i) =>
+            i.productId === normalized.productId &&
+            i.isWaste === normalized.isWaste &&
+            i.barcode === normalized.barcode &&
+            i.priceUsd === normalized.priceUsd &&
+            i.priceLbp === normalized.priceLbp
         );
         if (existingIndex >= 0) {
           set((state) => {

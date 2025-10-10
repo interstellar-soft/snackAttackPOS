@@ -42,6 +42,7 @@ public class ProductsController : ControllerBase
         var products = await _db.Products
             .Include(p => p.Category)
             .Include(p => p.Inventory)
+            .Include(p => p.AdditionalBarcodes)
             .AsNoTracking()
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
@@ -56,6 +57,7 @@ public class ProductsController : ControllerBase
         var product = await _db.Products
             .Include(p => p.Category)
             .Include(p => p.Inventory)
+            .Include(p => p.AdditionalBarcodes)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
@@ -96,6 +98,13 @@ public class ProductsController : ControllerBase
             await _db.SaveChangesAsync(cancellationToken);
         }
 
+        request.AdditionalBarcodes ??= new List<ProductBarcodeInput>();
+        var barcodeResult = await ResolveAdditionalBarcodesAsync(request.AdditionalBarcodes, cancellationToken);
+        if (!barcodeResult.Succeeded)
+        {
+            return CreateValidationProblem(barcodeResult.Errors);
+        }
+
         var product = new Product
         {
             Name = request.Name!,
@@ -109,6 +118,17 @@ public class ProductsController : ControllerBase
             IsPinned = request.IsPinned,
             Category = category
         };
+
+        foreach (var barcode in barcodeResult.Barcodes)
+        {
+            product.AdditionalBarcodes.Add(new ProductBarcode
+            {
+                Code = barcode.Code,
+                QuantityPerScan = barcode.Quantity,
+                PriceUsdOverride = barcode.PriceUsd,
+                PriceLbpOverride = barcode.PriceLbp
+            });
+        }
 
         var inventory = new PosBackend.Domain.Entities.Inventory
         {
@@ -136,6 +156,7 @@ public class ProductsController : ControllerBase
     {
         var product = await _db.Products.Include(p => p.Category)
             .Include(p => p.Inventory)
+            .Include(p => p.AdditionalBarcodes)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (product is null)
         {
@@ -165,6 +186,16 @@ public class ProductsController : ControllerBase
         if (categoryWasAdded)
         {
             await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        BarcodeResolutionResult? barcodeResult = null;
+        if (request.AdditionalBarcodes is not null)
+        {
+            barcodeResult = await ResolveAdditionalBarcodesAsync(request.AdditionalBarcodes, cancellationToken);
+            if (!barcodeResult.Succeeded)
+            {
+                return CreateValidationProblem(barcodeResult.Errors);
+            }
         }
 
         product.Name = request.Name!;
@@ -205,6 +236,11 @@ public class ProductsController : ControllerBase
             }
         }
 
+        if (barcodeResult is not null)
+        {
+            ApplyAdditionalBarcodes(product, barcodeResult.Barcodes);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         var response = ToResponse(product);
@@ -232,6 +268,7 @@ public class ProductsController : ControllerBase
         var query = _db.Products
             .Include(p => p.Category)
             .Include(p => p.Inventory)
+            .Include(p => p.AdditionalBarcodes)
             .AsQueryable();
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -239,7 +276,8 @@ public class ProductsController : ControllerBase
             query = query.Where(p =>
                 p.Name.ToLower().Contains(term) ||
                 (p.Sku != null && p.Sku.ToLower().Contains(term)) ||
-                p.Barcode.Contains(term));
+                p.Barcode.ToLower().Contains(term) ||
+                p.AdditionalBarcodes.Any(b => b.Code.ToLower().Contains(term)));
         }
 
         if (pinnedOnly == true)
@@ -261,8 +299,35 @@ public class ProductsController : ControllerBase
     [HttpPost("scan")]
     public async Task<ActionResult<ProductResponse>> Scan([FromBody] ScanRequest request, CancellationToken cancellationToken)
     {
-        var product = await _db.Products.Include(p => p.Category).Include(p => p.Inventory)
-            .FirstOrDefaultAsync(p => p.Barcode == request.Barcode, cancellationToken);
+        if (string.IsNullOrWhiteSpace(request.Barcode))
+        {
+            return BadRequest(new { message = "Barcode is required." });
+        }
+
+        var normalizedBarcode = request.Barcode.Trim();
+
+        var product = await _db.Products
+            .Include(p => p.Category)
+            .Include(p => p.Inventory)
+            .Include(p => p.AdditionalBarcodes)
+            .FirstOrDefaultAsync(p => p.Barcode == normalizedBarcode, cancellationToken);
+
+        ProductBarcode? matchedBarcode = null;
+
+        if (product is null)
+        {
+            matchedBarcode = await _db.ProductBarcodes
+                .Include(b => b.Product!)
+                    .ThenInclude(p => p.Category)
+                .Include(b => b.Product!)
+                    .ThenInclude(p => p.Inventory)
+                .Include(b => b.Product!)
+                    .ThenInclude(p => p.AdditionalBarcodes)
+                .FirstOrDefaultAsync(b => b.Code == normalizedBarcode, cancellationToken);
+
+            product = matchedBarcode?.Product;
+        }
+
         if (product is null)
         {
             return NotFound();
@@ -276,31 +341,50 @@ public class ProductsController : ControllerBase
         var flagged = rapid || (anomaly?.IsAnomaly ?? false);
         var reason = rapid ? "rapid_repeat_scan" : anomaly?.Reason;
 
-        var inventory = product.Inventory;
-
-        return new ProductResponse
-        {
-            Id = product.Id,
-            Sku = product.Sku,
-            Name = product.Name,
-            Barcode = product.Barcode,
-            PriceUsd = product.PriceUsd,
-            PriceLbp = product.PriceLbp,
-            Description = product.Description,
-            CategoryName = product.Category?.Name ?? string.Empty,
-            IsPinned = product.IsPinned,
-            IsFlagged = flagged,
-            FlagReason = reason,
-            QuantityOnHand = inventory?.QuantityOnHand ?? 0,
-            AverageCostUsd = inventory?.AverageCostUsd ?? 0,
-            ReorderPoint = inventory?.ReorderPoint ?? 3m,
-            IsReorderAlarmEnabled = inventory?.IsReorderAlarmEnabled ?? true
-        };
+        var response = ToResponse(product, matchedBarcode, normalizedBarcode);
+        response.IsFlagged = flagged;
+        response.FlagReason = reason;
+        return response;
     }
 
-    private ProductResponse ToResponse(Product product)
+    private ProductResponse ToResponse(Product product, ProductBarcode? scannedBarcode = null, string? requestedBarcode = null)
     {
         var inventory = product.Inventory;
+        var additional = product.AdditionalBarcodes
+            .OrderBy(b => b.Code, StringComparer.Ordinal)
+            .Select(b => new ProductBarcodeResponse
+            {
+                Id = b.Id,
+                Code = b.Code,
+                QuantityPerScan = b.QuantityPerScan,
+                PriceUsdOverride = b.PriceUsdOverride,
+                PriceLbpOverride = b.PriceLbpOverride
+            })
+            .ToList();
+
+        var scannedQuantity = Math.Max(1, scannedBarcode?.QuantityPerScan ?? 1);
+        var totalUsdOverride = scannedBarcode?.PriceUsdOverride;
+        var totalLbpOverride = scannedBarcode?.PriceLbpOverride;
+        var rawUnitUsd = totalUsdOverride.HasValue && scannedQuantity > 0
+            ? totalUsdOverride.Value / scannedQuantity
+            : product.PriceUsd;
+        var rawUnitLbp = totalLbpOverride.HasValue && scannedQuantity > 0
+            ? totalLbpOverride.Value / scannedQuantity
+            : product.PriceLbp;
+
+        if (!totalLbpOverride.HasValue && totalUsdOverride.HasValue)
+        {
+            rawUnitLbp = product.PriceUsd == 0m
+                ? product.PriceLbp
+                : product.PriceLbp * (rawUnitUsd / product.PriceUsd);
+        }
+
+        var scannedUnitUsd = decimal.Round(rawUnitUsd, 2, MidpointRounding.AwayFromZero);
+        var scannedUnitLbp = decimal.Round(rawUnitLbp, 0, MidpointRounding.AwayFromZero);
+        var scannedTotalUsd = decimal.Round(scannedUnitUsd * scannedQuantity, 2, MidpointRounding.AwayFromZero);
+        var scannedTotalLbp = decimal.Round(scannedUnitLbp * scannedQuantity, 0, MidpointRounding.AwayFromZero);
+        var scannedCode = scannedBarcode?.Code ?? requestedBarcode ?? product.Barcode;
+        var mergesWithPrimary = scannedBarcode is null || (scannedQuantity == 1 && !totalUsdOverride.HasValue && !totalLbpOverride.HasValue);
 
         return new ProductResponse
         {
@@ -316,7 +400,15 @@ public class ProductsController : ControllerBase
             QuantityOnHand = inventory?.QuantityOnHand ?? 0,
             AverageCostUsd = inventory?.AverageCostUsd ?? 0,
             ReorderPoint = inventory?.ReorderPoint ?? 3m,
-            IsReorderAlarmEnabled = inventory?.IsReorderAlarmEnabled ?? true
+            IsReorderAlarmEnabled = inventory?.IsReorderAlarmEnabled ?? true,
+            AdditionalBarcodes = additional,
+            ScannedBarcode = scannedCode,
+            ScannedQuantity = scannedQuantity,
+            ScannedUnitPriceUsd = scannedUnitUsd,
+            ScannedUnitPriceLbp = scannedUnitLbp,
+            ScannedTotalUsd = scannedTotalUsd,
+            ScannedTotalLbp = scannedTotalLbp,
+            ScannedMergesWithPrimary = mergesWithPrimary
         };
     }
 
@@ -399,6 +491,8 @@ public class ProductsController : ControllerBase
                 AddError(errors, nameof(request.Barcode), "Barcode must be unique.");
             }
         }
+
+        await NormalizeAdditionalBarcodesAsync(request, existingProductId, errors, cancellationToken);
 
         Category? category = null;
         var categoryWasAdded = false;
@@ -483,6 +577,209 @@ public class ProductsController : ControllerBase
         }
     }
 
+    private async Task NormalizeAdditionalBarcodesAsync(
+        ProductMutationRequestBase request,
+        Guid? existingProductId,
+        Dictionary<string, List<string>> errors,
+        CancellationToken cancellationToken)
+    {
+        if (request.AdditionalBarcodes is null)
+        {
+            if (existingProductId.HasValue)
+            {
+                return;
+            }
+
+            request.AdditionalBarcodes = new List<ProductBarcodeInput>();
+        }
+
+        var barcodes = request.AdditionalBarcodes;
+        if (barcodes is null)
+        {
+            return;
+        }
+
+        var normalized = new List<ProductBarcodeInput>(barcodes.Count);
+        var seenCodes = new HashSet<string>(StringComparer.Ordinal);
+
+        if (!string.IsNullOrWhiteSpace(request.Barcode))
+        {
+            seenCodes.Add(request.Barcode);
+        }
+
+        for (var index = 0; index < barcodes.Count; index++)
+        {
+            var current = barcodes[index];
+            var pathPrefix = $"{nameof(request.AdditionalBarcodes)}[{index}]";
+
+            if (current is null)
+            {
+                continue;
+            }
+
+            var code = NormalizeOptional(current.Code);
+            if (code is null)
+            {
+                AddError(errors, $"{pathPrefix}.Code", "Barcode is required.");
+                continue;
+            }
+
+            if (!seenCodes.Add(code))
+            {
+                AddError(errors, $"{pathPrefix}.Code", "Barcode must be unique.");
+                continue;
+            }
+
+            if (current.Quantity <= 0)
+            {
+                AddError(errors, $"{pathPrefix}.Quantity", "Quantity must be at least 1.");
+                continue;
+            }
+
+            if (current.Price is decimal price && price < 0)
+            {
+                AddError(errors, $"{pathPrefix}.Price", "Price cannot be negative.");
+                continue;
+            }
+
+            string? normalizedCurrency = null;
+            if (!string.IsNullOrWhiteSpace(current.Currency) || current.Price.HasValue)
+            {
+                normalizedCurrency = NormalizeCurrency(current.Currency);
+                if (normalizedCurrency is null)
+                {
+                    AddError(errors, $"{pathPrefix}.Currency", "Currency must be either USD or LBP.");
+                    continue;
+                }
+            }
+
+            normalized.Add(new ProductBarcodeInput
+            {
+                Code = code,
+                Quantity = current.Quantity,
+                Price = current.Price,
+                Currency = normalizedCurrency ?? current.Currency
+            });
+        }
+
+        request.AdditionalBarcodes = normalized;
+
+        if (normalized.Count == 0)
+        {
+            return;
+        }
+
+        var codes = normalized.Select(b => b.Code).ToList();
+
+        var conflictingPrimary = await _db.Products
+            .AsNoTracking()
+            .Where(p => codes.Contains(p.Barcode))
+            .Where(p => !existingProductId.HasValue || p.Id != existingProductId.Value)
+            .Select(p => p.Barcode)
+            .ToListAsync(cancellationToken);
+
+        foreach (var conflict in conflictingPrimary)
+        {
+            AddError(errors, nameof(request.AdditionalBarcodes), $"Barcode {conflict} is already assigned to another product.");
+        }
+
+        var conflictingSecondary = await _db.ProductBarcodes
+            .AsNoTracking()
+            .Where(b => codes.Contains(b.Code))
+            .Where(b => !existingProductId.HasValue || b.ProductId != existingProductId.Value)
+            .Select(b => b.Code)
+            .ToListAsync(cancellationToken);
+
+        foreach (var conflict in conflictingSecondary)
+        {
+            AddError(errors, nameof(request.AdditionalBarcodes), $"Barcode {conflict} is already assigned to another product.");
+        }
+    }
+
+    private async Task<BarcodeResolutionResult> ResolveAdditionalBarcodesAsync(
+        List<ProductBarcodeInput> barcodes,
+        CancellationToken cancellationToken)
+    {
+        if (barcodes.Count == 0)
+        {
+            return BarcodeResolutionResult.Success(Array.Empty<ResolvedProductBarcode>());
+        }
+
+        var resolved = new List<ResolvedProductBarcode>(barcodes.Count);
+        CurrencyRate? rate = null;
+
+        foreach (var barcode in barcodes)
+        {
+            decimal? priceUsd = null;
+            decimal? priceLbp = null;
+
+            if (barcode.Price.HasValue)
+            {
+                try
+                {
+                    rate ??= await _currencyService.GetCurrentRateAsync(cancellationToken);
+                }
+                catch (InvalidOperationException)
+                {
+                    return BarcodeResolutionResult.Failure(new Dictionary<string, string[]>
+                    {
+                        [nameof(request.AdditionalBarcodes)] = new[] { "Exchange rate is not configured." }
+                    });
+                }
+
+                if ((barcode.Currency ?? "USD") == "LBP")
+                {
+                    priceLbp = _currencyService.RoundLbp(barcode.Price.Value);
+                    priceUsd = _currencyService.ConvertLbpToUsd(priceLbp.Value, rate.Rate);
+                }
+                else
+                {
+                    priceUsd = _currencyService.RoundUsd(barcode.Price.Value);
+                    priceLbp = _currencyService.ConvertUsdToLbp(priceUsd.Value, rate.Rate);
+                }
+            }
+
+            resolved.Add(new ResolvedProductBarcode(barcode.Code, barcode.Quantity, priceUsd, priceLbp));
+        }
+
+        return BarcodeResolutionResult.Success(resolved);
+    }
+
+    private static void ApplyAdditionalBarcodes(Product product, IReadOnlyList<ResolvedProductBarcode> barcodes)
+    {
+        var existing = product.AdditionalBarcodes.ToDictionary(b => b.Code, StringComparer.Ordinal);
+        var targetCodes = new HashSet<string>(barcodes.Select(b => b.Code), StringComparer.Ordinal);
+
+        foreach (var barcode in product.AdditionalBarcodes.ToList())
+        {
+            if (!targetCodes.Contains(barcode.Code))
+            {
+                product.AdditionalBarcodes.Remove(barcode);
+            }
+        }
+
+        foreach (var barcode in barcodes)
+        {
+            if (existing.TryGetValue(barcode.Code, out var entity))
+            {
+                entity.QuantityPerScan = barcode.Quantity;
+                entity.PriceUsdOverride = barcode.PriceUsd;
+                entity.PriceLbpOverride = barcode.PriceLbp;
+                entity.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                product.AdditionalBarcodes.Add(new ProductBarcode
+                {
+                    Code = barcode.Code,
+                    QuantityPerScan = barcode.Quantity,
+                    PriceUsdOverride = barcode.PriceUsd,
+                    PriceLbpOverride = barcode.PriceLbp
+                });
+            }
+        }
+    }
+
     private ActionResult CreateValidationProblem(IDictionary<string, string[]> errors)
     {
         ModelState.Clear();
@@ -543,5 +840,16 @@ public class ProductsController : ControllerBase
 
         public static PriceComputationResult Failure(IDictionary<string, string[]> errors) =>
             new(false, 0m, 0m, errors);
+    }
+
+    private sealed record ResolvedProductBarcode(string Code, int Quantity, decimal? PriceUsd, decimal? PriceLbp);
+
+    private sealed record BarcodeResolutionResult(bool Succeeded, IReadOnlyList<ResolvedProductBarcode> Barcodes, IDictionary<string, string[]> Errors)
+    {
+        public static BarcodeResolutionResult Success(IReadOnlyList<ResolvedProductBarcode> barcodes) =>
+            new(true, barcodes, new Dictionary<string, string[]>(StringComparer.Ordinal));
+
+        public static BarcodeResolutionResult Failure(IDictionary<string, string[]> errors) =>
+            new(false, Array.Empty<ResolvedProductBarcode>(), errors);
     }
 }

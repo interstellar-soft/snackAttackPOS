@@ -15,4 +15,5 @@ public class Product : BaseEntity
     public ICollection<ExpirationBatch> ExpirationBatches { get; set; } = new List<ExpirationBatch>();
     public Inventory? Inventory { get; set; }
     public ICollection<PriceRule> PriceRules { get; set; } = new List<PriceRule>();
+    public ICollection<ProductBarcode> AdditionalBarcodes { get; set; } = new List<ProductBarcode>();
 }

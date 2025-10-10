@@ -164,26 +164,34 @@ export function InvoicesPage() {
         return;
       }
       setItems((previous) => {
+        const increment = Math.max(1, product.scannedQuantity ?? 1);
         const existingIndex = previous.findIndex((item) => item.productId === product.id);
         if (existingIndex >= 0) {
           const next = [...previous];
           const target = next[existingIndex];
-          const nextQuantity = (Number(target.quantity) || 0) + 1;
+          const nextQuantity = (Number(target.quantity) || 0) + increment;
           next[existingIndex] = { ...target, quantity: nextQuantity.toString() };
           setLastFocusedId(target.id);
           return next;
         }
-        const unitPrice = product.priceUsd ?? 0;
+        const unitPrice =
+          typeof product.scannedUnitPriceUsd === 'number'
+            ? product.scannedUnitPriceUsd
+            : product.priceUsd ?? 0;
+        const derivedBarcode =
+          product.scannedMergesWithPrimary === false
+            ? product.scannedBarcode ?? product.barcode ?? trimmed
+            : product.barcode ?? trimmed;
         const draft: InvoiceDraftItem = {
           id: product.id ?? createId(),
           productId: product.id,
           productName: product.name,
-          barcode: product.barcode ?? trimmed,
+          barcode: derivedBarcode,
           priceRuleId: null,
           priceRuleDescription: null,
           baseUnitPriceUsd: unitPrice,
           unitPriceUsd: unitPrice,
-          quantity: '1',
+          quantity: increment.toString(),
           manualDiscount: '',
           quantityOnHand: product.quantityOnHand ?? 0,
           isWaste: false
