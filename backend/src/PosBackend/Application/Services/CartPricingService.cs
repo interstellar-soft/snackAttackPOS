@@ -249,7 +249,6 @@ public class CartPricingService
 
         var productIds = productMap.Keys.ToList();
         var offers = await _db.Offers
-            .AsNoTracking()
             .Include(o => o.Items)
             .Where(o => o.IsActive)
             .Where(o => o.Items.Any())
