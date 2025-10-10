@@ -472,7 +472,7 @@ public class CartPricingService
             return false;
         }
 
-        if (item.PriceRuleId.HasValue)
+        if (item.PriceRuleId is { } priceRuleId && priceRuleId != Guid.Empty)
         {
             return false;
         }
