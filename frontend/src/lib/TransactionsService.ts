@@ -52,6 +52,30 @@ export interface TransactionItemInput {
   isWaste?: boolean;
 }
 
+export interface PriceCartItemInput {
+  productId: string;
+  quantity: number;
+  priceRuleId?: string | null;
+  manualDiscountPercent?: number | null;
+  isWaste?: boolean;
+  manualUnitPriceUsd?: number | null;
+  manualUnitPriceLbp?: number | null;
+  manualTotalUsd?: number | null;
+  manualTotalLbp?: number | null;
+}
+
+export interface PriceCartRequest {
+  exchangeRate: number;
+  saveToMyCart?: boolean;
+  items: PriceCartItemInput[];
+}
+
+export interface PriceCartResponse {
+  totalUsd: number;
+  totalLbp: number;
+  lines: TransactionLine[];
+}
+
 export interface UpdateTransactionInput {
   exchangeRate: number;
   paidUsd: number;
@@ -111,6 +135,21 @@ export const TransactionsService = {
         queryClient.invalidateQueries({ queryKey: transactionsKeys.all });
         queryClient.invalidateQueries({ queryKey: transactionsKeys.detail(variables.id) });
         queryClient.invalidateQueries({ queryKey: ['products'] });
+      }
+    });
+  },
+  usePriceCart() {
+    const token = useAuthToken();
+    return useMutation<PriceCartResponse, Error, PriceCartRequest>({
+      mutationFn: async (payload) => {
+        return await apiFetch<PriceCartResponse>(
+          '/api/transactions/price',
+          {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          },
+          token ?? undefined
+        );
       }
     });
   },

@@ -6,6 +6,11 @@ import { ProductGrid } from '../components/pos/ProductGrid';
 import { CartPanel } from '../components/pos/CartPanel';
 import { TopBar } from '../components/pos/TopBar';
 import { apiFetch } from '../lib/api';
+import {
+  TransactionsService,
+  type PriceCartItemInput,
+  type PriceCartResponse
+} from '../lib/TransactionsService';
 import { useAuthStore } from '../stores/authStore';
 import { Input } from '../components/ui/input';
 import { useCartStore } from '../stores/cartStore';
@@ -60,6 +65,7 @@ export function POSPage() {
     clear,
     items,
     subtotalUsd,
+    subtotalLbp,
     rate,
     setRate,
     lastAddedItemId,
@@ -71,6 +77,7 @@ export function POSPage() {
     clear: state.clear,
     items: state.items,
     subtotalUsd: state.subtotalUsd,
+    subtotalLbp: state.subtotalLbp,
     rate: state.rate,
     setRate: state.setRate,
     lastAddedItemId: state.lastAddedItemId,
@@ -78,6 +85,14 @@ export function POSPage() {
     manualCartTotalUsd: state.manualCartTotalUsd,
     manualCartTotalLbp: state.manualCartTotalLbp
   }));
+  const normalizedRole = role?.toLowerCase();
+  const canManageInventory = normalizedRole === 'admin' || normalizedRole === 'manager';
+  const canSeeAnalytics = canManageInventory;
+  const canEditRate = canManageInventory;
+  const canSaveToMyCart = normalizedRole === 'admin';
+  const canEditCartTotals = normalizedRole === 'admin';
+  const { mutate: priceCartMutate } = TransactionsService.usePriceCart();
+  const [priceQuote, setPriceQuote] = useState<PriceCartResponse | null>(null);
   const [barcode, setBarcode] = useState('');
   const [lastScan, setLastScan] = useState<string | undefined>();
   const [paidUsdText, setPaidUsdText] = useState('');
@@ -101,6 +116,7 @@ export function POSPage() {
     selectionEnd: number | null;
   } | null>(null);
   const pendingEditableTimeoutRef = useRef<number | null>(null);
+  const pricingRequestIdRef = useRef(0);
 
   const focusBarcodeInput = useCallback(() => {
     const element = barcodeInputRef.current;
@@ -129,6 +145,70 @@ export function POSPage() {
   useEffect(() => {
     focusBarcodeInput();
   }, [focusBarcodeInput]);
+
+  useEffect(() => {
+    pricingRequestIdRef.current += 1;
+    const requestId = pricingRequestIdRef.current;
+
+    if (!token) {
+      setPriceQuote(null);
+      return;
+    }
+
+    if (items.length === 0) {
+      setPriceQuote(null);
+      return;
+    }
+
+    const payloadItems: PriceCartItemInput[] = items.map((item) => {
+      const requestItem: PriceCartItemInput = {
+        productId: item.productId,
+        quantity: item.quantity,
+        isWaste: item.isWaste
+      };
+
+      if (item.discountPercent > 0) {
+        requestItem.manualDiscountPercent = item.discountPercent;
+      }
+
+      if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
+        requestItem.manualTotalUsd = item.manualTotalUsd;
+      }
+
+      if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined) {
+        requestItem.manualTotalLbp = item.manualTotalLbp;
+      }
+
+      return requestItem;
+    });
+
+    priceCartMutate(
+      {
+        exchangeRate: rate,
+        saveToMyCart: canSaveToMyCart ? saveToMyCart : false,
+        items: payloadItems
+      },
+      {
+        onSuccess: (data) => {
+          if (pricingRequestIdRef.current === requestId) {
+            setPriceQuote(data);
+          }
+        },
+        onError: () => {
+          if (pricingRequestIdRef.current === requestId) {
+            setPriceQuote(null);
+          }
+        }
+      }
+    );
+  }, [
+    token,
+    items,
+    rate,
+    canSaveToMyCart,
+    saveToMyCart,
+    priceCartMutate
+  ]);
 
   const scanMutation = useMutation<ProductResponse, Error, string>({
     mutationFn: async (code: string) => {
@@ -522,7 +602,32 @@ export function POSPage() {
     }
   };
 
-  const totalUsd = Number(subtotalUsd().toFixed(2));
+  const rawSubtotalUsd = subtotalUsd();
+  const rawSubtotalLbp = subtotalLbp();
+
+  const hasManualCartUsd = manualCartTotalUsd !== null && manualCartTotalUsd !== undefined;
+  const hasManualCartLbp = manualCartTotalLbp !== null && manualCartTotalLbp !== undefined;
+
+  const manualOverrideUsd = hasManualCartUsd
+    ? manualCartTotalUsd!
+    : hasManualCartLbp && rate > 0
+      ? Math.round((manualCartTotalLbp! / rate) * 100) / 100
+      : null;
+
+  const manualOverrideLbp = hasManualCartLbp
+    ? manualCartTotalLbp!
+    : hasManualCartUsd && rate > 0
+      ? Math.round(manualCartTotalUsd! * rate)
+      : null;
+
+  const computedTotalUsd = priceQuote?.totalUsd ?? rawSubtotalUsd;
+  const computedTotalLbp = priceQuote?.totalLbp ?? rawSubtotalLbp;
+
+  const effectiveTotalUsd = manualOverrideUsd ?? computedTotalUsd;
+  const effectiveTotalLbp = manualOverrideLbp ?? computedTotalLbp;
+
+  const totalUsd = Number(effectiveTotalUsd.toFixed(2));
+  const totalLbpDisplay = Math.round(effectiveTotalLbp);
 
   const parseTenderAmount = (value: string) => {
     const trimmed = value.trim();
@@ -647,13 +752,6 @@ export function POSPage() {
     alert(`Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`);
   };
 
-  const normalizedRole = role?.toLowerCase();
-  const canManageInventory = normalizedRole === 'admin' || normalizedRole === 'manager';
-  const canEditRate = canManageInventory;
-  const canSeeAnalytics = canManageInventory;
-  const canSaveToMyCart = normalizedRole === 'admin';
-  const canEditCartTotals = normalizedRole === 'admin';
-
   const handleSaveRate = async (nextRate: number, notes?: string) => {
     if (!token) return;
     await apiFetch<void>(
@@ -739,10 +837,15 @@ export function POSPage() {
                   }}
                   canMarkWaste={normalizedRole === 'admin'}
                   canEditTotals={canEditCartTotals}
+                  totalUsdOverride={totalUsd}
+                  totalLbpOverride={totalLbpDisplay}
                 />
               </div>
               <div className="flex h-full min-h-0 w-full overflow-hidden">
-                <ReceiptPreview />
+                <ReceiptPreview
+                  totalUsdOverride={totalUsd}
+                  totalLbpOverride={totalLbpDisplay}
+                />
               </div>
             </div>
           </div>
