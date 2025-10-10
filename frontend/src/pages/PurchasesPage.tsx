@@ -32,6 +32,7 @@ interface DraftItem {
   categoryName: string;
   quantity: string;
   unitCost: string;
+  profitPercent: string;
   currency: 'USD' | 'LBP';
   salePriceUsd: string;
   isExisting: boolean;
@@ -39,6 +40,43 @@ interface DraftItem {
 }
 
 const createId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+
+const parseNumber = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatDecimalString = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return '';
+  }
+  const rounded = Math.round(value * 100) / 100;
+  return rounded.toFixed(2).replace(/\.0+$/, '').replace(/\.([1-9])0$/, '.$1');
+};
+
+const calculateProfitPercent = (unitCost: string, salePrice: string) => {
+  const cost = parseNumber(unitCost);
+  const price = parseNumber(salePrice);
+  if (cost == null || cost <= 0 || price == null) {
+    return '';
+  }
+  const percent = ((price - cost) / cost) * 100;
+  return formatDecimalString(percent);
+};
+
+const calculateSalePriceFromProfit = (unitCost: string, profitPercent: string) => {
+  const cost = parseNumber(unitCost);
+  const percent = parseNumber(profitPercent);
+  if (cost == null || percent == null) {
+    return '';
+  }
+  const price = cost * (1 + percent / 100);
+  return formatDecimalString(price);
+};
 
 export function PurchasesPage() {
   const { t } = useTranslation();
@@ -223,6 +261,10 @@ export function PurchasesPage() {
         categoryName: line.categoryName?.trim() ?? '',
         quantity: line.quantity.toString(),
         unitCost: line.unitCostUsd.toString(),
+        profitPercent: calculateProfitPercent(
+          line.unitCostUsd.toString(),
+          line.currentSalePriceUsd != null ? line.currentSalePriceUsd.toString() : ''
+        ),
         currency: 'USD',
         salePriceUsd: line.currentSalePriceUsd != null ? line.currentSalePriceUsd.toString() : '',
         isExisting: true,
@@ -309,6 +351,10 @@ export function PurchasesPage() {
               categoryName: product.categoryName ?? product.category ?? '',
               quantity: increment.toString(),
               unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
+              profitPercent: calculateProfitPercent(
+                (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
+                product.priceUsd?.toString() ?? ''
+              ),
               currency: 'USD',
               salePriceUsd: product.priceUsd?.toString() ?? '',
               isExisting: true,
@@ -333,6 +379,7 @@ export function PurchasesPage() {
             categoryName: '',
             quantity: '1',
             unitCost: '0',
+            profitPercent: '',
             currency: 'USD',
             salePriceUsd: '',
             isExisting: false,
@@ -371,7 +418,61 @@ export function PurchasesPage() {
   }, [addBarcode, barcode]);
 
   const handleItemChange = (id: string, field: keyof DraftItem, value: string) => {
-    setItems((previous) => previous.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+    setItems((previous) =>
+      previous.map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+
+        const next: DraftItem = { ...item, [field]: value };
+
+        if (field === 'unitCost') {
+          const previousProfit = item.profitPercent;
+          let nextSalePrice = next.salePriceUsd;
+          if (previousProfit.trim() !== '') {
+            const saleFromProfit = calculateSalePriceFromProfit(next.unitCost, previousProfit);
+            if (saleFromProfit !== '') {
+              nextSalePrice = saleFromProfit;
+            }
+          }
+          const computedProfit = calculateProfitPercent(next.unitCost, nextSalePrice);
+          const nextProfit =
+            computedProfit !== ''
+              ? computedProfit
+              : next.profitPercent.trim() !== ''
+              ? next.profitPercent
+              : '';
+          return { ...next, salePriceUsd: nextSalePrice, profitPercent: nextProfit };
+        }
+
+        if (field === 'salePriceUsd') {
+          if (value.trim() === '') {
+            return { ...next, profitPercent: '' };
+          }
+          const computedProfit = calculateProfitPercent(next.unitCost, next.salePriceUsd);
+          const nextProfit = computedProfit !== '' ? computedProfit : next.profitPercent;
+          return { ...next, profitPercent: nextProfit };
+        }
+
+        if (field === 'profitPercent') {
+          if (value.trim() === '') {
+            return { ...next, profitPercent: '' };
+          }
+          const saleFromProfit = calculateSalePriceFromProfit(next.unitCost, value);
+          if (saleFromProfit === '') {
+            return { ...next, profitPercent: value };
+          }
+          const normalizedProfit = calculateProfitPercent(next.unitCost, saleFromProfit);
+          return {
+            ...next,
+            salePriceUsd: saleFromProfit,
+            profitPercent: normalizedProfit || value
+          };
+        }
+
+        return next;
+      })
+    );
     if (field === 'quantity' && lastScannedItemId === id) {
       setLastScannedItemId(null);
     }
@@ -771,6 +872,7 @@ export function PurchasesPage() {
                     <th className="px-4 py-3">{t('inventoryCategoryName')}</th>
                     <th className="px-4 py-3">{t('quantity')}</th>
                     <th className="px-4 py-3">{t('purchasesUnitCost')}</th>
+                    <th className="px-4 py-3">{t('purchasesProfitPercent')}</th>
                     <th className="px-4 py-3">{t('purchasesCurrency')}</th>
                     <th className="px-4 py-3">{t('purchasesSalePrice')}</th>
                     <th className="px-4 py-3"></th>
@@ -779,7 +881,7 @@ export function PurchasesPage() {
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {items.length === 0 && (
                     <tr>
-                      <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={8}>
+                      <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={9}>
                         {t('purchasesEmpty')}
                       </td>
                     </tr>
@@ -860,6 +962,16 @@ export function PurchasesPage() {
                           />
                         </td>
                         <td className="px-4 py-3">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            inputMode="decimal"
+                            value={item.profitPercent}
+                            onChange={(event) => handleItemChange(item.id, 'profitPercent', event.target.value)}
+                            placeholder={t('purchasesProfitPercentPlaceholder')}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
                           <select
                             className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
                             value={item.currency}
@@ -917,6 +1029,7 @@ export function PurchasesPage() {
                     categoryName: '',
                     quantity: '1',
                     unitCost: '0',
+                    profitPercent: '',
                     currency: 'USD',
                     salePriceUsd: '',
                     isExisting: false,
