@@ -93,6 +93,54 @@ public class TransactionsController : ControllerBase
         return ToResponse(transaction);
     }
 
+    [HttpGet("lookup-by-barcode")]
+    public async Task<ActionResult<IEnumerable<TransactionLineLookupResponse>>> LookupByBarcode(
+        [FromQuery] string? barcode,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(barcode))
+        {
+            return BadRequest(new { message = "Barcode is required." });
+        }
+
+        var normalizedBarcode = barcode.Trim();
+
+        var lines = await _db.TransactionLines
+            .AsNoTracking()
+            .Include(l => l.Transaction)
+            .Include(l => l.Product)
+            .Where(l => !l.IsWaste)
+            .Where(l => l.Transaction != null && l.Transaction.Type == TransactionType.Sale)
+            .Where(l => l.Product != null && l.Product.Barcode == normalizedBarcode)
+            .Where(l => l.Quantity > 0)
+            .OrderByDescending(l => l.Transaction!.CreatedAt)
+            .Take(10)
+            .Select(l => new TransactionLineLookupResponse
+            {
+                TransactionId = l.TransactionId,
+                LineId = l.Id,
+                ProductId = l.ProductId,
+                TransactionNumber = l.Transaction!.TransactionNumber,
+                ProductName = l.Product!.Name,
+                ProductSku = l.Product!.Sku,
+                ProductBarcode = l.Product!.Barcode,
+                Quantity = l.Quantity,
+                TotalUsd = l.TotalUsd,
+                TotalLbp = l.TotalLbp,
+                UnitPriceUsd = l.UnitPriceUsd,
+                UnitPriceLbp = l.UnitPriceLbp,
+                CostUsd = l.CostUsd,
+                CostLbp = l.CostLbp,
+                ProfitUsd = l.ProfitUsd,
+                ProfitLbp = l.ProfitLbp,
+                CreatedAt = l.Transaction!.CreatedAt,
+                IsWaste = l.IsWaste
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(lines);
+    }
+
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<TransactionResponse>> Update(Guid id, [FromBody] UpdateTransactionRequest request, CancellationToken cancellationToken)
