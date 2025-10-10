@@ -95,6 +95,7 @@ export function POSPage() {
   const [paidLbpAmount, setPaidLbpAmount] = useState(0);
   const [balance, setBalance] = useState<BalanceResponse | null>(null);
   const [rateModalOpen, setRateModalOpen] = useState(false);
+  const overridesEnabled = false; // Override prompts disabled per request.
   const [overrideRequired, setOverrideRequired] = useState(false);
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const [saveToMyCart, setSaveToMyCart] = useState(false);
@@ -319,7 +320,7 @@ export function POSPage() {
       setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
       setBarcode('');
       focusBarcodeInput();
-      if (product.isFlagged) {
+      if (overridesEnabled && product.isFlagged) {
         setOverrideRequired(true);
         setOverrideReason(product.flagReason ?? 'Anomaly detected');
       }
@@ -822,7 +823,7 @@ export function POSPage() {
       token
     );
 
-    if (response.requiresOverride) {
+    if (overridesEnabled && response.requiresOverride) {
       setOverrideRequired(true);
       setOverrideReason(response.overrideReason ?? 'Supervisor review required');
       return;
