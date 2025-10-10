@@ -273,6 +273,7 @@ export function ProfitsPage() {
         onNavigateAnalytics={canManageInventory ? () => navigate('/analytics') : undefined}
         onNavigateProfits={canManageInventory ? () => navigate('/profits') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
+        onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}

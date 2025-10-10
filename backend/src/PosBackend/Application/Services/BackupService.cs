@@ -113,6 +113,34 @@ public class BackupService
                     IsActive = r.IsActive
                 })
                 .ToListAsync(cancellationToken),
+            Offers = await _db.Offers
+                .AsNoTracking()
+                .OrderBy(o => o.Name)
+                .Select(o => new OfferBackup
+                {
+                    Id = o.Id,
+                    CreatedAt = o.CreatedAt,
+                    UpdatedAt = o.UpdatedAt,
+                    Name = o.Name,
+                    Description = o.Description,
+                    PriceUsd = o.PriceUsd,
+                    PriceLbp = o.PriceLbp,
+                    IsActive = o.IsActive
+                })
+                .ToListAsync(cancellationToken),
+            OfferItems = await _db.OfferItems
+                .AsNoTracking()
+                .OrderBy(i => i.OfferId)
+                .Select(i => new OfferItemBackup
+                {
+                    Id = i.Id,
+                    CreatedAt = i.CreatedAt,
+                    UpdatedAt = i.UpdatedAt,
+                    OfferId = i.OfferId,
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity
+                })
+                .ToListAsync(cancellationToken),
             Suppliers = await _db.Suppliers
                 .AsNoTracking()
                 .OrderBy(s => s.Name)
@@ -196,6 +224,7 @@ public class BackupService
                     TransactionId = l.TransactionId,
                     ProductId = l.ProductId,
                     PriceRuleId = l.PriceRuleId,
+                    OfferId = l.OfferId,
                     Quantity = l.Quantity,
                     BaseUnitPriceUsd = l.BaseUnitPriceUsd,
                     BaseUnitPriceLbp = l.BaseUnitPriceLbp,
@@ -269,6 +298,8 @@ public class BackupService
 
         await _db.TransactionLines.ExecuteDeleteAsync(cancellationToken);
         await _db.Transactions.ExecuteDeleteAsync(cancellationToken);
+        await _db.OfferItems.ExecuteDeleteAsync(cancellationToken);
+        await _db.Offers.ExecuteDeleteAsync(cancellationToken);
         await _db.PurchaseOrderLines.ExecuteDeleteAsync(cancellationToken);
         await _db.PurchaseOrders.ExecuteDeleteAsync(cancellationToken);
         await _db.PriceRules.ExecuteDeleteAsync(cancellationToken);
@@ -391,6 +422,38 @@ public class BackupService
         }
         counts["priceRules"] = priceRules.Count;
 
+        var offers = (backup.Offers ?? new List<OfferBackup>()).Select(o => new Offer
+        {
+            Id = o.Id,
+            CreatedAt = o.CreatedAt,
+            UpdatedAt = o.UpdatedAt,
+            Name = o.Name,
+            Description = o.Description,
+            PriceUsd = o.PriceUsd,
+            PriceLbp = o.PriceLbp,
+            IsActive = o.IsActive
+        }).ToList();
+        if (offers.Count > 0)
+        {
+            await _db.Offers.AddRangeAsync(offers, cancellationToken);
+        }
+        counts["offers"] = offers.Count;
+
+        var offerItems = (backup.OfferItems ?? new List<OfferItemBackup>()).Select(i => new OfferItem
+        {
+            Id = i.Id,
+            CreatedAt = i.CreatedAt,
+            UpdatedAt = i.UpdatedAt,
+            OfferId = i.OfferId,
+            ProductId = i.ProductId,
+            Quantity = i.Quantity
+        }).ToList();
+        if (offerItems.Count > 0)
+        {
+            await _db.OfferItems.AddRangeAsync(offerItems, cancellationToken);
+        }
+        counts["offerItems"] = offerItems.Count;
+
         var suppliers = (backup.Suppliers ?? new List<SupplierBackup>()).Select(s => new Supplier
         {
             Id = s.Id,
@@ -479,6 +542,7 @@ public class BackupService
             TransactionId = l.TransactionId,
             ProductId = l.ProductId,
             PriceRuleId = l.PriceRuleId,
+            OfferId = l.OfferId,
             Quantity = l.Quantity,
             BaseUnitPriceUsd = l.BaseUnitPriceUsd,
             BaseUnitPriceLbp = l.BaseUnitPriceLbp,

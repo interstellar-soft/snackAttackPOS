@@ -21,5 +21,9 @@ public class TransactionLineConfiguration : IEntityTypeConfiguration<Transaction
         builder.Property(l => l.ProfitLbp).HasColumnType("numeric(18,2)");
         builder.Property(l => l.IsWaste).HasColumnType("boolean").HasDefaultValue(false);
         builder.Property(l => l.HasManualPriceOverride).HasColumnType("boolean").HasDefaultValue(false);
+        builder.HasOne(l => l.Offer)
+            .WithMany()
+            .HasForeignKey(l => l.OfferId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

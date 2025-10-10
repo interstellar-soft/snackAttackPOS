@@ -201,6 +201,7 @@ export function AnalyticsPage() {
         onNavigatePos={() => navigate('/')}
         onNavigateProfits={canManageInventory ? () => navigate('/profits') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
+        onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}

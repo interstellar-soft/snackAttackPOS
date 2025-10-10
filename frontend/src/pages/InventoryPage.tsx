@@ -54,6 +54,7 @@ export function InventoryPage() {
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
+        onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
         isInventory

@@ -13,6 +13,9 @@ public class TransactionLine : BaseEntity
     public Guid? PriceRuleId { get; set; }
     [JsonIgnore]
     public PriceRule? PriceRule { get; set; }
+    public Guid? OfferId { get; set; }
+    [JsonIgnore]
+    public Offer? Offer { get; set; }
     public decimal Quantity { get; set; }
     public decimal BaseUnitPriceUsd { get; set; }
     public decimal BaseUnitPriceLbp { get; set; }

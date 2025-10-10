@@ -31,6 +31,7 @@ export function MyCartPage() {
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canManageInventory ? () => navigate('/analytics') : undefined}
         onNavigateProfits={canManageInventory ? () => navigate('/profits') : undefined}
+        onNavigateOffers={canManageInventory ? () => navigate('/offers') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}

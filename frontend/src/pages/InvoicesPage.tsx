@@ -305,6 +305,7 @@ export function InvoicesPage() {
         onNavigatePos={() => navigate('/')}
         onNavigateAnalytics={canManageInventory ? () => navigate('/analytics') : undefined}
         onNavigateProfits={canManageInventory ? () => navigate('/profits') : undefined}
+        onNavigateOffers={canManageInventory ? () => navigate('/offers') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}

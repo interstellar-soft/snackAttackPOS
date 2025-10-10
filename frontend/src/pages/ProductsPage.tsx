@@ -307,6 +307,7 @@ export function ProductsPage() {
         onNavigatePurchases={canSeeAnalytics ? () => navigate('/purchases') : undefined}
         onNavigateSettings={canSeeAnalytics ? () => navigate('/settings') : undefined}
         onNavigateProducts={canSeeAnalytics ? () => navigate('/products') : undefined}
+        onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
         onNavigateInventory={canSeeAnalytics ? () => navigate('/inventory') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
         isProducts
