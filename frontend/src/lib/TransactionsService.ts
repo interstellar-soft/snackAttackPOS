@@ -76,11 +76,54 @@ export interface PriceCartResponse {
   lines: TransactionLine[];
 }
 
+export interface CheckoutResponse {
+  transactionId: string;
+  transactionNumber: string;
+  totalUsd: number;
+  totalLbp: number;
+  paidUsd: number;
+  paidLbp: number;
+  balanceUsd: number;
+  balanceLbp: number;
+  exchangeRate: number;
+  lines: TransactionLine[];
+  receiptPdfBase64: string;
+  requiresOverride: boolean;
+  overrideReason?: string | null;
+  hasManualTotalOverride: boolean;
+}
+
 export interface UpdateTransactionInput {
   exchangeRate: number;
   paidUsd: number;
   paidLbp: number;
   items: TransactionItemInput[];
+}
+
+export interface ReturnRequest {
+  transactionId: string;
+  lineIds: string[];
+}
+
+export interface TransactionLineLookup {
+  transactionId: string;
+  lineId: string;
+  productId: string;
+  transactionNumber: string;
+  productName: string;
+  productSku?: string | null;
+  productBarcode?: string | null;
+  quantity: number;
+  totalUsd: number;
+  totalLbp: number;
+  unitPriceUsd: number;
+  unitPriceLbp: number;
+  costUsd: number;
+  costLbp: number;
+  profitUsd: number;
+  profitLbp: number;
+  createdAt: string;
+  isWaste: boolean;
 }
 
 const transactionsKeys = {
@@ -150,6 +193,26 @@ export const TransactionsService = {
           },
           token ?? undefined
         );
+      }
+    });
+  },
+  useReturnTransaction() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+    return useMutation<CheckoutResponse, Error, ReturnRequest>({
+      mutationFn: async (payload) => {
+        return await apiFetch<CheckoutResponse>(
+          '/api/transactions/return',
+          {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          },
+          token ?? undefined
+        );
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: transactionsKeys.all });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
       }
     });
   },
