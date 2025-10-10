@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PosBackend.Application.Responses;
+using PosBackend.Application.Services;
 using PosBackend.Domain.Entities;
+using PosBackend.Features.Common;
 using PosBackend.Infrastructure.Data;
 
 namespace PosBackend.Features.Analytics;
@@ -16,10 +18,12 @@ namespace PosBackend.Features.Analytics;
 public class AnalyticsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
+    private readonly AuditLogger _auditLogger;
 
-    public AnalyticsController(ApplicationDbContext db)
+    public AnalyticsController(ApplicationDbContext db, AuditLogger auditLogger)
     {
         _db = db;
+        _auditLogger = auditLogger;
     }
 
     [HttpGet("profit")]
@@ -282,6 +286,39 @@ public class AnalyticsController : ControllerBase
             CurrencyMixTrend = currencyMixTrend,
             ChangeIssuanceTrend = changeIssuanceTrend
         };
+    }
+
+    [HttpPost("reset")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> ResetAnalytics(CancellationToken cancellationToken)
+    {
+        var transactionCount = await _db.Transactions.CountAsync(cancellationToken);
+        var lineCount = await _db.TransactionLines.CountAsync(cancellationToken);
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+
+        await _db.TransactionLines.ExecuteDeleteAsync(cancellationToken);
+        await _db.Transactions.ExecuteDeleteAsync(cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        var currentUserId = User.GetCurrentUserId();
+        if (currentUserId.HasValue)
+        {
+            await _auditLogger.LogAsync(
+                currentUserId.Value,
+                "ResetAnalyticsData",
+                nameof(PosTransaction),
+                null,
+                new
+                {
+                    TransactionsRemoved = transactionCount,
+                    TransactionLinesRemoved = lineCount
+                },
+                cancellationToken);
+        }
+
+        return NoContent();
     }
 
     private static List<ProfitPoint> BuildSeries(IEnumerable<TransactionLine> lines, Func<DateTime, DateTime> bucketSelector)
