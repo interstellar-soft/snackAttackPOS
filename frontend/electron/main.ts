@@ -49,7 +49,8 @@ const createMainWindow = () => {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: preloadPath
+      preload: preloadPath,
+      zoomFactor: 0.8
     }
   });
 
