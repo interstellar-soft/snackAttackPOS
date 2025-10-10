@@ -17,8 +17,8 @@ export function LoginPage() {
   const error = useAuthStore((state) => state.error);
   const token = useAuthStore((state) => state.token);
   const storeName = useStoreProfileStore((state) => state.name);
-  const [username, setUsername] = useState('cashier');
-  const [password, setPassword] = useState('ChangeMe123!');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const { status: backendStatus, error: backendError } = useBackendHealth();
 
   const backendOnline = backendStatus === 'online';

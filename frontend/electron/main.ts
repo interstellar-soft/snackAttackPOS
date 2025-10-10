@@ -50,7 +50,7 @@ const createMainWindow = () => {
       contextIsolation: true,
       nodeIntegration: false,
       preload: preloadPath,
-      zoomFactor: 0.8
+      zoomFactor: 0.7
     }
   });
 
