@@ -51,14 +51,26 @@ public class CartPricingService
         var offerLines = new List<TransactionLine>();
         var saleItems = itemList.Where(i => !(isRefund || i.IsRefund)).ToList();
         var refundItems = itemList.Where(i => isRefund || i.IsRefund).ToList();
-        var itemsToPrice = saleItems;
 
-        if (!priceAtCostOnly && productMap.Count > 0 && saleItems.Count > 0)
+        if (!priceAtCostOnly && productMap.Count > 0)
         {
-            var offerResult = await ApplyOffersAsync(saleItems, productMap, exchangeRate, cancellationToken);
-            offerLines = offerResult.offerLines;
-            itemsToPrice = offerResult.remainingItems;
+            if (saleItems.Count > 0)
+            {
+                var offerResult = await ApplyOffersAsync(saleItems, productMap, exchangeRate, cancellationToken);
+                offerLines.AddRange(offerResult.offerLines);
+                saleItems = offerResult.remainingItems;
+            }
+
+            if (refundItems.Count > 0)
+            {
+                var refundOfferResult = await ApplyOffersAsync(refundItems, productMap, exchangeRate, cancellationToken);
+                var refundOfferLines = refundOfferResult.offerLines.Select(CreateRefundOfferLine);
+                offerLines.AddRange(refundOfferLines);
+                refundItems = refundOfferResult.remainingItems;
+            }
         }
+
+        var itemsToPrice = saleItems.ToList();
 
         if (refundItems.Count > 0)
         {
@@ -456,12 +468,43 @@ public class CartPricingService
                 item.ManualUnitPriceUsd,
                 item.ManualUnitPriceLbp,
                 item.ManualTotalUsd,
-                item.ManualTotalLbp);
+                item.ManualTotalLbp,
+                item.IsRefund);
 
             adjustedItems.Add(remainder);
         }
 
         return (offerLines, adjustedItems);
+    }
+
+    private static TransactionLine CreateRefundOfferLine(TransactionLine offerLine)
+    {
+        var refundLine = new TransactionLine
+        {
+            ProductId = offerLine.ProductId,
+            OfferId = offerLine.OfferId,
+            PriceRuleId = offerLine.PriceRuleId,
+            Quantity = -Math.Abs(offerLine.Quantity),
+            BaseUnitPriceUsd = offerLine.BaseUnitPriceUsd,
+            BaseUnitPriceLbp = offerLine.BaseUnitPriceLbp,
+            UnitPriceUsd = offerLine.UnitPriceUsd,
+            UnitPriceLbp = offerLine.UnitPriceLbp,
+            DiscountPercent = offerLine.DiscountPercent,
+            TotalUsd = -Math.Abs(offerLine.TotalUsd),
+            TotalLbp = -Math.Abs(offerLine.TotalLbp),
+            CostUsd = -Math.Abs(offerLine.CostUsd),
+            CostLbp = -Math.Abs(offerLine.CostLbp),
+            ProfitUsd = -Math.Abs(offerLine.ProfitUsd),
+            ProfitLbp = -Math.Abs(offerLine.ProfitLbp),
+            IsWaste = offerLine.IsWaste,
+            HasManualPriceOverride = offerLine.HasManualPriceOverride
+        };
+
+        refundLine.Product = offerLine.Product;
+        refundLine.PriceRule = offerLine.PriceRule;
+        refundLine.Offer = offerLine.Offer;
+
+        return refundLine;
     }
 
     private static bool HasManualPricing(CartItemRequest item)
