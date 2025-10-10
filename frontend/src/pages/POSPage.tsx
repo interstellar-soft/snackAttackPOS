@@ -45,6 +45,7 @@ interface ProductResponse {
   category: string;
   isFlagged?: boolean;
   flagReason?: string;
+  averageCostUsd?: number;
 }
 
 export function POSPage() {
@@ -142,6 +143,11 @@ export function POSPage() {
       );
     },
     onSuccess: (product) => {
+      const averageCostUsd =
+        typeof product.averageCostUsd === 'number' && product.averageCostUsd > 0
+          ? product.averageCostUsd
+          : product.priceUsd;
+      const unitCostLbp = Math.round(averageCostUsd * rate);
       addItem({
         productId: product.id,
         name: product.name,
@@ -149,6 +155,8 @@ export function POSPage() {
         barcode: product.barcode,
         priceUsd: product.priceUsd,
         priceLbp: product.priceLbp,
+        costUsd: averageCostUsd,
+        costLbp: unitCostLbp,
         quantity: 1,
         discountPercent: 0,
         isWaste: false
@@ -514,7 +522,7 @@ export function POSPage() {
     }
   };
 
-  const totalUsd = Number(subtotalUsd().toFixed(2));
+  const totalUsd = Number(subtotalUsd(saveToMyCart).toFixed(2));
 
   const parseTenderAmount = (value: string) => {
     const trimmed = value.trim();
@@ -722,11 +730,12 @@ export function POSPage() {
                     focusBarcodeInput();
                   }}
                   canMarkWaste={normalizedRole === 'admin'}
-                  canEditTotals={canEditCartTotals}
+                  canEditTotals={canEditCartTotals && !saveToMyCart}
+                  useCostPricing={saveToMyCart}
                 />
               </div>
               <div className="flex h-full min-h-0 w-full overflow-hidden">
-                <ReceiptPreview />
+                <ReceiptPreview useCostPricing={saveToMyCart} />
               </div>
             </div>
           </div>

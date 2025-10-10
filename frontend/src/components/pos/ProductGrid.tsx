@@ -14,7 +14,10 @@ interface ProductGridProps {
 export function ProductGrid({ onScan }: ProductGridProps) {
   const { t, i18n } = useTranslation();
   const [term, setTerm] = useState('');
-  const addItem = useCartStore((state) => state.addItem);
+  const { addItem, rate } = useCartStore((state) => ({
+    addItem: state.addItem,
+    rate: state.rate
+  }));
 
   const [debouncedTerm, setDebouncedTerm] = useState('');
 
@@ -35,6 +38,11 @@ export function ProductGrid({ onScan }: ProductGridProps) {
   const showPinnedEmptyState = !isPinnedFetching && pinnedProducts.length === 0;
 
   const handleAdd = (product: Product) => {
+    const averageCostUsd =
+      typeof product.averageCostUsd === 'number' && product.averageCostUsd > 0
+        ? product.averageCostUsd
+        : product.priceUsd;
+    const unitCostLbp = Math.round(averageCostUsd * rate);
     addItem({
       productId: product.id,
       name: product.name,
@@ -42,6 +50,8 @@ export function ProductGrid({ onScan }: ProductGridProps) {
       barcode: product.barcode,
       priceUsd: product.priceUsd,
       priceLbp: product.priceLbp,
+      costUsd: averageCostUsd,
+      costLbp: unitCostLbp,
       quantity: 1,
       discountPercent: 0
     });

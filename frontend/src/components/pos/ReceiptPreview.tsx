@@ -5,9 +5,19 @@ import { useCartStore } from '../../stores/cartStore';
 import { formatCurrency } from '../../lib/utils';
 import { useStoreProfileStore } from '../../stores/storeProfileStore';
 
-export function ReceiptPreview() {
+interface ReceiptPreviewProps {
+  useCostPricing?: boolean;
+}
+
+export function ReceiptPreview({ useCostPricing = false }: ReceiptPreviewProps = {}) {
   const { t, i18n } = useTranslation();
-  const { items, subtotalUsd, subtotalLbp, removeItem } = useCartStore();
+  const { items, subtotalUsd, subtotalLbp, removeItem, rate } = useCartStore((state) => ({
+    items: state.items,
+    subtotalUsd: state.subtotalUsd,
+    subtotalLbp: state.subtotalLbp,
+    removeItem: state.removeItem,
+    rate: state.rate
+  }));
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const storeName = useStoreProfileStore((state) => state.name);
 
@@ -45,10 +55,31 @@ export function ReceiptPreview() {
                 <div className="flex items-center gap-1">
                   <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">
                     {formatCurrency(
-                      item.isWaste
-                        ? 0
-                        : item.manualTotalUsd ??
-                          item.priceUsd * item.quantity * (1 - item.discountPercent / 100),
+                      (() => {
+                        if (item.isWaste) {
+                          return 0;
+                        }
+                        const manualUsd =
+                          item.manualTotalUsd !== null && item.manualTotalUsd !== undefined
+                            ? item.manualTotalUsd
+                            : null;
+                        const manualUsdFromLbp =
+                          manualUsd === null &&
+                          item.manualTotalLbp !== null &&
+                          item.manualTotalLbp !== undefined &&
+                          rate > 0
+                            ? Math.round((item.manualTotalLbp / rate) * 100) / 100
+                            : null;
+                        if (manualUsd !== null) {
+                          return manualUsd;
+                        }
+                        if (manualUsdFromLbp !== null) {
+                          return manualUsdFromLbp;
+                        }
+                        const baseUnit = useCostPricing ? item.costUsd : item.priceUsd;
+                        const discountPercent = useCostPricing ? 0 : item.discountPercent;
+                        return baseUnit * item.quantity * (1 - discountPercent / 100);
+                      })(),
                       'USD',
                       locale
                     )}
@@ -72,13 +103,13 @@ export function ReceiptPreview() {
           <div className="flex justify-between">
             <span>{t('total')} USD</span>
             <span className="font-semibold">
-              {formatCurrency(subtotalUsd(), 'USD', locale)}
+              {formatCurrency(subtotalUsd(useCostPricing), 'USD', locale)}
             </span>
           </div>
           <div className="flex justify-between">
             <span>{t('total')} LBP</span>
             <span className="font-semibold">
-              {formatCurrency(subtotalLbp(), 'LBP', locale)}
+              {formatCurrency(subtotalLbp(useCostPricing), 'LBP', locale)}
             </span>
           </div>
         </div>

@@ -133,7 +133,12 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : transaction.ExchangeRateUsed;
 
-        var (computedTotalUsd, _, pricedLines) = await _pricingService.PriceCartAsync(request.Items, rate, allowManualPricing, cancellationToken);
+        var (computedTotalUsd, _, pricedLines) = await _pricingService.PriceCartAsync(
+            request.Items,
+            rate,
+            allowManualPricing,
+            request.SaveToMyCart,
+            cancellationToken);
 
         var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = ResolveManualTotals(
             computedTotalUsd,
@@ -248,7 +253,12 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : (await _currencyService.GetCurrentRateAsync(cancellationToken)).Rate;
 
-        var (computedTotalUsd, _, lines) = await _pricingService.PriceCartAsync(request.Items, currentRate, allowManualPricing, cancellationToken);
+        var (computedTotalUsd, _, lines) = await _pricingService.PriceCartAsync(
+            request.Items,
+            currentRate,
+            allowManualPricing,
+            request.SaveToMyCart,
+            cancellationToken);
 
         var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = ResolveManualTotals(
             computedTotalUsd,

@@ -32,6 +32,7 @@ interface CartPanelProps {
   onQuantityConfirm?: () => void;
   canMarkWaste?: boolean;
   canEditTotals?: boolean;
+  useCostPricing?: boolean;
 }
 
 const clampQuantity = (value: number) => {
@@ -46,7 +47,8 @@ export function CartPanel({
   highlightedItemId,
   onQuantityConfirm,
   canMarkWaste = false,
-  canEditTotals = false
+  canEditTotals = false,
+  useCostPricing = false
 }: CartPanelProps) {
   const { t, i18n } = useTranslation();
   const {
@@ -137,7 +139,7 @@ export function CartPanel({
     if (!item) {
       return;
     }
-    if (item.isWaste) {
+    if (item.isWaste || useCostPricing) {
       return;
     }
     const trimmed = rawValue.trim();
@@ -201,7 +203,8 @@ export function CartPanel({
       }));
       return;
     }
-    const baseTotal = item.priceUsd * item.quantity;
+    const baseUnit = useCostPricing ? item.costUsd : item.priceUsd;
+    const baseTotal = baseUnit * item.quantity;
     if (baseTotal <= 0) {
       setDraftValues((prev) => ({
         ...prev,
@@ -244,9 +247,11 @@ export function CartPanel({
                 : ''
             }`;
             const draft = draftValues[item.lineId];
+            const baseUnit = useCostPricing ? item.costUsd : item.priceUsd;
+            const discountPercent = useCostPricing ? 0 : item.discountPercent;
             const effectiveTotalUsd = item.isWaste
               ? 0
-              : item.priceUsd * (1 - item.discountPercent / 100) * item.quantity;
+              : baseUnit * (1 - discountPercent / 100) * item.quantity;
             const defaultTotalInput = Number.isFinite(effectiveTotalUsd)
               ? (Math.round(effectiveTotalUsd * 100) / 100).toFixed(2)
               : '';
@@ -342,7 +347,7 @@ export function CartPanel({
                           commitDiscount(item.lineId, event.currentTarget.value);
                         }
                       }}
-                      disabled={item.isWaste}
+                      disabled={item.isWaste || useCostPricing}
                     />
                   </label>
                   <div className="space-y-1">
@@ -375,11 +380,11 @@ export function CartPanel({
                     ) : (
                       <div className="rounded-md border border-slate-200 bg-slate-100 px-2 py-2 text-sm font-semibold dark:border-slate-700 dark:bg-slate-700">
                         <span>
-                          {formatCurrency(
-                            effectiveTotalUsd,
-                            'USD',
-                            i18n.language === 'ar' ? 'ar-LB' : 'en-US'
-                          )}
+                        {formatCurrency(
+                          effectiveTotalUsd,
+                          'USD',
+                          i18n.language === 'ar' ? 'ar-LB' : 'en-US'
+                        )}
                         </span>
                         {item.isWaste && (
                           <span className="mt-1 block text-[0.65rem] font-normal text-amber-700 dark:text-amber-300">
@@ -403,11 +408,15 @@ export function CartPanel({
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex justify-between">
             <span>{t('total')} USD</span>
-            <span className="font-semibold">{formatCurrency(subtotalUsd(), 'USD', locale)}</span>
+            <span className="font-semibold">
+              {formatCurrency(subtotalUsd(useCostPricing), 'USD', locale)}
+            </span>
           </div>
           <div className="flex justify-between">
             <span>{t('total')} LBP</span>
-            <span className="font-semibold">{formatCurrency(subtotalLbp(), 'LBP', locale)}</span>
+            <span className="font-semibold">
+              {formatCurrency(subtotalLbp(useCostPricing), 'LBP', locale)}
+            </span>
           </div>
         </div>
       </CardContent>

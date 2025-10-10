@@ -30,6 +30,7 @@ public class CartPricingService
         IEnumerable<CartItemRequest> items,
         decimal exchangeRate,
         bool allowManualPricing = false,
+        bool useInventoryCostPricing = false,
         CancellationToken cancellationToken = default)
     {
         var productIds = items.Select(i => i.ProductId).ToList();
@@ -58,7 +59,7 @@ public class CartPricingService
             var manualUsdOverride = false;
             var manualLbpOverride = false;
 
-            if (allowManualPricing && !isWaste)
+            if (allowManualPricing && !isWaste && !useInventoryCostPricing)
             {
                 if (item.ManualUnitPriceUsd.HasValue)
                 {
@@ -107,6 +108,17 @@ public class CartPricingService
             var inventoryCost = product.Inventory?.AverageCostUsd ?? baseUnitPriceUsd * 0.6m;
             var lineCostUsd = inventoryCost * item.Quantity;
             var lineCostLbp = _currencyService.ConvertUsdToLbp(lineCostUsd, exchangeRate);
+
+            if (useInventoryCostPricing && !isWaste)
+            {
+                discountPercent = 0m;
+                unitPriceUsd = inventoryCost;
+                unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
+                lineTotalUsd = unitPriceUsd * item.Quantity;
+                lineTotalLbp = unitPriceLbp * item.Quantity;
+                manualOverrideApplied = false;
+            }
+
             if (isWaste)
             {
                 unitPriceUsd = 0m;
@@ -115,8 +127,12 @@ public class CartPricingService
                 lineTotalLbp = 0m;
             }
 
-            var profitUsd = isWaste ? -lineCostUsd : lineTotalUsd - lineCostUsd;
-            var profitLbp = isWaste ? -lineCostLbp : lineTotalLbp - lineCostLbp;
+            var profitUsd = isWaste
+                ? -lineCostUsd
+                : (useInventoryCostPricing ? 0m : lineTotalUsd - lineCostUsd);
+            var profitLbp = isWaste
+                ? -lineCostLbp
+                : (useInventoryCostPricing ? 0m : lineTotalLbp - lineCostLbp);
 
             var line = new TransactionLine
             {
