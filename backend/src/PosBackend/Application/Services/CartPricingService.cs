@@ -456,7 +456,9 @@ public class CartPricingService
 
     private static bool HasManualPricing(CartItemRequest item)
     {
-        return item.ManualDiscountPercent.HasValue ||
+        var hasManualDiscount = item.ManualDiscountPercent.HasValue && item.ManualDiscountPercent.Value != 0m;
+
+        return hasManualDiscount ||
                item.ManualUnitPriceUsd.HasValue ||
                item.ManualUnitPriceLbp.HasValue ||
                item.ManualTotalUsd.HasValue ||

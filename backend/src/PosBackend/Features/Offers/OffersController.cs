@@ -118,21 +118,47 @@ public class OffersController : ControllerBase
         offer.PriceUsd = validation.PriceUsd;
         offer.PriceLbp = validation.PriceLbp;
         offer.IsActive = request.IsActive;
+        offer.UpdatedAt = DateTime.UtcNow;
 
-        _db.OfferItems.RemoveRange(offer.Items);
-        offer.Items.Clear();
+        var existingItems = offer.Items.ToDictionary(i => i.ProductId);
+        var processedProducts = new HashSet<Guid>();
 
         foreach (var item in validation.Items)
         {
             var product = validation.Products[item.ProductId];
             var quantity = decimal.Round(item.Quantity, 3, MidpointRounding.AwayFromZero);
-            offer.Items.Add(new OfferItem
+
+            if (existingItems.TryGetValue(item.ProductId, out var existing))
             {
-                OfferId = offer.Id,
-                ProductId = item.ProductId,
-                Quantity = quantity,
-                Product = product
-            });
+                existing.Quantity = quantity;
+                existing.Product = product;
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                offer.Items.Add(new OfferItem
+                {
+                    OfferId = offer.Id,
+                    ProductId = item.ProductId,
+                    Quantity = quantity,
+                    Product = product
+                });
+            }
+
+            processedProducts.Add(item.ProductId);
+        }
+
+        var itemsToRemove = offer.Items
+            .Where(i => !processedProducts.Contains(i.ProductId))
+            .ToList();
+
+        if (itemsToRemove.Count > 0)
+        {
+            _db.OfferItems.RemoveRange(itemsToRemove);
+            foreach (var item in itemsToRemove)
+            {
+                offer.Items.Remove(item);
+            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);
