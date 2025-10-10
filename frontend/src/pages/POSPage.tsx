@@ -45,6 +45,7 @@ interface ProductResponse {
   category: string;
   isFlagged?: boolean;
   flagReason?: string;
+  averageCostUsd?: number;
 }
 
 export function POSPage() {
@@ -142,6 +143,11 @@ export function POSPage() {
       );
     },
     onSuccess: (product) => {
+      const averageCostUsd =
+        typeof product.averageCostUsd === 'number' && product.averageCostUsd > 0
+          ? product.averageCostUsd
+          : product.priceUsd;
+      const unitCostLbp = Math.round(averageCostUsd * rate);
       addItem({
         productId: product.id,
         name: product.name,
@@ -149,6 +155,8 @@ export function POSPage() {
         barcode: product.barcode,
         priceUsd: product.priceUsd,
         priceLbp: product.priceLbp,
+        costUsd: averageCostUsd,
+        costLbp: unitCostLbp,
         quantity: 1,
         discountPercent: 0,
         isWaste: false

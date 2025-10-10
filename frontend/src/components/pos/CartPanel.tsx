@@ -201,7 +201,7 @@ export function CartPanel({
       }));
       return;
     }
-    const baseTotal = item.priceUsd * item.quantity;
+    const baseTotal = item.costUsd * item.quantity;
     if (baseTotal <= 0) {
       setDraftValues((prev) => ({
         ...prev,
@@ -246,7 +246,7 @@ export function CartPanel({
             const draft = draftValues[item.lineId];
             const effectiveTotalUsd = item.isWaste
               ? 0
-              : item.priceUsd * (1 - item.discountPercent / 100) * item.quantity;
+              : item.costUsd * (1 - item.discountPercent / 100) * item.quantity;
             const defaultTotalInput = Number.isFinite(effectiveTotalUsd)
               ? (Math.round(effectiveTotalUsd * 100) / 100).toFixed(2)
               : '';

@@ -22,6 +22,20 @@ const clampLbp = (value: number | null | undefined) => {
   return Math.round(value);
 };
 
+const normalizeCostUsd = (value: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.round(value * 100) / 100;
+};
+
+const normalizeCostLbp = (value: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.round(value);
+};
+
 export interface CartItem {
   lineId: string;
   productId: string;
@@ -30,6 +44,8 @@ export interface CartItem {
   barcode: string;
   priceUsd: number;
   priceLbp: number;
+  costUsd: number;
+  costLbp: number;
   quantity: number;
   discountPercent: number;
   isWaste: boolean;
@@ -79,6 +95,8 @@ export const useCartStore = create<CartState>()(
           ...item,
           isWaste: item.isWaste ?? false,
           lineId: generateLineId(),
+          costUsd: normalizeCostUsd(item.costUsd),
+          costLbp: normalizeCostLbp(item.costLbp),
           manualTotalUsd: clampUsd(item.manualTotalUsd),
           manualTotalLbp: clampLbp(item.manualTotalLbp)
         };
@@ -226,9 +244,7 @@ export const useCartStore = create<CartState>()(
           if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined && rate > 0) {
             return total + Math.round((item.manualTotalLbp / rate) * 100) / 100;
           }
-          return (
-            total + item.priceUsd * (1 - item.discountPercent / 100) * item.quantity
-          );
+          return total + item.costUsd * item.quantity;
         }, 0);
       },
       subtotalLbp: () => {
@@ -250,16 +266,14 @@ export const useCartStore = create<CartState>()(
           if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
             return total + Math.round(item.manualTotalUsd * rate);
           }
-          return (
-            total + item.priceLbp * (1 - item.discountPercent / 100) * item.quantity
-          );
+          return total + item.costLbp * item.quantity;
         }, 0);
       },
       setLastAddedItemId: (lineId) => set({ lastAddedItemId: lineId })
     }),
     {
       name: 'aurora-cart',
-      version: 3,
+      version: 4,
       migrate: (persistedState) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState;
@@ -271,6 +285,12 @@ export const useCartStore = create<CartState>()(
               sku: item.sku && String(item.sku).trim() ? String(item.sku) : undefined,
               lineId: item.lineId ?? generateLineId(),
               isWaste: Boolean(item.isWaste),
+              costUsd: normalizeCostUsd(
+                item.costUsd ?? (typeof item.priceUsd === 'number' ? item.priceUsd : 0)
+              ),
+              costLbp: normalizeCostLbp(
+                item.costLbp ?? (typeof item.priceLbp === 'number' ? item.priceLbp : 0)
+              ),
               manualTotalUsd:
                 item.manualTotalUsd !== undefined && item.manualTotalUsd !== null
                   ? clampUsd(Number(item.manualTotalUsd))
