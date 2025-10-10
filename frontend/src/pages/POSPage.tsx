@@ -585,20 +585,27 @@ export function POSPage() {
       exchangeRate: rate,
       paidUsd: parsedUsd,
       paidLbp: parsedLbp,
-      items: items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        manualDiscountPercent: item.discountPercent,
-        isWaste: item.isWaste,
-        manualTotalUsd:
-          item.manualTotalUsd !== null && item.manualTotalUsd !== undefined
-            ? item.manualTotalUsd
-            : undefined,
-        manualTotalLbp:
-          item.manualTotalLbp !== null && item.manualTotalLbp !== undefined
-            ? item.manualTotalLbp
-            : undefined
-      }))
+      items: items.map((item) => {
+        const payload: Record<string, unknown> = {
+          productId: item.productId,
+          quantity: item.quantity,
+          isWaste: item.isWaste
+        };
+
+        if (item.discountPercent > 0) {
+          payload.manualDiscountPercent = item.discountPercent;
+        }
+
+        if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
+          payload.manualTotalUsd = item.manualTotalUsd;
+        }
+
+        if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined) {
+          payload.manualTotalLbp = item.manualTotalLbp;
+        }
+
+        return payload;
+      })
     };
 
     if (manualCartTotalUsd !== null && manualCartTotalUsd !== undefined) {
