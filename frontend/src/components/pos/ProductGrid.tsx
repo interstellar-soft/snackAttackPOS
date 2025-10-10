@@ -20,6 +20,7 @@ export function ProductGrid({ onScan }: ProductGridProps) {
   }));
 
   const [debouncedTerm, setDebouncedTerm] = useState('');
+  const isSearching = term.trim().length > 0;
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -32,10 +33,22 @@ export function ProductGrid({ onScan }: ProductGridProps) {
     data: pinnedProducts = [],
     isFetching: isPinnedFetching
   } = ProductsService.useSearchProducts(debouncedTerm, {
-    pinnedOnly: true
+    pinnedOnly: true,
+    enabled: !isSearching
   });
 
-  const showPinnedEmptyState = !isPinnedFetching && pinnedProducts.length === 0;
+  const {
+    data: searchResults = [],
+    isFetching: isSearchFetching
+  } = ProductsService.useSearchProducts(debouncedTerm, {
+    pinnedOnly: false,
+    enabled: isSearching
+  });
+
+  const activeProducts = isSearching ? searchResults : pinnedProducts;
+  const showEmptyState = isSearching
+    ? !isSearchFetching && activeProducts.length === 0
+    : !isPinnedFetching && activeProducts.length === 0;
 
   const handleAdd = (product: Product) => {
     const averageCostUsd =
@@ -112,18 +125,27 @@ export function ProductGrid({ onScan }: ProductGridProps) {
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto space-y-3 px-4 pb-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-          {t('pinnedShelfTitle', 'Pinned shelf')}
+          {isSearching
+            ? t('searchResultsTitle', 'Search results')
+            : t('pinnedShelfTitle', 'Pinned shelf')}
         </p>
         <div className="grid grid-cols-2 gap-2.5 pr-1 sm:grid-cols-3 lg:grid-cols-3">
-          {pinnedProducts.map((product) => renderProductButton(product))}
-          {showPinnedEmptyState && (
+          {activeProducts.map((product) => renderProductButton(product))}
+          {showEmptyState && (
             <div className="col-span-full rounded-md border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-slate-700">
-              {t('pinnedProductsEmpty', 'No curated products yet. Try searching to see the full catalog.')}
+              {isSearching
+                ? t('inventoryNoResults', 'No products match your search.')
+                : t('pinnedProductsEmpty', 'No curated products yet. Try searching to see the full catalog.')}
             </div>
           )}
-          {isPinnedFetching && (
+          {isSearching && isSearchFetching && (
             <div className="col-span-full rounded-md border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-slate-700">
-              Loading…
+              {t('loading', 'Loading…')}
+            </div>
+          )}
+          {!isSearching && isPinnedFetching && (
+            <div className="col-span-full rounded-md border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-slate-700">
+              {t('loading', 'Loading…')}
             </div>
           )}
         </div>
