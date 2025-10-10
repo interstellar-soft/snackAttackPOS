@@ -46,10 +46,11 @@ public class CartPricingService
             var product = products.First(p => p.Id == item.ProductId);
             var priceRule = product.PriceRules.FirstOrDefault(r => r.Id == item.PriceRuleId && r.IsActive);
             var isWaste = item.IsWaste;
-            var discountPercent = isWaste ? 0m : priceRule?.DiscountPercent ?? item.ManualDiscountPercent ?? 0m;
+            var discountPercent = 0m;
             var baseUnitPriceUsd = product.PriceUsd;
             var baseUnitPriceLbp = _currencyService.ConvertUsdToLbp(baseUnitPriceUsd, exchangeRate);
-            var unitPriceUsd = baseUnitPriceUsd * (1 - discountPercent / 100m);
+            var inventoryCost = product.Inventory?.AverageCostUsd ?? baseUnitPriceUsd * 0.6m;
+            var unitPriceUsd = inventoryCost;
             var unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
             var lineTotalUsd = unitPriceUsd * item.Quantity;
             var lineTotalLbp = unitPriceLbp * item.Quantity;
@@ -104,7 +105,6 @@ public class CartPricingService
                 }
             }
 
-            var inventoryCost = product.Inventory?.AverageCostUsd ?? baseUnitPriceUsd * 0.6m;
             var lineCostUsd = inventoryCost * item.Quantity;
             var lineCostLbp = _currencyService.ConvertUsdToLbp(lineCostUsd, exchangeRate);
             if (isWaste)
@@ -114,9 +114,17 @@ public class CartPricingService
                 lineTotalUsd = 0m;
                 lineTotalLbp = 0m;
             }
+            else
+            {
+                unitPriceUsd = inventoryCost;
+                unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
+                lineTotalUsd = unitPriceUsd * item.Quantity;
+                lineTotalLbp = unitPriceLbp * item.Quantity;
+            }
 
-            var profitUsd = isWaste ? -lineCostUsd : lineTotalUsd - lineCostUsd;
-            var profitLbp = isWaste ? -lineCostLbp : lineTotalLbp - lineCostLbp;
+            manualOverrideApplied = false;
+            var profitUsd = 0m;
+            var profitLbp = 0m;
 
             var line = new TransactionLine
             {
