@@ -133,14 +133,23 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : transaction.ExchangeRateUsed;
 
-        var (computedTotalUsd, _, pricedLines) = await _pricingService.PriceCartAsync(request.Items, rate, allowManualPricing, cancellationToken);
-
-        var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = ResolveManualTotals(
-            computedTotalUsd,
+        var priceAtCostOnly = allowManualPricing && request.SaveToMyCart;
+        var (computedTotalUsd, _, pricedLines) = await _pricingService.PriceCartAsync(
+            request.Items,
             rate,
             allowManualPricing,
-            request.ManualTotalUsd,
-            request.ManualTotalLbp);
+            priceAtCostOnly,
+            cancellationToken);
+
+        var manualTotalsAllowed = allowManualPricing && !request.SaveToMyCart;
+        var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = manualTotalsAllowed
+            ? ResolveManualTotals(
+                computedTotalUsd,
+                rate,
+                allowManualPricing,
+                request.ManualTotalUsd,
+                request.ManualTotalLbp)
+            : (computedTotalUsd, (decimal?)null, false);
 
         foreach (var existingLine in transaction.Lines.ToList())
         {
@@ -248,14 +257,23 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : (await _currencyService.GetCurrentRateAsync(cancellationToken)).Rate;
 
-        var (computedTotalUsd, _, lines) = await _pricingService.PriceCartAsync(request.Items, currentRate, allowManualPricing, cancellationToken);
-
-        var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = ResolveManualTotals(
-            computedTotalUsd,
+        var priceAtCostOnly = allowManualPricing && request.SaveToMyCart;
+        var (computedTotalUsd, _, lines) = await _pricingService.PriceCartAsync(
+            request.Items,
             currentRate,
             allowManualPricing,
-            request.ManualTotalUsd,
-            request.ManualTotalLbp);
+            priceAtCostOnly,
+            cancellationToken);
+
+        var manualTotalsAllowed = allowManualPricing && !request.SaveToMyCart;
+        var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = manualTotalsAllowed
+            ? ResolveManualTotals(
+                computedTotalUsd,
+                currentRate,
+                allowManualPricing,
+                request.ManualTotalUsd,
+                request.ManualTotalLbp)
+            : (computedTotalUsd, (decimal?)null, false);
 
         var balance = _currencyService.ComputeBalance(effectiveTotalUsd, request.PaidUsd, request.PaidLbp, currentRate, totalLbpOverride);
 

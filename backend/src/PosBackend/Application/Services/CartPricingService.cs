@@ -30,6 +30,7 @@ public class CartPricingService
         IEnumerable<CartItemRequest> items,
         decimal exchangeRate,
         bool allowManualPricing = false,
+        bool priceAtCostOnly = false,
         CancellationToken cancellationToken = default)
     {
         var productIds = items.Select(i => i.ProductId).ToList();
@@ -49,17 +50,39 @@ public class CartPricingService
             var discountPercent = 0m;
             var baseUnitPriceUsd = product.PriceUsd;
             var baseUnitPriceLbp = _currencyService.ConvertUsdToLbp(baseUnitPriceUsd, exchangeRate);
-            var inventoryCost = product.Inventory?.AverageCostUsd ?? baseUnitPriceUsd * 0.6m;
-            var unitPriceUsd = inventoryCost;
+            var inventoryCostUsd = product.Inventory?.AverageCostUsd ?? decimal.Round(baseUnitPriceUsd * 0.6m, 2, MidpointRounding.AwayFromZero);
+            var unitPriceUsd = priceAtCostOnly ? inventoryCostUsd : baseUnitPriceUsd;
             var unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
             var lineTotalUsd = unitPriceUsd * item.Quantity;
             var lineTotalLbp = unitPriceLbp * item.Quantity;
+
+            if (!isWaste && !priceAtCostOnly)
+            {
+                if (priceRule is not null)
+                {
+                    discountPercent = decimal.Clamp(priceRule.DiscountPercent, 0m, 100m);
+                }
+
+                if (allowManualPricing && item.ManualDiscountPercent.HasValue)
+                {
+                    discountPercent = decimal.Clamp(item.ManualDiscountPercent.Value, 0m, 100m);
+                }
+
+                if (discountPercent > 0m)
+                {
+                    var discountMultiplier = (100m - discountPercent) / 100m;
+                    unitPriceUsd = baseUnitPriceUsd * discountMultiplier;
+                    unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
+                    lineTotalUsd = unitPriceUsd * item.Quantity;
+                    lineTotalLbp = unitPriceLbp * item.Quantity;
+                }
+            }
 
             var manualOverrideApplied = false;
             var manualUsdOverride = false;
             var manualLbpOverride = false;
 
-            if (allowManualPricing && !isWaste)
+            if (allowManualPricing && !isWaste && !priceAtCostOnly)
             {
                 if (item.ManualUnitPriceUsd.HasValue)
                 {
@@ -105,26 +128,38 @@ public class CartPricingService
                 }
             }
 
-            var lineCostUsd = inventoryCost * item.Quantity;
+            var lineCostUsd = inventoryCostUsd * item.Quantity;
             var lineCostLbp = _currencyService.ConvertUsdToLbp(lineCostUsd, exchangeRate);
+            decimal profitUsd;
+            decimal profitLbp;
+
             if (isWaste)
             {
                 unitPriceUsd = 0m;
                 unitPriceLbp = 0m;
                 lineTotalUsd = 0m;
                 lineTotalLbp = 0m;
+                manualOverrideApplied = false;
+                discountPercent = 0m;
+                profitUsd = -lineCostUsd;
+                profitLbp = -lineCostLbp;
             }
-            else
+            else if (priceAtCostOnly)
             {
-                unitPriceUsd = inventoryCost;
+                unitPriceUsd = inventoryCostUsd;
                 unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
                 lineTotalUsd = unitPriceUsd * item.Quantity;
                 lineTotalLbp = unitPriceLbp * item.Quantity;
+                manualOverrideApplied = false;
+                discountPercent = 0m;
+                profitUsd = 0m;
+                profitLbp = 0m;
             }
-
-            manualOverrideApplied = false;
-            var profitUsd = 0m;
-            var profitLbp = 0m;
+            else
+            {
+                profitUsd = lineTotalUsd - lineCostUsd;
+                profitLbp = _currencyService.ConvertUsdToLbp(profitUsd, exchangeRate);
+            }
 
             var line = new TransactionLine
             {
