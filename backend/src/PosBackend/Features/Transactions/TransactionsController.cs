@@ -508,6 +508,34 @@ public class TransactionsController : ControllerBase
         };
     }
 
+    [HttpPost("price")]
+    public async Task<ActionResult<PriceCartResponse>> PriceCart([FromBody] PriceCartRequest request, CancellationToken cancellationToken)
+    {
+        var allowManualPricing = User.IsInRole("Admin");
+        var exchangeRate = request.ExchangeRate > 0
+            ? request.ExchangeRate
+            : (await _currencyService.GetCurrentRateAsync(cancellationToken)).Rate;
+
+        var priceAtCostOnly = allowManualPricing && request.SaveToMyCart;
+        var items = request.Items?.ToList() ?? new List<CartItemRequest>();
+
+        var (totalUsd, totalLbp, lines) = await _pricingService.PriceCartAsync(
+            items,
+            exchangeRate,
+            allowManualPricing,
+            priceAtCostOnly,
+            cancellationToken);
+
+        var response = new PriceCartResponse
+        {
+            TotalUsd = totalUsd,
+            TotalLbp = totalLbp,
+            Lines = lines.Select(CheckoutLineResponse.FromEntity).ToList()
+        };
+
+        return Ok(response);
+    }
+
     [HttpGet("{id:guid}/receipt")]
     public async Task<ActionResult<ReceiptResponse>> Receipt(Guid id, CancellationToken cancellationToken)
     {

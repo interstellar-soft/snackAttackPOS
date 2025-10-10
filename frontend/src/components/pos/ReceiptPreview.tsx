@@ -5,11 +5,23 @@ import { useCartStore } from '../../stores/cartStore';
 import { formatCurrency } from '../../lib/utils';
 import { useStoreProfileStore } from '../../stores/storeProfileStore';
 
-export function ReceiptPreview() {
+interface ReceiptPreviewProps {
+  totalUsdOverride?: number | null;
+  totalLbpOverride?: number | null;
+}
+
+export function ReceiptPreview({
+  totalUsdOverride = null,
+  totalLbpOverride = null
+}: ReceiptPreviewProps) {
   const { t, i18n } = useTranslation();
   const { items, subtotalUsd, subtotalLbp, removeItem } = useCartStore();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const storeName = useStoreProfileStore((state) => state.name);
+  const fallbackTotalUsd = subtotalUsd();
+  const fallbackTotalLbp = subtotalLbp();
+  const displayTotalUsd = totalUsdOverride ?? fallbackTotalUsd;
+  const displayTotalLbp = totalLbpOverride ?? fallbackTotalLbp;
 
   return (
     <Card className="flex h-full w-full flex-col bg-slate-50 text-sm dark:bg-slate-900">
@@ -72,13 +84,13 @@ export function ReceiptPreview() {
           <div className="flex justify-between">
             <span>{t('total')} USD</span>
             <span className="font-semibold">
-              {formatCurrency(subtotalUsd(), 'USD', locale)}
+              {formatCurrency(displayTotalUsd, 'USD', locale)}
             </span>
           </div>
           <div className="flex justify-between">
             <span>{t('total')} LBP</span>
             <span className="font-semibold">
-              {formatCurrency(subtotalLbp(), 'LBP', locale)}
+              {formatCurrency(displayTotalLbp, 'LBP', locale)}
             </span>
           </div>
         </div>

@@ -32,6 +32,8 @@ interface CartPanelProps {
   onQuantityConfirm?: () => void;
   canMarkWaste?: boolean;
   canEditTotals?: boolean;
+  totalUsdOverride?: number | null;
+  totalLbpOverride?: number | null;
 }
 
 const clampQuantity = (value: number) => {
@@ -46,7 +48,9 @@ export function CartPanel({
   highlightedItemId,
   onQuantityConfirm,
   canMarkWaste = false,
-  canEditTotals = false
+  canEditTotals = false,
+  totalUsdOverride = null,
+  totalLbpOverride = null
 }: CartPanelProps) {
   const { t, i18n } = useTranslation();
   const {
@@ -131,6 +135,11 @@ export function CartPanel({
       onQuantityConfirm?.();
     }
   };
+
+  const fallbackTotalUsd = subtotalUsd();
+  const fallbackTotalLbp = subtotalLbp();
+  const displayTotalUsd = totalUsdOverride ?? fallbackTotalUsd;
+  const displayTotalLbp = totalLbpOverride ?? fallbackTotalLbp;
 
   const commitDiscount = (lineId: string, rawValue: string) => {
     const item = items.find((cartItem) => cartItem.lineId === lineId);
@@ -403,11 +412,11 @@ export function CartPanel({
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex justify-between">
             <span>{t('total')} USD</span>
-            <span className="font-semibold">{formatCurrency(subtotalUsd(), 'USD', locale)}</span>
+            <span className="font-semibold">{formatCurrency(displayTotalUsd, 'USD', locale)}</span>
           </div>
           <div className="flex justify-between">
             <span>{t('total')} LBP</span>
-            <span className="font-semibold">{formatCurrency(subtotalLbp(), 'LBP', locale)}</span>
+            <span className="font-semibold">{formatCurrency(displayTotalLbp, 'LBP', locale)}</span>
           </div>
         </div>
       </CardContent>
