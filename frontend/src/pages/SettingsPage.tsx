@@ -11,6 +11,7 @@ import { useStoreProfileQuery, useUpdateStoreProfileMutation } from '../lib/Sett
 import { useLanguageDirection } from '../hooks/useLanguageDirection';
 import { UserManagementCard } from '../components/settings/UserManagementCard';
 import { BackupCard } from '../components/settings/BackupCard';
+import { AnalyticsResetCard } from '../components/settings/AnalyticsResetCard';
 
 interface StatusMessage {
   type: 'success' | 'error';
@@ -139,6 +140,7 @@ export function SettingsPage() {
         <div className="flex w-full max-w-4xl flex-col gap-4">
           <UserManagementCard />
           <BackupCard />
+          <AnalyticsResetCard />
         </div>
       )}
     </div>
