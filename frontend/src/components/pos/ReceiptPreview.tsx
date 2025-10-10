@@ -48,7 +48,7 @@ export function ReceiptPreview() {
                       item.isWaste
                         ? 0
                         : item.manualTotalUsd ??
-                          item.costUsd * item.quantity * (1 - item.discountPercent / 100),
+                          item.priceUsd * item.quantity * (1 - item.discountPercent / 100),
                       'USD',
                       locale
                     )}
