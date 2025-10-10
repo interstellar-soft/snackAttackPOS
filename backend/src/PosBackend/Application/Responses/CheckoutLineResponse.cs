@@ -12,6 +12,8 @@ public class CheckoutLineResponse
     public Guid? PriceRuleId { get; set; }
     public PriceRuleType? PriceRuleType { get; set; }
     public string? PriceRuleDescription { get; set; }
+    public Guid? OfferId { get; set; }
+    public string? OfferName { get; set; }
     public decimal Quantity { get; set; }
     public decimal BaseUnitPriceUsd { get; set; }
     public decimal BaseUnitPriceLbp { get; set; }
@@ -40,6 +42,8 @@ public class CheckoutLineResponse
             PriceRuleId = line.PriceRuleId,
             PriceRuleType = line.PriceRule?.RuleType,
             PriceRuleDescription = line.PriceRule?.Description,
+            OfferId = line.OfferId,
+            OfferName = line.Offer?.Name,
             Quantity = line.Quantity,
             BaseUnitPriceUsd = line.BaseUnitPriceUsd,
             BaseUnitPriceLbp = line.BaseUnitPriceLbp,

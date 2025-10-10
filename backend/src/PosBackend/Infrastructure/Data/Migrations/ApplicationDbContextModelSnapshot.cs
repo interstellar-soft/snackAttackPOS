@@ -110,6 +110,34 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.ToTable("price_rules", (string)null);
             });
 
+            modelBuilder.Entity("PosBackend.Domain.Entities.Offer", b =>
+            {
+                b.Property<Guid>("Id").HasColumnType("uuid");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("Description").HasColumnType("text");
+                b.Property<bool>("IsActive").HasColumnType("boolean");
+                b.Property<string>("Name").HasMaxLength(200).HasColumnType("character varying(200)");
+                b.Property<decimal>("PriceLbp").HasColumnType("numeric(18,2)");
+                b.Property<decimal>("PriceUsd").HasColumnType("numeric(12,2)");
+                b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.HasKey("Id");
+                b.ToTable("offers", (string)null);
+            });
+
+            modelBuilder.Entity("PosBackend.Domain.Entities.OfferItem", b =>
+            {
+                b.Property<Guid>("Id").HasColumnType("uuid");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<Guid>("OfferId").HasColumnType("uuid");
+                b.Property<Guid>("ProductId").HasColumnType("uuid");
+                b.Property<decimal>("Quantity").HasColumnType("numeric(14,3)");
+                b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.HasKey("Id");
+                b.HasIndex("OfferId", "ProductId").IsUnique();
+                b.HasIndex("ProductId");
+                b.ToTable("offer_items", (string)null);
+            });
+
             modelBuilder.Entity("PosBackend.Domain.Entities.StoreProfile", b =>
             {
                 b.Property<Guid>("Id").HasColumnType("uuid");
@@ -189,6 +217,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<decimal>("CostLbp").HasColumnType("numeric(18,2)");
                 b.Property<decimal>("CostUsd").HasColumnType("numeric(14,4)");
                 b.Property<decimal>("DiscountPercent").HasColumnType("numeric(5,2)");
+                b.Property<Guid?>("OfferId").HasColumnType("uuid");
                 b.Property<Guid?>("PriceRuleId").HasColumnType("uuid");
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
                 b.Property<decimal>("ProfitLbp").HasColumnType("numeric(18,2)");
@@ -204,6 +233,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<decimal>("UnitPriceUsd").HasColumnType("numeric(14,2)");
                 b.Property<bool>("HasManualPriceOverride").HasColumnType("boolean").HasDefaultValue(false);
                 b.HasKey("Id");
+                b.HasIndex("OfferId");
                 b.HasIndex("PriceRuleId");
                 b.HasIndex("ProductId");
                 b.HasIndex("TransactionId");
@@ -305,6 +335,24 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Navigation("Product");
             });
 
+            modelBuilder.Entity("PosBackend.Domain.Entities.OfferItem", b =>
+            {
+                b.HasOne("PosBackend.Domain.Entities.Offer", "Offer")
+                    .WithMany("Items")
+                    .HasForeignKey("OfferId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("PosBackend.Domain.Entities.Product", "Product")
+                    .WithMany()
+                    .HasForeignKey("ProductId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("Offer");
+                b.Navigation("Product");
+            });
+
             modelBuilder.Entity("PosBackend.Domain.Entities.Product", b =>
             {
                 b.HasOne("PosBackend.Domain.Entities.Category", "Category")
@@ -356,6 +404,11 @@ namespace PosBackend.Infrastructure.Data.Migrations
                     .WithMany()
                     .HasForeignKey("PriceRuleId");
 
+                b.HasOne("PosBackend.Domain.Entities.Offer", "Offer")
+                    .WithMany()
+                    .HasForeignKey("OfferId")
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 b.HasOne("PosBackend.Domain.Entities.Product", "Product")
                     .WithMany()
                     .HasForeignKey("ProductId")
@@ -368,6 +421,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                     .OnDelete(DeleteBehavior.Cascade)
                     .IsRequired();
 
+                b.Navigation("Offer");
                 b.Navigation("PriceRule");
                 b.Navigation("Product");
                 b.Navigation("Transaction");
@@ -436,6 +490,11 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Navigation("AuditLogs");
                 b.Navigation("PurchaseOrders");
                 b.Navigation("Transactions");
+            });
+
+            modelBuilder.Entity("PosBackend.Domain.Entities.Offer", b =>
+            {
+                b.Navigation("Items");
             });
 #pragma warning restore 612, 618
         }

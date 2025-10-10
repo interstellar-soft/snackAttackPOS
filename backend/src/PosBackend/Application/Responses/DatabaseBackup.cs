@@ -15,6 +15,8 @@ public class DatabaseBackup
     public List<InventoryBackup> Inventories { get; set; } = new();
     public List<ExpirationBatchBackup> ExpirationBatches { get; set; } = new();
     public List<PriceRuleBackup> PriceRules { get; set; } = new();
+    public List<OfferBackup> Offers { get; set; } = new();
+    public List<OfferItemBackup> OfferItems { get; set; } = new();
     public List<SupplierBackup> Suppliers { get; set; } = new();
     public List<PurchaseOrderBackup> PurchaseOrders { get; set; } = new();
     public List<PurchaseOrderLineBackup> PurchaseOrderLines { get; set; } = new();
@@ -89,6 +91,22 @@ public class PriceRuleBackup : BackupEntityBase
     public bool IsActive { get; set; }
 }
 
+public class OfferBackup : BackupEntityBase
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal PriceUsd { get; set; }
+    public decimal PriceLbp { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class OfferItemBackup : BackupEntityBase
+{
+    public Guid OfferId { get; set; }
+    public Guid ProductId { get; set; }
+    public decimal Quantity { get; set; }
+}
+
 public class SupplierBackup : BackupEntityBase
 {
     public string Name { get; set; } = string.Empty;
@@ -142,6 +160,7 @@ public class TransactionLineBackup : BackupEntityBase
     public Guid TransactionId { get; set; }
     public Guid ProductId { get; set; }
     public Guid? PriceRuleId { get; set; }
+    public Guid? OfferId { get; set; }
     public decimal Quantity { get; set; }
     public decimal BaseUnitPriceUsd { get; set; }
     public decimal BaseUnitPriceLbp { get; set; }

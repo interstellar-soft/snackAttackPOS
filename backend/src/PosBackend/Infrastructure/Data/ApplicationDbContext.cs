@@ -16,6 +16,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<PosTransaction> Transactions => Set<PosTransaction>();
     public DbSet<TransactionLine> TransactionLines => Set<TransactionLine>();
     public DbSet<PriceRule> PriceRules => Set<PriceRule>();
+    public DbSet<Offer> Offers => Set<Offer>();
+    public DbSet<OfferItem> OfferItems => Set<OfferItem>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();

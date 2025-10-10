@@ -25,6 +25,9 @@ const InventoryPage = lazy(async () => ({
 const ProductsPage = lazy(async () => ({
   default: (await import('./pages/ProductsPage')).ProductsPage
 }));
+const OffersPage = lazy(async () => ({
+  default: (await import('./pages/OffersPage')).OffersPage
+}));
 const SettingsPage = lazy(async () => ({
   default: (await import('./pages/SettingsPage')).SettingsPage
 }));
@@ -171,6 +174,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin', 'manager']}>
                   <ProductsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/offers"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <OffersPage />
                 </ProtectedRoute>
               }
             />

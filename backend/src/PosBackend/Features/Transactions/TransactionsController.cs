@@ -57,6 +57,8 @@ public class TransactionsController : ControllerBase
                     .ThenInclude(p => p.Inventory)
             .Include(t => t.Lines)
                 .ThenInclude(l => l.PriceRule)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Offer)
             .OrderByDescending(t => t.CreatedAt)
             .Take(limit)
             .ToListAsync(cancellationToken);
@@ -79,6 +81,8 @@ public class TransactionsController : ControllerBase
                     .ThenInclude(p => p.Inventory)
             .Include(t => t.Lines)
                 .ThenInclude(l => l.PriceRule)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Offer)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
         if (transaction is null)
@@ -122,6 +126,8 @@ public class TransactionsController : ControllerBase
                     .ThenInclude(p => p.Inventory)
             .Include(t => t.Lines)
                 .ThenInclude(l => l.PriceRule)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Offer)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
         if (transaction is null)
@@ -389,6 +395,8 @@ public class TransactionsController : ControllerBase
                 .ThenInclude(l => l.Product)
             .Include(t => t.Lines)
                 .ThenInclude(l => l.PriceRule)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Offer)
             .FirstOrDefaultAsync(t => t.Id == request.TransactionId, cancellationToken);
         if (original is null)
         {
@@ -401,6 +409,8 @@ public class TransactionsController : ControllerBase
             Product = l.Product,
             PriceRuleId = l.PriceRuleId,
             PriceRule = l.PriceRule,
+            OfferId = l.OfferId,
+            Offer = l.Offer,
             Quantity = -Math.Abs(l.Quantity),
             BaseUnitPriceUsd = l.BaseUnitPriceUsd,
             BaseUnitPriceLbp = l.BaseUnitPriceLbp,
