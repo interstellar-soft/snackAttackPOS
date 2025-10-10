@@ -60,7 +60,8 @@ export function CartPanel({
     removeItem,
     subtotalUsd,
     subtotalLbp,
-    setItemWaste
+    setItemWaste,
+    rate
   } = useCartStore();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -253,9 +254,24 @@ export function CartPanel({
                 : ''
             }`;
             const draft = draftValues[item.lineId];
+            const manualTotalUsd =
+              item.manualTotalUsd !== undefined && item.manualTotalUsd !== null
+                ? item.manualTotalUsd
+                : undefined;
+            const manualTotalLbp =
+              item.manualTotalLbp !== undefined && item.manualTotalLbp !== null
+                ? item.manualTotalLbp
+                : undefined;
+            const manualTotalApplied = !item.isWaste && (manualTotalUsd !== undefined || manualTotalLbp !== undefined);
+            const convertedManualTotalUsd =
+              manualTotalUsd !== undefined
+                ? manualTotalUsd
+                : manualTotalLbp !== undefined && Number.isFinite(rate) && rate > 0
+                  ? Math.round((manualTotalLbp / rate) * 100) / 100
+                  : undefined;
             const effectiveTotalUsd = item.isWaste
               ? 0
-              : item.priceUsd * (1 - item.discountPercent / 100) * item.quantity;
+              : convertedManualTotalUsd ?? item.priceUsd * (1 - item.discountPercent / 100) * item.quantity;
             const defaultTotalInput = Number.isFinite(effectiveTotalUsd)
               ? (Math.round(effectiveTotalUsd * 100) / 100).toFixed(2)
               : '';
@@ -268,6 +284,11 @@ export function CartPanel({
                     {item.isWaste && (
                       <Badge className="bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-100">
                         {t('cartWasteBadge')}
+                      </Badge>
+                    )}
+                    {manualTotalApplied && (
+                      <Badge className="bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200">
+                        {t('cartManualOverrideApplied')}
                       </Badge>
                     )}
                   </div>
