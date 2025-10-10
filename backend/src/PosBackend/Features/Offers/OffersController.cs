@@ -247,7 +247,10 @@ public class OffersController : ControllerBase
             {
                 foreach (var error in priceResult.Errors)
                 {
-                    AddError(errors, error.Key, error.Value);
+                    foreach (var message in error.Value)
+                    {
+                        AddError(errors, error.Key, message);
+                    }
                 }
             }
             else
