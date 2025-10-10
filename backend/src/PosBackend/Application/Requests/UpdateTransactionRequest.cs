@@ -20,4 +20,6 @@ public class UpdateTransactionRequest
 
     [MinLength(1)]
     public List<CartItemRequest> Items { get; set; } = new();
+
+    public bool IsRefund { get; set; }
 }

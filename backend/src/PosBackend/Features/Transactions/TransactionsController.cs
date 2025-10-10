@@ -187,15 +187,19 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : transaction.ExchangeRateUsed;
 
-        var priceAtCostOnly = allowManualPricing && request.SaveToMyCart;
+        var isRefundTransaction = request.IsRefund || transaction.Type == TransactionType.Return;
+
+        var saveToMyCart = allowManualPricing && request.SaveToMyCart && !isRefundTransaction;
+        var priceAtCostOnly = saveToMyCart;
         var (computedTotalUsd, _, pricedLines) = await _pricingService.PriceCartAsync(
             request.Items,
             rate,
             allowManualPricing,
             priceAtCostOnly,
+            isRefundTransaction,
             cancellationToken);
 
-        var manualTotalsAllowed = allowManualPricing && !request.SaveToMyCart;
+        var manualTotalsAllowed = allowManualPricing && !saveToMyCart;
         var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = manualTotalsAllowed
             ? ResolveManualTotals(
                 computedTotalUsd,
@@ -229,6 +233,7 @@ public class TransactionsController : ControllerBase
         transaction.BalanceLbp = balance.balanceLbp;
         transaction.UpdatedAt = DateTime.UtcNow;
         transaction.HasManualTotalOverride = hasManualTotalOverride;
+        transaction.Type = isRefundTransaction ? TransactionType.Return : TransactionType.Sale;
 
         foreach (var line in pricedLines)
         {
@@ -311,15 +316,17 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : (await _currencyService.GetCurrentRateAsync(cancellationToken)).Rate;
 
-        var priceAtCostOnly = allowManualPricing && request.SaveToMyCart;
+        var saveToMyCart = allowManualPricing && request.SaveToMyCart && !request.IsRefund;
+        var priceAtCostOnly = saveToMyCart;
         var (computedTotalUsd, _, lines) = await _pricingService.PriceCartAsync(
             request.Items,
             currentRate,
             allowManualPricing,
             priceAtCostOnly,
+            request.IsRefund,
             cancellationToken);
 
-        var manualTotalsAllowed = allowManualPricing && !request.SaveToMyCart;
+        var manualTotalsAllowed = allowManualPricing && !saveToMyCart;
         var (effectiveTotalUsd, totalLbpOverride, hasManualTotalOverride) = manualTotalsAllowed
             ? ResolveManualTotals(
                 computedTotalUsd,
@@ -333,7 +340,10 @@ public class TransactionsController : ControllerBase
 
         var transaction = new PosTransaction
         {
-            TransactionNumber = $"TX-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
+            TransactionNumber = request.IsRefund
+                ? $"RT-{DateTime.UtcNow:yyyyMMddHHmmssfff}"
+                : $"TX-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
+            Type = request.IsRefund ? TransactionType.Return : TransactionType.Sale,
             UserId = userId.Value,
             TotalUsd = balance.totalUsd,
             TotalLbp = balance.totalLbp,
@@ -351,7 +361,7 @@ public class TransactionsController : ControllerBase
         }
 
         var visionFlags = new List<string>();
-        if (_visionEnabled)
+        if (_visionEnabled && !request.IsRefund)
         {
             foreach (var line in lines)
             {
@@ -372,7 +382,7 @@ public class TransactionsController : ControllerBase
         {
             await _db.Transactions.AddAsync(transaction, cancellationToken);
 
-            if (allowManualPricing && request.SaveToMyCart)
+            if (saveToMyCart)
             {
                 await _db.PersonalPurchases.AddAsync(new PersonalPurchase
                 {
@@ -398,7 +408,8 @@ public class TransactionsController : ControllerBase
             var receiptBytes = await _receiptRenderer.RenderPdfAsync(transaction, lines, currentRate, cancellationToken);
             receiptBase64 = Convert.ToBase64String(receiptBytes);
 
-            await _eventHub.PublishAsync(new PosEvent("transaction.completed", new
+            var eventName = request.IsRefund ? "transaction.return" : "transaction.completed";
+            await _eventHub.PublishAsync(new PosEvent(eventName, new
             {
                 transaction.Id,
                 transaction.TransactionNumber,
@@ -406,7 +417,8 @@ public class TransactionsController : ControllerBase
                 transaction.TotalLbp
             }));
 
-            await _auditLogger.LogAsync(userId.Value, "Checkout", nameof(PosTransaction), transaction.Id, new
+            var auditAction = request.IsRefund ? "Return" : "Checkout";
+            await _auditLogger.LogAsync(userId.Value, auditAction, nameof(PosTransaction), transaction.Id, new
             {
                 transaction.TransactionNumber,
                 transaction.TotalUsd,
@@ -564,7 +576,8 @@ public class TransactionsController : ControllerBase
             ? request.ExchangeRate
             : (await _currencyService.GetCurrentRateAsync(cancellationToken)).Rate;
 
-        var priceAtCostOnly = allowManualPricing && request.SaveToMyCart;
+        var saveToMyCart = allowManualPricing && request.SaveToMyCart && !request.IsRefund;
+        var priceAtCostOnly = saveToMyCart;
         var items = request.Items?.ToList() ?? new List<CartItemRequest>();
 
         var (totalUsd, totalLbp, lines) = await _pricingService.PriceCartAsync(
@@ -572,6 +585,7 @@ public class TransactionsController : ControllerBase
             exchangeRate,
             allowManualPricing,
             priceAtCostOnly,
+            request.IsRefund,
             cancellationToken);
 
         var response = new PriceCartResponse

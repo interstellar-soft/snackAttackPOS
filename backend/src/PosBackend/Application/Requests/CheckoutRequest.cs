@@ -10,5 +10,6 @@ public class CheckoutRequest
     public decimal? ManualTotalUsd { get; set; }
     public decimal? ManualTotalLbp { get; set; }
     public bool SaveToMyCart { get; set; }
+    public bool IsRefund { get; set; }
     public IEnumerable<CartItemRequest> Items { get; set; } = new List<CartItemRequest>();
 }

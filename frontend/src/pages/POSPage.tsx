@@ -98,6 +98,7 @@ export function POSPage() {
   const [overrideRequired, setOverrideRequired] = useState(false);
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const [saveToMyCart, setSaveToMyCart] = useState(false);
+  const [isRefund, setIsRefund] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
   const barcodeTimeoutRef = useRef<number | null>(null);
@@ -179,7 +180,8 @@ export function POSPage() {
     priceCartMutate(
       {
         exchangeRate: rate,
-        saveToMyCart: canSaveToMyCart ? saveToMyCart : false,
+        saveToMyCart: canSaveToMyCart && !isRefund ? saveToMyCart : false,
+        isRefund,
         items: payloadItems
       },
       {
@@ -201,7 +203,8 @@ export function POSPage() {
     rate,
     canSaveToMyCart,
     saveToMyCart,
-    priceCartMutate
+    priceCartMutate,
+    isRefund
   ]);
 
   const scanMutation = useMutation<ProductResponse, Error, string>({
@@ -722,8 +725,20 @@ export function POSPage() {
       setOverrideRequired(false);
       setOverrideReason(null);
       setSaveToMyCart(false);
+      setIsRefund(false);
+      setBalance(null);
     }
   }, [items.length]);
+
+  const handleToggleRefund = (next: boolean) => {
+    setIsRefund(next);
+    if (next) {
+      setSaveToMyCart(false);
+      setOverrideRequired(false);
+      setOverrideReason(null);
+    }
+    setBalance(null);
+  };
 
   const handleCheckout = async () => {
     if (!token || items.length === 0) return;
@@ -766,6 +781,8 @@ export function POSPage() {
       })
     };
 
+    checkoutPayload.isRefund = isRefund;
+
     if (manualCartTotalUsd !== null && manualCartTotalUsd !== undefined) {
       checkoutPayload.manualTotalUsd = manualCartTotalUsd;
     }
@@ -774,7 +791,7 @@ export function POSPage() {
       checkoutPayload.manualTotalLbp = manualCartTotalLbp;
     }
 
-    if (normalizedRole === 'admin') {
+    if (normalizedRole === 'admin' && !isRefund) {
       checkoutPayload.saveToMyCart = saveToMyCart;
     }
 
@@ -801,6 +818,7 @@ export function POSPage() {
     setPaidUsdAmount(0);
     setPaidLbpText('');
     setPaidLbpAmount(0);
+    setIsRefund(false);
     setSaveToMyCart(false);
     alert(`Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`);
   };
@@ -877,6 +895,8 @@ export function POSPage() {
                 canSaveToMyCart={canSaveToMyCart}
                 saveToMyCart={saveToMyCart}
                 onToggleSaveToMyCart={setSaveToMyCart}
+                isRefund={isRefund}
+                onToggleRefund={handleToggleRefund}
               />
             </div>
             <div className="grid h-full min-h-0 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">

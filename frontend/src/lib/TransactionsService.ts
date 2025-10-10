@@ -67,6 +67,7 @@ export interface PriceCartItemInput {
 export interface PriceCartRequest {
   exchangeRate: number;
   saveToMyCart?: boolean;
+  isRefund?: boolean;
   items: PriceCartItemInput[];
 }
 
@@ -98,6 +99,7 @@ export interface UpdateTransactionInput {
   paidUsd: number;
   paidLbp: number;
   items: TransactionItemInput[];
+  isRefund?: boolean;
 }
 
 export interface ReturnRequest {

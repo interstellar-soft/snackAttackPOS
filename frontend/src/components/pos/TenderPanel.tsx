@@ -23,6 +23,8 @@ interface TenderPanelProps {
   canSaveToMyCart?: boolean;
   saveToMyCart?: boolean;
   onToggleSaveToMyCart?: (next: boolean) => void;
+  isRefund?: boolean;
+  onToggleRefund?: (next: boolean) => void;
 }
 
 export function TenderPanel({
@@ -41,7 +43,9 @@ export function TenderPanel({
   disabled = false,
   canSaveToMyCart = false,
   saveToMyCart = false,
-  onToggleSaveToMyCart
+  onToggleSaveToMyCart,
+  isRefund = false,
+  onToggleRefund
 }: TenderPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
@@ -128,12 +132,17 @@ export function TenderPanel({
             <span className={balanceLbp > 0 ? 'text-red-500' : balanceLbp < 0 ? 'text-emerald-500' : ''}>{balanceLbpText}</span>
           </div>
         </div>
+        <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+          <input type="checkbox" checked={isRefund} onChange={(event) => onToggleRefund?.(event.target.checked)} />
+          <span>{t('tenderRefundMode')}</span>
+        </label>
         {canSaveToMyCart && (
           <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
             <input
               type="checkbox"
               checked={saveToMyCart}
               onChange={(event) => onToggleSaveToMyCart?.(event.target.checked)}
+              disabled={isRefund}
             />
             <span>{t('tenderSaveToMyCart')}</span>
           </label>

@@ -16,7 +16,8 @@ public record CartItemRequest(
     decimal? ManualUnitPriceUsd = null,
     decimal? ManualUnitPriceLbp = null,
     decimal? ManualTotalUsd = null,
-    decimal? ManualTotalLbp = null);
+    decimal? ManualTotalLbp = null,
+    bool IsRefund = false);
 
 public class CartPricingService
 {
@@ -34,6 +35,7 @@ public class CartPricingService
         decimal exchangeRate,
         bool allowManualPricing = false,
         bool priceAtCostOnly = false,
+        bool isRefund = false,
         CancellationToken cancellationToken = default)
     {
         var itemList = items.ToList();
@@ -47,13 +49,20 @@ public class CartPricingService
         var productMap = products.ToDictionary(p => p.Id);
 
         var offerLines = new List<TransactionLine>();
-        var itemsToPrice = itemList;
+        var saleItems = itemList.Where(i => !(isRefund || i.IsRefund)).ToList();
+        var refundItems = itemList.Where(i => isRefund || i.IsRefund).ToList();
+        var itemsToPrice = saleItems;
 
-        if (!priceAtCostOnly && productMap.Count > 0)
+        if (!priceAtCostOnly && productMap.Count > 0 && saleItems.Count > 0)
         {
-            var offerResult = await ApplyOffersAsync(itemsToPrice, productMap, exchangeRate, cancellationToken);
+            var offerResult = await ApplyOffersAsync(saleItems, productMap, exchangeRate, cancellationToken);
             offerLines = offerResult.offerLines;
             itemsToPrice = offerResult.remainingItems;
+        }
+
+        if (refundItems.Count > 0)
+        {
+            itemsToPrice = itemsToPrice.Concat(refundItems).ToList();
         }
 
         var lines = new List<TransactionLine>();
@@ -76,14 +85,16 @@ public class CartPricingService
 
             var priceRule = product.PriceRules.FirstOrDefault(r => r.Id == item.PriceRuleId && r.IsActive);
             var isWaste = item.IsWaste;
+            var isRefundLine = isRefund || item.IsRefund;
+            var quantity = isRefundLine ? -Math.Abs(item.Quantity) : Math.Abs(item.Quantity);
             var discountPercent = 0m;
             var baseUnitPriceUsd = product.PriceUsd;
             var baseUnitPriceLbp = _currencyService.ConvertUsdToLbp(baseUnitPriceUsd, exchangeRate);
             var inventoryCostUsd = product.Inventory?.AverageCostUsd ?? decimal.Round(baseUnitPriceUsd * 0.6m, 2, MidpointRounding.AwayFromZero);
             var unitPriceUsd = priceAtCostOnly ? inventoryCostUsd : baseUnitPriceUsd;
             var unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
-            var lineTotalUsd = unitPriceUsd * item.Quantity;
-            var lineTotalLbp = unitPriceLbp * item.Quantity;
+            var lineTotalUsd = unitPriceUsd * quantity;
+            var lineTotalLbp = unitPriceLbp * quantity;
 
             if (!isWaste && !priceAtCostOnly)
             {
@@ -102,8 +113,8 @@ public class CartPricingService
                     var discountMultiplier = (100m - discountPercent) / 100m;
                     unitPriceUsd = baseUnitPriceUsd * discountMultiplier;
                     unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
-                    lineTotalUsd = unitPriceUsd * item.Quantity;
-                    lineTotalLbp = unitPriceLbp * item.Quantity;
+                    lineTotalUsd = unitPriceUsd * quantity;
+                    lineTotalLbp = unitPriceLbp * quantity;
                 }
             }
 
@@ -116,15 +127,15 @@ public class CartPricingService
                 if (item.ManualUnitPriceUsd.HasValue)
                 {
                     unitPriceUsd = item.ManualUnitPriceUsd.Value;
-                    lineTotalUsd = unitPriceUsd * item.Quantity;
+                    lineTotalUsd = unitPriceUsd * quantity;
                     manualOverrideApplied = true;
                     manualUsdOverride = true;
                 }
 
                 if (item.ManualTotalUsd.HasValue)
                 {
-                    lineTotalUsd = item.ManualTotalUsd.Value;
-                    unitPriceUsd = item.Quantity == 0 ? 0m : lineTotalUsd / item.Quantity;
+                    lineTotalUsd = item.ManualTotalUsd.Value * (isRefundLine ? -1m : 1m);
+                    unitPriceUsd = quantity == 0m ? 0m : lineTotalUsd / quantity;
                     manualOverrideApplied = true;
                     manualUsdOverride = true;
                 }
@@ -132,15 +143,15 @@ public class CartPricingService
                 if (item.ManualUnitPriceLbp.HasValue)
                 {
                     unitPriceLbp = item.ManualUnitPriceLbp.Value;
-                    lineTotalLbp = unitPriceLbp * item.Quantity;
+                    lineTotalLbp = unitPriceLbp * quantity;
                     manualOverrideApplied = true;
                     manualLbpOverride = true;
                 }
 
                 if (item.ManualTotalLbp.HasValue)
                 {
-                    lineTotalLbp = item.ManualTotalLbp.Value;
-                    unitPriceLbp = item.Quantity == 0 ? 0m : lineTotalLbp / item.Quantity;
+                    lineTotalLbp = item.ManualTotalLbp.Value * (isRefundLine ? -1m : 1m);
+                    unitPriceLbp = quantity == 0m ? 0m : lineTotalLbp / quantity;
                     manualOverrideApplied = true;
                     manualLbpOverride = true;
                 }
@@ -157,7 +168,7 @@ public class CartPricingService
                 }
             }
 
-            var lineCostUsd = inventoryCostUsd * item.Quantity;
+            var lineCostUsd = inventoryCostUsd * quantity;
             var lineCostLbp = _currencyService.ConvertUsdToLbp(lineCostUsd, exchangeRate);
             decimal profitUsd;
             decimal profitLbp;
@@ -177,8 +188,8 @@ public class CartPricingService
             {
                 unitPriceUsd = inventoryCostUsd;
                 unitPriceLbp = _currencyService.ConvertUsdToLbp(unitPriceUsd, exchangeRate);
-                lineTotalUsd = unitPriceUsd * item.Quantity;
-                lineTotalLbp = unitPriceLbp * item.Quantity;
+                lineTotalUsd = unitPriceUsd * quantity;
+                lineTotalLbp = unitPriceLbp * quantity;
                 manualOverrideApplied = false;
                 discountPercent = 0m;
                 profitUsd = 0m;
@@ -194,7 +205,7 @@ public class CartPricingService
             {
                 ProductId = product.Id,
                 PriceRuleId = priceRule?.Id,
-                Quantity = item.Quantity,
+                Quantity = quantity,
                 BaseUnitPriceUsd = _currencyService.RoundUsd(baseUnitPriceUsd),
                 BaseUnitPriceLbp = _currencyService.RoundLbp(baseUnitPriceLbp),
                 UnitPriceUsd = _currencyService.RoundUsd(unitPriceUsd),
