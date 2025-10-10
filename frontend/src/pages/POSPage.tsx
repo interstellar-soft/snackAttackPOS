@@ -324,6 +324,14 @@ export function POSPage() {
       }
     };
 
+    // Typical USB scanners emit characters roughly every 5–20ms, while
+    // human typists rarely sustain sub-40ms intervals. Keep the threshold
+    // low enough so that quick manual edits (for example, quantity changes)
+    // are not misclassified as scans, but still accommodate the end-of-scan
+    // Enter key that usually arrives slightly slower than the data payload.
+    const SCAN_CHARACTER_THRESHOLD_MS = 35;
+    const SCAN_ENTER_THRESHOLD_MS = 90;
+
     const resetSequence = () => {
       buffer = '';
       sequenceActive = false;
@@ -392,8 +400,8 @@ export function POSPage() {
       }
 
       if (!sequenceActive) {
-        const rapidCharacter = isCharacterKey && delta <= 80;
-        const rapidEnter = isEnter && delta <= 120;
+        const rapidCharacter = isCharacterKey && delta <= SCAN_CHARACTER_THRESHOLD_MS;
+        const rapidEnter = isEnter && delta <= SCAN_ENTER_THRESHOLD_MS;
         if (rapidCharacter || rapidEnter) {
           sequenceActive = true;
           revertSource();
