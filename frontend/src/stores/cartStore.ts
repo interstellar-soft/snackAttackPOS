@@ -244,7 +244,8 @@ export const useCartStore = create<CartState>()(
           if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined && rate > 0) {
             return total + Math.round((item.manualTotalLbp / rate) * 100) / 100;
           }
-          return total + item.costUsd * item.quantity;
+          const discountedCostUsd = item.costUsd * (1 - item.discountPercent / 100);
+          return total + discountedCostUsd * item.quantity;
         }, 0);
       },
       subtotalLbp: () => {
@@ -266,7 +267,8 @@ export const useCartStore = create<CartState>()(
           if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
             return total + Math.round(item.manualTotalUsd * rate);
           }
-          return total + item.costLbp * item.quantity;
+          const discountedCostLbp = item.costLbp * (1 - item.discountPercent / 100);
+          return total + discountedCostLbp * item.quantity;
         }, 0);
       },
       setLastAddedItemId: (lineId) => set({ lastAddedItemId: lineId })
