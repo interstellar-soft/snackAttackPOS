@@ -110,9 +110,8 @@ public class TransactionsController : ControllerBase
             .Include(l => l.Transaction)
             .Include(l => l.Product)
             .Where(l => !l.IsWaste)
-            .Where(l => l.Transaction != null && l.Transaction.Type == TransactionType.Sale)
+            .Where(l => l.Transaction != null && (l.Transaction.Type == TransactionType.Sale || l.Transaction.Type == TransactionType.Return))
             .Where(l => l.Product != null && l.Product.Barcode == normalizedBarcode)
-            .Where(l => l.Quantity > 0)
             .OrderByDescending(l => l.Transaction!.CreatedAt)
             .Take(10)
             .Select(l => new TransactionLineLookupResponse
@@ -134,7 +133,8 @@ public class TransactionsController : ControllerBase
                 ProfitUsd = l.ProfitUsd,
                 ProfitLbp = l.ProfitLbp,
                 CreatedAt = l.Transaction!.CreatedAt,
-                IsWaste = l.IsWaste
+                IsWaste = l.IsWaste,
+                TransactionType = l.Transaction!.Type.ToString()
             })
             .ToListAsync(cancellationToken);
 

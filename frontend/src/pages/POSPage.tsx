@@ -231,9 +231,27 @@ export function POSPage() {
             token
           );
 
-          const eligible = candidates.filter((candidate) => candidate.quantity > 0 && !candidate.isWaste);
-          if (eligible.length > 0) {
-            const latest = eligible[0];
+          const eligibleSales = candidates
+            .filter((candidate) => candidate.transactionType === 'Sale' && candidate.quantity > 0 && !candidate.isWaste)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+          const latest = eligibleSales.find((candidate) => {
+            const saleDate = candidate.createdAt ? new Date(candidate.createdAt).getTime() : null;
+            if (!saleDate) {
+              return true;
+            }
+
+            return !candidates.some((other) => {
+              if (other.transactionType !== 'Return' || !other.createdAt) {
+                return false;
+              }
+
+              const returnDate = new Date(other.createdAt).getTime();
+              return returnDate >= saleDate;
+            });
+          });
+
+          if (latest) {
             const saleDate = latest.createdAt ? new Date(latest.createdAt) : null;
             const formattedDate = saleDate ? saleDate.toLocaleString() : '';
             const totalUsd = Math.abs(latest.totalUsd);

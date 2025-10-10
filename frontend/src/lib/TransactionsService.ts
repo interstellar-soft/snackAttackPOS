@@ -126,6 +126,7 @@ export interface TransactionLineLookup {
   profitLbp: number;
   createdAt: string;
   isWaste: boolean;
+  transactionType: 'Sale' | 'Return';
 }
 
 const transactionsKeys = {
