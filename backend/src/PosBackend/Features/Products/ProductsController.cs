@@ -47,7 +47,7 @@ public class ProductsController : ControllerBase
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
-        var responses = products.Select(ToResponse).ToList();
+        var responses = products.Select(product => ToResponse(product)).ToList();
         return Ok(responses);
     }
 
@@ -291,7 +291,7 @@ public class ProductsController : ControllerBase
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        var results = products.Select(ToResponse).ToList();
+        var results = products.Select(product => ToResponse(product)).ToList();
 
         return Ok(results);
     }
@@ -680,7 +680,7 @@ public class ProductsController : ControllerBase
 
         foreach (var conflict in conflictingPrimary)
         {
-            AddError(errors, nameof(request.AdditionalBarcodes), $"Barcode {conflict} is already assigned to another product.");
+            AddError(errors, nameof(ProductMutationRequestBase.AdditionalBarcodes), $"Barcode {conflict} is already assigned to another product.");
         }
 
         var conflictingSecondary = await _db.ProductBarcodes
@@ -692,7 +692,7 @@ public class ProductsController : ControllerBase
 
         foreach (var conflict in conflictingSecondary)
         {
-            AddError(errors, nameof(request.AdditionalBarcodes), $"Barcode {conflict} is already assigned to another product.");
+            AddError(errors, nameof(ProductMutationRequestBase.AdditionalBarcodes), $"Barcode {conflict} is already assigned to another product.");
         }
     }
 
@@ -723,7 +723,7 @@ public class ProductsController : ControllerBase
                 {
                     return BarcodeResolutionResult.Failure(new Dictionary<string, string[]>
                     {
-                        [nameof(request.AdditionalBarcodes)] = new[] { "Exchange rate is not configured." }
+                        [nameof(ProductMutationRequestBase.AdditionalBarcodes)] = new[] { "Exchange rate is not configured." }
                     });
                 }
 
