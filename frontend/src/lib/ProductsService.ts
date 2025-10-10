@@ -2,6 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './api';
 import { useAuthStore } from '../stores/authStore';
 
+export interface ProductBarcode {
+  id: string;
+  code: string;
+  quantityPerScan: number;
+  priceUsdOverride?: number | null;
+  priceLbpOverride?: number | null;
+}
+
 export interface Product {
   id: string;
   sku?: string | null;
@@ -19,6 +27,14 @@ export interface Product {
   averageCostUsd?: number;
   reorderPoint?: number;
   isReorderAlarmEnabled?: boolean;
+  additionalBarcodes?: ProductBarcode[];
+  scannedBarcode?: string;
+  scannedQuantity?: number;
+  scannedUnitPriceUsd?: number;
+  scannedUnitPriceLbp?: number;
+  scannedTotalUsd?: number;
+  scannedTotalLbp?: number;
+  scannedMergesWithPrimary?: boolean;
 }
 
 export interface CreateProductInput {
@@ -31,10 +47,18 @@ export interface CreateProductInput {
   description?: string;
   isPinned: boolean;
   reorderPoint: number;
+  additionalBarcodes?: ProductBarcodeInput[];
 }
 
 export interface UpdateProductInput extends CreateProductInput {
   id: string;
+}
+
+export interface ProductBarcodeInput {
+  code: string;
+  quantity: number;
+  price?: number | null;
+  currency?: 'USD' | 'LBP';
 }
 
 export interface DeleteProductInput {

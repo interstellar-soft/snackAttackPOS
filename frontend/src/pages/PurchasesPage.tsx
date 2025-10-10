@@ -286,11 +286,16 @@ export function PurchasesPage() {
         const product = await handleFetchProduct(trimmed);
         const deriveNextItems = (previous: DraftItem[]) => {
           if (product) {
+            const increment = Math.max(1, product.scannedQuantity ?? 1);
+            const derivedBarcode =
+              product.scannedMergesWithPrimary === false
+                ? product.scannedBarcode ?? product.barcode
+                : product.barcode;
             const existingIndex = previous.findIndex((item) => item.productId === product.id);
             if (existingIndex >= 0) {
               const next = [...previous];
               const target = next[existingIndex];
-              const nextQuantity = (Number(target.quantity) || 0) + 1;
+              const nextQuantity = (Number(target.quantity) || 0) + increment;
               const updated = { ...target, quantity: nextQuantity.toString() };
               next[existingIndex] = updated;
               return { items: next, highlightId: updated.id };
@@ -298,11 +303,11 @@ export function PurchasesPage() {
             const newItem: DraftItem = {
               id: product.id,
               productId: product.id,
-              barcode: product.barcode,
+              barcode: derivedBarcode,
               name: product.name,
               sku: product.sku?.trim() ?? '',
               categoryName: product.categoryName ?? product.category ?? '',
-              quantity: '1',
+              quantity: increment.toString(),
               unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
               currency: 'USD',
               salePriceUsd: product.priceUsd?.toString() ?? '',

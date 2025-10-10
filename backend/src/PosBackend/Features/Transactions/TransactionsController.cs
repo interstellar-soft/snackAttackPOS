@@ -111,7 +111,7 @@ public class TransactionsController : ControllerBase
             .Include(l => l.Product)
             .Where(l => !l.IsWaste)
             .Where(l => l.Transaction != null && (l.Transaction.Type == TransactionType.Sale || l.Transaction.Type == TransactionType.Return))
-            .Where(l => l.Product != null && l.Product.Barcode == normalizedBarcode)
+            .Where(l => l.Product != null && (l.Product.Barcode == normalizedBarcode || l.Product.AdditionalBarcodes.Any(b => b.Code == normalizedBarcode)))
             .OrderByDescending(l => l.Transaction!.CreatedAt)
             .Take(10)
             .Select(l => new TransactionLineLookupResponse

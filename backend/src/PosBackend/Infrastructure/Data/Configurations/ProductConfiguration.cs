@@ -21,5 +21,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.IsPinned)
             .HasColumnName("is_pinned")
             .HasDefaultValue(false);
+        builder.HasMany(p => p.AdditionalBarcodes)
+            .WithOne(b => b.Product!)
+            .HasForeignKey(b => b.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

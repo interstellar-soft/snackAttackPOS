@@ -6,7 +6,12 @@ import { TopBar } from '../components/pos/TopBar';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
-import { ProductsService, type CreateProductInput, type Product } from '../lib/ProductsService';
+import {
+  ProductsService,
+  type CreateProductInput,
+  type Product,
+  type ProductBarcodeInput
+} from '../lib/ProductsService';
 import { formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../stores/authStore';
 import { useStoreProfileStore } from '../stores/storeProfileStore';
@@ -18,6 +23,14 @@ type DialogState =
 
 type BannerState = { type: 'success' | 'error'; message: string };
 
+type ProductFormBarcode = {
+  id: string;
+  code: string;
+  quantity: string;
+  price: string;
+  currency: 'USD' | 'LBP';
+};
+
 type ProductFormValues = {
   name: string;
   sku: string;
@@ -27,7 +40,42 @@ type ProductFormValues = {
   currency: 'USD' | 'LBP';
   isPinned: boolean;
   reorderPoint: string;
+  additionalBarcodes: ProductFormBarcode[];
 };
+
+const generateFormId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+const createEmptyBarcode = (): ProductFormBarcode => ({
+  id: generateFormId(),
+  code: '',
+  quantity: '1',
+  price: '',
+  currency: 'USD'
+});
+
+const mapProductBarcodesToForm = (product: Product): ProductFormBarcode[] =>
+  (product.additionalBarcodes ?? []).map((barcode) => ({
+    id: generateFormId(),
+    code: barcode.code,
+    quantity: barcode.quantityPerScan.toString(),
+    price:
+      typeof barcode.priceUsdOverride === 'number'
+        ? barcode.priceUsdOverride.toString()
+        : '',
+    currency: 'USD'
+  }));
+
+const mapProductBarcodesToApi = (product: Product): ProductBarcodeInput[] =>
+  (product.additionalBarcodes ?? []).map((barcode) => ({
+    code: barcode.code,
+    quantity: barcode.quantityPerScan,
+    ...(typeof barcode.priceUsdOverride === 'number'
+      ? { price: barcode.priceUsdOverride, currency: 'USD' as const }
+      : {})
+  }));
 
 const emptyValues: ProductFormValues = {
   name: '',
@@ -37,7 +85,8 @@ const emptyValues: ProductFormValues = {
   price: '',
   currency: 'USD',
   isPinned: false,
-  reorderPoint: '3'
+  reorderPoint: '3',
+  additionalBarcodes: []
 };
 
 export function ProductsPage() {
@@ -114,7 +163,16 @@ export function ProductsPage() {
       <tr key={product.id} className="text-slate-700 dark:text-slate-200">
         <td className="px-4 py-3 text-sm font-medium">{product.name}</td>
         <td className="px-4 py-3 text-xs uppercase text-slate-500">{product.sku?.trim() || '—'}</td>
-        <td className="px-4 py-3 text-sm text-slate-500">{product.barcode}</td>
+        <td className="px-4 py-3 text-sm text-slate-500">
+          <div className="flex flex-col">
+            <span>{product.barcode}</span>
+            {product.additionalBarcodes && product.additionalBarcodes.length > 0 && (
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                {t('inventoryAdditionalBarcodesCount', { count: product.additionalBarcodes.length })}
+              </span>
+            )}
+          </div>
+        </td>
         <td className="px-4 py-3 text-sm text-slate-500">
           <div className="flex flex-col">
             <span>{product.categoryName ?? product.category ?? t('inventoryCategoryUnknown')}</span>
@@ -201,6 +259,41 @@ export function ProductsPage() {
     const categoryName = values.categoryName.trim();
     const parsedPrice = Number(values.price);
     const parsedReorderPoint = Number(values.reorderPoint);
+    const additionalBarcodes: ProductBarcodeInput[] = [];
+
+    for (const entry of values.additionalBarcodes) {
+      const code = entry.code.trim();
+      const quantity = Number(entry.quantity);
+      const priceText = entry.price.trim();
+
+      if (!code) {
+        if (priceText || entry.quantity.trim() !== '1') {
+          return { error: t('inventoryBarcodeValidationError') };
+        }
+        continue;
+      }
+
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return { error: t('inventoryBarcodeValidationError') };
+      }
+
+      let priceValue: number | null = null;
+      if (priceText) {
+        const parsed = Number(priceText);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          return { error: t('inventoryBarcodeValidationError') };
+        }
+        priceValue = parsed;
+      }
+
+      const barcodeInput: ProductBarcodeInput = {
+        code,
+        quantity,
+        ...(priceValue !== null ? { price: priceValue, currency: entry.currency } : {})
+      };
+
+      additionalBarcodes.push(barcodeInput);
+    }
 
     if (
       !name ||
@@ -223,7 +316,8 @@ export function ProductsPage() {
         currency: values.currency,
         isPinned: values.isPinned,
         reorderPoint: parsedReorderPoint,
-        ...(sku ? { sku } : {})
+        ...(sku ? { sku } : {}),
+        additionalBarcodes
       }
     };
   };
@@ -273,6 +367,7 @@ export function ProductsPage() {
         currency: 'USD',
         isPinned: !product.isPinned,
         reorderPoint: product.reorderPoint ?? 3,
+        additionalBarcodes: mapProductBarcodesToApi(product),
         ...(product.sku && product.sku.trim() ? { sku: product.sku } : {})
       });
       setBanner({
@@ -405,7 +500,7 @@ export function ProductsPage() {
         <ProductFormDialog
           title={t('inventoryAddTitle')}
           submitLabel={t('inventorySave')}
-          values={{ ...emptyValues }}
+          values={{ ...emptyValues, additionalBarcodes: [] }}
           onClose={closeDialog}
           onSubmit={handleCreateSubmit}
           isSubmitting={createProduct.isPending}
@@ -425,7 +520,8 @@ export function ProductsPage() {
             price: dialog.product.priceUsd.toString(),
             currency: 'USD',
             isPinned: dialog.product.isPinned,
-            reorderPoint: (dialog.product.reorderPoint ?? 3).toString()
+            reorderPoint: (dialog.product.reorderPoint ?? 3).toString(),
+            additionalBarcodes: mapProductBarcodesToForm(dialog.product)
           }}
           onClose={closeDialog}
           onSubmit={(nextValues) => handleEditSubmit(nextValues, dialog.product)}
@@ -475,7 +571,9 @@ function ProductFormDialog({
     setFormValues(values);
   }, [values]);
 
-  const handleChange = (field: Exclude<keyof ProductFormValues, 'isPinned'>) =>
+  const handleChange = (
+    field: Exclude<keyof ProductFormValues, 'isPinned' | 'additionalBarcodes'>
+  ) =>
     (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       setFormValues((previous) => ({ ...previous, [field]: event.target.value }));
     };
@@ -487,6 +585,43 @@ function ProductFormDialog({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSubmit(formValues);
+  };
+
+  const handleBarcodeChange =
+    (id: string, field: keyof Omit<ProductFormBarcode, 'currency'>) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const { value } = event.target;
+      setFormValues((previous) => ({
+        ...previous,
+        additionalBarcodes: previous.additionalBarcodes.map((barcode) =>
+          barcode.id === id ? { ...barcode, [field]: value } : barcode
+        )
+      }));
+    };
+
+  const handleBarcodeCurrencyChange = (id: string) =>
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const { value } = event.target;
+      setFormValues((previous) => ({
+        ...previous,
+        additionalBarcodes: previous.additionalBarcodes.map((barcode) =>
+          barcode.id === id ? { ...barcode, currency: value as 'USD' | 'LBP' } : barcode
+        )
+      }));
+    };
+
+  const handleAddBarcode = () => {
+    setFormValues((previous) => ({
+      ...previous,
+      additionalBarcodes: [...previous.additionalBarcodes, createEmptyBarcode()]
+    }));
+  };
+
+  const handleRemoveBarcode = (id: string) => {
+    setFormValues((previous) => ({
+      ...previous,
+      additionalBarcodes: previous.additionalBarcodes.filter((barcode) => barcode.id !== id)
+    }));
   };
 
   return (
@@ -589,6 +724,108 @@ function ProductFormDialog({
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {t('inventoryReorderPointDescription')}
           </p>
+        </div>
+        <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                {t('inventoryAdditionalBarcodes')}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('inventoryAdditionalBarcodesHelp')}
+              </p>
+            </div>
+            <Button type="button" onClick={handleAddBarcode} className="sm:self-start">
+              {t('inventoryAddBarcode')}
+            </Button>
+          </div>
+          {formValues.additionalBarcodes.length === 0 ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('inventoryAdditionalBarcodesEmpty')}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {formValues.additionalBarcodes.map((barcode) => (
+                <div
+                  key={barcode.id}
+                  className="space-y-3 rounded-md border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label
+                        className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                        htmlFor={`barcode-code-${barcode.id}`}
+                      >
+                        {t('inventoryBarcode')}
+                      </label>
+                      <Input
+                        id={`barcode-code-${barcode.id}`}
+                        value={barcode.code}
+                        onChange={handleBarcodeChange(barcode.id, 'code')}
+                        placeholder={t('inventoryBarcodePlaceholder')}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label
+                        className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                        htmlFor={`barcode-quantity-${barcode.id}`}
+                      >
+                        {t('inventoryBarcodeQuantity')}
+                      </label>
+                      <Input
+                        id={`barcode-quantity-${barcode.id}`}
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={barcode.quantity}
+                        onChange={handleBarcodeChange(barcode.id, 'quantity')}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <label
+                          className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                          htmlFor={`barcode-price-${barcode.id}`}
+                        >
+                          {t('inventoryBarcodePrice')}
+                        </label>
+                        <Input
+                          id={`barcode-price-${barcode.id}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={barcode.price}
+                          onChange={handleBarcodeChange(barcode.id, 'price')}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          {t('inventoryBarcodeCurrency')}
+                        </label>
+                        <select
+                          value={barcode.currency}
+                          onChange={handleBarcodeCurrencyChange(barcode.id)}
+                          className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        >
+                          <option value="USD">USD</option>
+                          <option value="LBP">LBP</option>
+                        </select>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => handleRemoveBarcode(barcode.id)}
+                      className="bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-200"
+                    >
+                      {t('inventoryRemoveBarcode')}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="flex items-start gap-3">

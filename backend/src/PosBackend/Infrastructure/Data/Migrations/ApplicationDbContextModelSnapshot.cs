@@ -166,7 +166,25 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.HasIndex("Barcode").IsUnique();
                 b.HasIndex("CategoryId");
                 b.HasIndex("Sku").IsUnique().HasFilter("\"Sku\" IS NOT NULL");
+                b.HasMany("PosBackend.Domain.Entities.ProductBarcode", "AdditionalBarcodes").WithOne("Product").HasForeignKey("ProductId").OnDelete(DeleteBehavior.Cascade).IsRequired();
                 b.ToTable("products", (string)null);
+            });
+
+            modelBuilder.Entity("PosBackend.Domain.Entities.ProductBarcode", b =>
+            {
+                b.Property<Guid>("Id").HasColumnType("uuid");
+                b.Property<string>("Code").HasMaxLength(120).HasColumnType("character varying(120)");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<decimal?>("PriceLbpOverride").HasColumnType("numeric(14,2)");
+                b.Property<decimal?>("PriceUsdOverride").HasColumnType("numeric(12,2)");
+                b.Property<Guid>("ProductId").HasColumnType("uuid");
+                b.Property<int>("QuantityPerScan").HasColumnType("integer").HasDefaultValue(1);
+                b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.HasKey("Id");
+                b.HasIndex("Code").IsUnique();
+                b.HasIndex("ProductId");
+                b.ToTable("product_barcodes", (string)null);
+                b.HasOne("PosBackend.Domain.Entities.Product", "Product").WithMany("AdditionalBarcodes").HasForeignKey("ProductId").OnDelete(DeleteBehavior.Cascade).IsRequired();
             });
 
             modelBuilder.Entity("PosBackend.Domain.Entities.PurchaseOrder", b =>
@@ -469,8 +487,14 @@ namespace PosBackend.Infrastructure.Data.Migrations
             modelBuilder.Entity("PosBackend.Domain.Entities.Product", b =>
             {
                 b.Navigation("ExpirationBatches");
+                b.Navigation("AdditionalBarcodes");
                 b.Navigation("Inventory");
                 b.Navigation("PriceRules");
+            });
+
+            modelBuilder.Entity("PosBackend.Domain.Entities.ProductBarcode", b =>
+            {
+                b.Navigation("Product");
             });
 
             modelBuilder.Entity("PosBackend.Domain.Entities.PurchaseOrder", b =>

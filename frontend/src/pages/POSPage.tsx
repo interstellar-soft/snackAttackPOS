@@ -298,26 +298,42 @@ export function POSPage() {
         return;
       }
 
+      const scannedQuantity = Math.max(1, product.scannedQuantity ?? 1);
+      const unitPriceUsd =
+        typeof product.scannedUnitPriceUsd === 'number'
+          ? product.scannedUnitPriceUsd
+          : product.priceUsd;
+      const unitPriceLbp =
+        typeof product.scannedUnitPriceLbp === 'number'
+          ? product.scannedUnitPriceLbp
+          : product.priceLbp;
       const averageCostUsd =
         typeof product.averageCostUsd === 'number' && product.averageCostUsd > 0
           ? product.averageCostUsd
           : product.priceUsd;
       const unitCostLbp = Math.round(averageCostUsd * rate);
+      const cartBarcode =
+        product.scannedMergesWithPrimary === false
+          ? product.scannedBarcode ?? product.barcode
+          : product.barcode;
       addItem({
         productId: product.id,
         name: product.name,
         sku: product.sku?.trim() || undefined,
-        barcode: product.barcode,
-        priceUsd: product.priceUsd,
-        priceLbp: product.priceLbp,
+        barcode: cartBarcode,
+        priceUsd: unitPriceUsd,
+        priceLbp: unitPriceLbp,
         costUsd: averageCostUsd,
         costLbp: unitCostLbp,
-        quantity: 1,
+        quantity: scannedQuantity,
         discountPercent: 0,
         isWaste: false
       });
       const displaySku = product.sku?.trim();
-      setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
+      const scanLabel = displaySku ? `${product.name} (${displaySku})` : product.name;
+      setLastScan(
+        scannedQuantity > 1 ? `${scanLabel} ×${scannedQuantity}` : scanLabel
+      );
       setBarcode('');
       focusBarcodeInput();
       if (overridesEnabled && product.isFlagged) {

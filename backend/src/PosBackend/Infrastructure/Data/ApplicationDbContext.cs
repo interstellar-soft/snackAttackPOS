@@ -11,6 +11,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductBarcode> ProductBarcodes => Set<ProductBarcode>();
     public DbSet<Inventory> Inventories => Set<Inventory>();
     public DbSet<ExpirationBatch> ExpirationBatches => Set<ExpirationBatch>();
     public DbSet<PosTransaction> Transactions => Set<PosTransaction>();

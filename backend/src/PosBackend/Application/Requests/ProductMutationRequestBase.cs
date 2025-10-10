@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 
@@ -32,6 +33,8 @@ public abstract class ProductMutationRequestBase
 
     public decimal? ReorderPoint { get; set; }
 
+    public List<ProductBarcodeInput>? AdditionalBarcodes { get; set; }
+
     private static readonly Regex CategoryWhitespaceRegex = new("\\s+", RegexOptions.Compiled);
     private string _categoryName = string.Empty;
 
@@ -45,4 +48,12 @@ public abstract class ProductMutationRequestBase
         var trimmed = value.Trim();
         return CategoryWhitespaceRegex.Replace(trimmed, " ");
     }
+}
+
+public class ProductBarcodeInput
+{
+    public string Code { get; set; } = string.Empty;
+    public int Quantity { get; set; } = 1;
+    public decimal? Price { get; set; }
+    public string? Currency { get; set; }
 }
