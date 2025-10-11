@@ -305,24 +305,30 @@ export function POSPage() {
       }
 
       const scannedQuantity = Math.max(1, product.scannedQuantity ?? 1);
+      const baseTotalUsd = product.priceUsd * scannedQuantity;
+      const baseTotalLbp = product.priceLbp * scannedQuantity;
+      const resolvedTotalUsd =
+        typeof product.scannedTotalUsd === 'number'
+          ? product.scannedTotalUsd
+          : typeof product.scannedUnitPriceUsd === 'number'
+            ? product.scannedUnitPriceUsd * scannedQuantity
+            : baseTotalUsd;
+      const resolvedTotalLbp =
+        typeof product.scannedTotalLbp === 'number'
+          ? product.scannedTotalLbp
+          : typeof product.scannedUnitPriceLbp === 'number'
+            ? product.scannedUnitPriceLbp * scannedQuantity
+            : baseTotalLbp;
       const unitPriceUsd =
         typeof product.scannedUnitPriceUsd === 'number'
           ? product.scannedUnitPriceUsd
-          : product.priceUsd;
+          : Math.round((resolvedTotalUsd / scannedQuantity) * 100) / 100;
       const unitPriceLbp =
         typeof product.scannedUnitPriceLbp === 'number'
           ? product.scannedUnitPriceLbp
-          : product.priceLbp;
-      const scannedTotalUsd =
-        typeof product.scannedTotalUsd === 'number'
-          ? product.scannedTotalUsd
-          : unitPriceUsd * scannedQuantity;
-      const scannedTotalLbp =
-        typeof product.scannedTotalLbp === 'number'
-          ? product.scannedTotalLbp
-          : unitPriceLbp * scannedQuantity;
-      const baseTotalUsd = product.priceUsd * scannedQuantity;
-      const baseTotalLbp = product.priceLbp * scannedQuantity;
+          : Math.round(resolvedTotalLbp / scannedQuantity);
+      const scannedTotalUsd = resolvedTotalUsd;
+      const scannedTotalLbp = resolvedTotalLbp;
       const hasUsdOverride =
         Math.abs(Math.round(scannedTotalUsd * 100) - Math.round(baseTotalUsd * 100)) > 0;
       const hasLbpOverride =
