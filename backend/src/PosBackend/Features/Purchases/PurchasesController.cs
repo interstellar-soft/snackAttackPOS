@@ -326,7 +326,15 @@ public class PurchasesController : ControllerBase
             }
         }
 
-        _db.PurchaseOrderLines.RemoveRange(existingLines);
+        await _db.PurchaseOrderLines
+            .Where(l => l.PurchaseOrderId == purchase.Id)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        foreach (var line in existingLines)
+        {
+            _db.Entry(line).State = EntityState.Detached;
+        }
+
         purchase.Lines.Clear();
 
         purchase.SupplierId = supplier.Id;
@@ -342,6 +350,8 @@ public class PurchasesController : ControllerBase
 
         foreach (var line in newLines)
         {
+            line.PurchaseOrderId = purchase.Id;
+            line.PurchaseOrder = purchase;
             purchase.Lines.Add(line);
             purchase.TotalCostUsd += line.TotalCostUsd;
             purchase.TotalCostLbp += line.TotalCostLbp;
@@ -455,7 +465,7 @@ public class PurchasesController : ControllerBase
 
     private async Task UpdateInventoryAsync(Product product, decimal quantity, decimal unitCostUsd, decimal exchangeRate, CancellationToken cancellationToken)
     {
-        var inventory = await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == product.Id, cancellationToken);
+        var inventory = product.Inventory ?? await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == product.Id, cancellationToken);
         if (inventory is null)
         {
             inventory = new InventoryEntity
@@ -470,6 +480,11 @@ public class PurchasesController : ControllerBase
                 LastRestockedAt = DateTimeOffset.UtcNow
             };
             await _db.Inventories.AddAsync(inventory, cancellationToken);
+            product.Inventory = inventory;
+        }
+        else if (inventory.ProductId == Guid.Empty)
+        {
+            inventory.ProductId = product.Id;
         }
 
         var existingQty = inventory.QuantityOnHand;
