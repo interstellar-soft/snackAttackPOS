@@ -334,6 +334,14 @@ export function POSPage() {
       const hasLbpOverride =
         Math.abs(Math.round(scannedTotalLbp) - Math.round(baseTotalLbp)) > 0;
       const hasConfiguredOverride = hasUsdOverride || hasLbpOverride;
+      const manualTotalUsd =
+        hasUsdOverride && Number.isFinite(scannedTotalUsd)
+          ? Math.round(scannedTotalUsd * 100) / 100
+          : undefined;
+      const manualTotalLbp =
+        hasLbpOverride && Number.isFinite(scannedTotalLbp)
+          ? Math.round(scannedTotalLbp)
+          : undefined;
       const averageCostUsd =
         typeof product.averageCostUsd === 'number' && product.averageCostUsd > 0
           ? product.averageCostUsd
@@ -357,7 +365,9 @@ export function POSPage() {
         quantity: scannedQuantity,
         discountPercent: 0,
         isWaste: false,
-        hasConfiguredPriceOverride: hasConfiguredOverride
+        hasConfiguredPriceOverride: hasConfiguredOverride,
+        manualTotalUsd,
+        manualTotalLbp
       });
       const displaySku = product.sku?.trim();
       const scanLabel = displaySku ? `${product.name} (${displaySku})` : product.name;
