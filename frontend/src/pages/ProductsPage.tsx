@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent, FormEvent, ReactNode } from 'react';
+import type { ChangeEvent, FormEvent, KeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/pos/TopBar';
@@ -615,6 +615,12 @@ function ProductFormDialog({
     onSubmit(formValues);
   };
 
+  const preventBarcodeSubmit = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+    }
+  };
+
   const handleBarcodeChange =
     (id: string, field: keyof Omit<ProductFormBarcode, 'currency'>) =>
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -689,6 +695,7 @@ function ProductFormDialog({
               id="product-barcode"
               value={formValues.barcode}
               onChange={handleChange('barcode')}
+              onKeyDown={preventBarcodeSubmit}
               placeholder={t('inventoryBarcodePlaceholder')}
               required
             />
@@ -826,6 +833,7 @@ function ProductFormDialog({
                         id={`barcode-code-${barcode.id}`}
                         value={barcode.code}
                         onChange={handleBarcodeChange(barcode.id, 'code')}
+                        onKeyDown={preventBarcodeSubmit}
                         placeholder={t('inventoryBarcodePlaceholder')}
                       />
                     </div>
