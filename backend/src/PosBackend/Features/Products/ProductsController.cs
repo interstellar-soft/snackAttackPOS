@@ -186,6 +186,12 @@ public class ProductsController : ControllerBase
             return CreateValidationProblem(priceResult.Errors);
         }
 
+        var costResult = await TryResolveCostAsync(request, cancellationToken);
+        if (!costResult.Succeeded)
+        {
+            return CreateValidationProblem(costResult.Errors);
+        }
+
         if (category is null)
         {
             return CreateValidationProblem(new Dictionary<string, string[]>
