@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QuestPDF.Infrastructure;
 using PosBackend;
+using PosBackend.Application.Middleware;
 using PosBackend.Application.Services;
 using PosBackend.Infrastructure.Data;
 using Npgsql;
@@ -114,6 +115,8 @@ using (var scope = app.Services.CreateScope())
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseRouting();
 app.UseCors();
