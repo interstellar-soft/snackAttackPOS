@@ -174,10 +174,18 @@ export function InvoicesPage() {
           setLastFocusedId(target.id);
           return next;
         }
+        const scannedQuantity = Math.max(1, product.scannedQuantity ?? 1);
+        const baseUnitPrice = product.priceUsd ?? 0;
+        const resolvedTotal =
+          typeof product.scannedTotalUsd === 'number'
+            ? product.scannedTotalUsd
+            : typeof product.scannedUnitPriceUsd === 'number'
+              ? product.scannedUnitPriceUsd * scannedQuantity
+              : baseUnitPrice * scannedQuantity;
         const unitPrice =
           typeof product.scannedUnitPriceUsd === 'number'
             ? product.scannedUnitPriceUsd
-            : product.priceUsd ?? 0;
+            : Math.round((resolvedTotal / scannedQuantity) * 100) / 100;
         const derivedBarcode =
           product.scannedMergesWithPrimary === false
             ? product.scannedBarcode ?? product.barcode ?? trimmed
