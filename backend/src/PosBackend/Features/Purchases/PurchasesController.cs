@@ -345,6 +345,7 @@ public class PurchasesController : ControllerBase
         {
             line.PurchaseOrderId = purchase.Id;
             line.PurchaseOrder = purchase;
+            _db.PurchaseOrderLines.Add(line);
             purchase.Lines.Add(line);
             purchase.TotalCostUsd += line.TotalCostUsd;
             purchase.TotalCostLbp += line.TotalCostLbp;
