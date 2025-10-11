@@ -979,14 +979,14 @@ function DialogShell({ title, onClose, children }: DialogShellProps) {
   const { t } = useTranslation();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4">
       <div
         className="absolute inset-0"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className="relative z-10 w-full max-w-xl rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        className="relative z-10 flex w-full max-w-xl max-h-[90vh] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
         role="dialog"
         aria-modal="true"
       >
@@ -1001,7 +1001,7 @@ function DialogShell({ title, onClose, children }: DialogShellProps) {
             ×
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
       </div>
     </div>
   );
