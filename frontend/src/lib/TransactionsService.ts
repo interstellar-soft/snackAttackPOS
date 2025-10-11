@@ -50,6 +50,11 @@ export interface TransactionItemInput {
   priceRuleId?: string | null;
   manualDiscountPercent?: number | null;
   isWaste?: boolean;
+  manualUnitPriceUsd?: number | null;
+  manualUnitPriceLbp?: number | null;
+  manualTotalUsd?: number | null;
+  manualTotalLbp?: number | null;
+  isConfiguredPriceOverride?: boolean;
 }
 
 export interface PriceCartItemInput {
@@ -62,6 +67,7 @@ export interface PriceCartItemInput {
   manualUnitPriceLbp?: number | null;
   manualTotalUsd?: number | null;
   manualTotalLbp?: number | null;
+  isConfiguredPriceOverride?: boolean;
 }
 
 export interface PriceCartRequest {

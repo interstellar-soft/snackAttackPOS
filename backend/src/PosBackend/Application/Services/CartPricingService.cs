@@ -17,7 +17,8 @@ public record CartItemRequest(
     decimal? ManualUnitPriceLbp = null,
     decimal? ManualTotalUsd = null,
     decimal? ManualTotalLbp = null,
-    bool IsRefund = false);
+    bool IsRefund = false,
+    bool IsConfiguredPriceOverride = false);
 
 public class CartPricingService
 {
@@ -134,7 +135,10 @@ public class CartPricingService
             var manualUsdOverride = false;
             var manualLbpOverride = false;
 
-            if (allowManualPricing && !isWaste && !priceAtCostOnly)
+            var allowConfiguredOverridePricing =
+                (allowManualPricing || item.IsConfiguredPriceOverride) && !isWaste && !priceAtCostOnly;
+
+            if (allowConfiguredOverridePricing)
             {
                 if (item.ManualUnitPriceUsd.HasValue)
                 {
@@ -230,7 +234,7 @@ public class CartPricingService
                 ProfitUsd = _currencyService.RoundUsd(profitUsd),
                 ProfitLbp = _currencyService.RoundLbp(profitLbp),
                 IsWaste = isWaste,
-                HasManualPriceOverride = allowManualPricing && manualOverrideApplied
+                HasManualPriceOverride = (allowManualPricing || item.IsConfiguredPriceOverride) && manualOverrideApplied
             };
             line.Product = product;
             line.PriceRule = priceRule;
@@ -469,7 +473,8 @@ public class CartPricingService
                 item.ManualUnitPriceLbp,
                 item.ManualTotalUsd,
                 item.ManualTotalLbp,
-                item.IsRefund);
+                item.IsRefund,
+                item.IsConfiguredPriceOverride);
 
             adjustedItems.Add(remainder);
         }

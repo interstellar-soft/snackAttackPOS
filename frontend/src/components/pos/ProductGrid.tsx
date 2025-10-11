@@ -63,10 +63,13 @@ export function ProductGrid({ onScan }: ProductGridProps) {
       barcode: product.barcode,
       priceUsd: product.priceUsd,
       priceLbp: product.priceLbp,
+      basePriceUsd: product.priceUsd,
+      basePriceLbp: product.priceLbp,
       costUsd: averageCostUsd,
       costLbp: unitCostLbp,
       quantity: 1,
-      discountPercent: 0
+      discountPercent: 0,
+      hasConfiguredPriceOverride: false
     });
     onScan(product);
   };

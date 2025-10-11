@@ -175,6 +175,12 @@ export function POSPage() {
         requestItem.manualTotalLbp = item.manualTotalLbp;
       }
 
+      if (item.hasConfiguredPriceOverride) {
+        requestItem.manualUnitPriceUsd = item.priceUsd;
+        requestItem.manualUnitPriceLbp = item.priceLbp;
+        requestItem.isConfiguredPriceOverride = true;
+      }
+
       return requestItem;
     });
 
@@ -307,6 +313,21 @@ export function POSPage() {
         typeof product.scannedUnitPriceLbp === 'number'
           ? product.scannedUnitPriceLbp
           : product.priceLbp;
+      const scannedTotalUsd =
+        typeof product.scannedTotalUsd === 'number'
+          ? product.scannedTotalUsd
+          : unitPriceUsd * scannedQuantity;
+      const scannedTotalLbp =
+        typeof product.scannedTotalLbp === 'number'
+          ? product.scannedTotalLbp
+          : unitPriceLbp * scannedQuantity;
+      const baseTotalUsd = product.priceUsd * scannedQuantity;
+      const baseTotalLbp = product.priceLbp * scannedQuantity;
+      const hasUsdOverride =
+        Math.abs(Math.round(scannedTotalUsd * 100) - Math.round(baseTotalUsd * 100)) > 0;
+      const hasLbpOverride =
+        Math.abs(Math.round(scannedTotalLbp) - Math.round(baseTotalLbp)) > 0;
+      const hasConfiguredOverride = hasUsdOverride || hasLbpOverride;
       const averageCostUsd =
         typeof product.averageCostUsd === 'number' && product.averageCostUsd > 0
           ? product.averageCostUsd
@@ -323,11 +344,14 @@ export function POSPage() {
         barcode: cartBarcode,
         priceUsd: unitPriceUsd,
         priceLbp: unitPriceLbp,
+        basePriceUsd: product.priceUsd,
+        basePriceLbp: product.priceLbp,
         costUsd: averageCostUsd,
         costLbp: unitCostLbp,
         quantity: scannedQuantity,
         discountPercent: 0,
-        isWaste: false
+        isWaste: false,
+        hasConfiguredPriceOverride: hasConfiguredOverride
       });
       const displaySku = product.sku?.trim();
       const scanLabel = displaySku ? `${product.name} (${displaySku})` : product.name;
@@ -810,6 +834,12 @@ export function POSPage() {
 
         if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined) {
           payload.manualTotalLbp = item.manualTotalLbp;
+        }
+
+        if (item.hasConfiguredPriceOverride) {
+          payload.manualUnitPriceUsd = item.priceUsd;
+          payload.manualUnitPriceLbp = item.priceLbp;
+          payload.isConfiguredPriceOverride = true;
         }
 
         return payload;

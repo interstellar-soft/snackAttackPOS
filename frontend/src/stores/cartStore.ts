@@ -36,6 +36,20 @@ const normalizeCostLbp = (value: number) => {
   return Math.round(value);
 };
 
+const normalizeUnitUsd = (value: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.round(value * 100) / 100;
+};
+
+const normalizeUnitLbp = (value: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.round(value);
+};
+
 export interface CartItem {
   lineId: string;
   productId: string;
@@ -44,11 +58,14 @@ export interface CartItem {
   barcode: string;
   priceUsd: number;
   priceLbp: number;
+  basePriceUsd: number;
+  basePriceLbp: number;
   costUsd: number;
   costLbp: number;
   quantity: number;
   discountPercent: number;
   isWaste: boolean;
+  hasConfiguredPriceOverride: boolean;
   manualTotalUsd?: number | null;
   manualTotalLbp?: number | null;
 }
@@ -91,12 +108,21 @@ export const useCartStore = create<CartState>()(
       manualCartTotalUsd: null,
       manualCartTotalLbp: null,
       addItem: (item) => {
+        const normalizedBasePriceUsd = normalizeUnitUsd(
+          typeof item.basePriceUsd === 'number' ? item.basePriceUsd : item.priceUsd
+        );
+        const normalizedBasePriceLbp = normalizeUnitLbp(
+          typeof item.basePriceLbp === 'number' ? item.basePriceLbp : item.priceLbp
+        );
         const normalized: CartItem = {
           ...item,
           isWaste: item.isWaste ?? false,
           lineId: generateLineId(),
+          basePriceUsd: normalizedBasePriceUsd,
+          basePriceLbp: normalizedBasePriceLbp,
           costUsd: normalizeCostUsd(item.costUsd),
           costLbp: normalizeCostLbp(item.costLbp),
+          hasConfiguredPriceOverride: Boolean(item.hasConfiguredPriceOverride),
           manualTotalUsd: clampUsd(item.manualTotalUsd),
           manualTotalLbp: clampLbp(item.manualTotalLbp)
         };
@@ -106,7 +132,10 @@ export const useCartStore = create<CartState>()(
             i.isWaste === normalized.isWaste &&
             i.barcode === normalized.barcode &&
             i.priceUsd === normalized.priceUsd &&
-            i.priceLbp === normalized.priceLbp
+            i.priceLbp === normalized.priceLbp &&
+            i.basePriceUsd === normalized.basePriceUsd &&
+            i.basePriceLbp === normalized.basePriceLbp &&
+            i.hasConfiguredPriceOverride === normalized.hasConfiguredPriceOverride
         );
         if (existingIndex >= 0) {
           set((state) => {
@@ -171,7 +200,15 @@ export const useCartStore = create<CartState>()(
           };
           items.splice(index, 1);
           const mergeIndex = items.findIndex(
-            (item) => item.productId === updatedItem.productId && item.isWaste === updatedItem.isWaste
+            (item) =>
+              item.productId === updatedItem.productId &&
+              item.isWaste === updatedItem.isWaste &&
+              item.barcode === updatedItem.barcode &&
+              item.priceUsd === updatedItem.priceUsd &&
+              item.priceLbp === updatedItem.priceLbp &&
+              item.basePriceUsd === updatedItem.basePriceUsd &&
+              item.basePriceLbp === updatedItem.basePriceLbp &&
+              item.hasConfiguredPriceOverride === updatedItem.hasConfiguredPriceOverride
           );
           if (mergeIndex >= 0) {
             const existing = items[mergeIndex];
@@ -298,6 +335,13 @@ export const useCartStore = create<CartState>()(
               costLbp: normalizeCostLbp(
                 item.costLbp ?? (typeof item.priceLbp === 'number' ? item.priceLbp : 0)
               ),
+              basePriceUsd: normalizeUnitUsd(
+                item.basePriceUsd ?? (typeof item.priceUsd === 'number' ? item.priceUsd : 0)
+              ),
+              basePriceLbp: normalizeUnitLbp(
+                item.basePriceLbp ?? (typeof item.priceLbp === 'number' ? item.priceLbp : 0)
+              ),
+              hasConfiguredPriceOverride: Boolean(item.hasConfiguredPriceOverride),
               manualTotalUsd:
                 item.manualTotalUsd !== undefined && item.manualTotalUsd !== null
                   ? clampUsd(Number(item.manualTotalUsd))
