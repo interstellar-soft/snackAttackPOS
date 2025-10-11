@@ -326,14 +326,7 @@ public class PurchasesController : ControllerBase
             }
         }
 
-        await _db.PurchaseOrderLines
-            .Where(l => l.PurchaseOrderId == purchase.Id)
-            .ExecuteDeleteAsync(cancellationToken);
-
-        foreach (var line in existingLines)
-        {
-            _db.Entry(line).State = EntityState.Detached;
-        }
+        _db.PurchaseOrderLines.RemoveRange(existingLines);
 
         purchase.Lines.Clear();
 
