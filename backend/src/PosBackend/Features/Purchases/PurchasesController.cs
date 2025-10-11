@@ -381,6 +381,53 @@ public class PurchasesController : ControllerBase
         return ToResponse(purchase);
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        var purchase = await _db.PurchaseOrders
+            .Include(p => p.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (purchase is null)
+        {
+            return NotFound();
+        }
+
+        foreach (var line in purchase.Lines)
+        {
+            if (line.Product is null)
+            {
+                line.Product = await _db.Products
+                    .Include(p => p.Inventory)
+                    .FirstOrDefaultAsync(p => p.Id == line.ProductId, cancellationToken);
+            }
+
+            if (line.Product is not null)
+            {
+                await UpdateInventoryAsync(line.Product, -line.Quantity, line.UnitCostUsd, purchase.ExchangeRateUsed, cancellationToken);
+            }
+        }
+
+        _db.PurchaseOrderLines.RemoveRange(purchase.Lines);
+        _db.PurchaseOrders.Remove(purchase);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var userId = User.GetCurrentUserId();
+        if (userId.HasValue)
+        {
+            await _auditLogger.LogAsync(userId.Value, "DeletePurchase", nameof(PurchaseOrder), purchase.Id, new
+            {
+                purchase.TotalCostUsd,
+                purchase.TotalCostLbp,
+                Lines = purchase.Lines.Select(l => new { l.ProductId, l.Quantity, l.UnitCostUsd })
+            }, cancellationToken);
+        }
+
+        return NoContent();
+    }
+
     private async Task<Supplier> ResolveSupplierAsync(string? supplierName, CancellationToken cancellationToken)
     {
         var name = string.IsNullOrWhiteSpace(supplierName) ? "Walk-in Supplier" : supplierName.Trim();

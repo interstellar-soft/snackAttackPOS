@@ -125,6 +125,25 @@ export const PurchasesService = {
       }
     });
   },
+  useDeletePurchase() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+    return useMutation<void, Error, { id: string }>({
+      mutationFn: async ({ id }) => {
+        await apiFetch<void>(
+          `/api/purchases/${id}`,
+          {
+            method: 'DELETE'
+          },
+          token ?? undefined
+        );
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: purchasesKeys.all });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+      }
+    });
+  },
   keys: purchasesKeys
 };
 

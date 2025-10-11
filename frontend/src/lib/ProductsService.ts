@@ -43,10 +43,13 @@ export interface CreateProductInput {
   barcode: string;
   price: number;
   currency?: 'USD' | 'LBP';
+  cost?: number;
+  costCurrency?: 'USD' | 'LBP';
   categoryName: string;
   description?: string;
   isPinned: boolean;
   reorderPoint: number;
+  quantityOnHand?: number;
   additionalBarcodes?: ProductBarcodeInput[];
 }
 

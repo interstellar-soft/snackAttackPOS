@@ -22,6 +22,10 @@ public abstract class ProductMutationRequestBase
 
     public string? Currency { get; set; }
 
+    public decimal? Cost { get; set; }
+
+    public string? CostCurrency { get; set; }
+
     [Required]
     public string CategoryName
     {
@@ -32,6 +36,8 @@ public abstract class ProductMutationRequestBase
     public bool IsPinned { get; set; }
 
     public decimal? ReorderPoint { get; set; }
+
+    public decimal? QuantityOnHand { get; set; }
 
     public List<ProductBarcodeInput>? AdditionalBarcodes { get; set; }
 
