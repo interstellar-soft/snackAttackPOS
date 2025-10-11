@@ -381,8 +381,12 @@ public class ProductsController : ControllerBase
 
         var scannedUnitUsd = decimal.Round(rawUnitUsd, 2, MidpointRounding.AwayFromZero);
         var scannedUnitLbp = decimal.Round(rawUnitLbp, 0, MidpointRounding.AwayFromZero);
-        var scannedTotalUsd = decimal.Round(scannedUnitUsd * scannedQuantity, 2, MidpointRounding.AwayFromZero);
-        var scannedTotalLbp = decimal.Round(scannedUnitLbp * scannedQuantity, 0, MidpointRounding.AwayFromZero);
+        var scannedTotalUsd = totalUsdOverride.HasValue
+            ? decimal.Round(totalUsdOverride.Value, 2, MidpointRounding.AwayFromZero)
+            : decimal.Round(scannedUnitUsd * scannedQuantity, 2, MidpointRounding.AwayFromZero);
+        var scannedTotalLbp = totalLbpOverride.HasValue
+            ? decimal.Round(totalLbpOverride.Value, 0, MidpointRounding.AwayFromZero)
+            : decimal.Round(scannedUnitLbp * scannedQuantity, 0, MidpointRounding.AwayFromZero);
         var scannedCode = scannedBarcode?.Code ?? requestedBarcode ?? product.Barcode;
         var mergesWithPrimary = scannedBarcode is null || (scannedQuantity == 1 && !totalUsdOverride.HasValue && !totalLbpOverride.HasValue);
 
