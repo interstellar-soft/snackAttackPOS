@@ -96,6 +96,7 @@ export function PurchasesPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
+  const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
   const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null);
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
@@ -116,6 +117,7 @@ export function PurchasesPage() {
   const createCategory = CategoriesService.useCreateCategory();
   const createPurchase = PurchasesService.useCreatePurchase();
   const updatePurchase = PurchasesService.useUpdatePurchase();
+  const deletePurchase = PurchasesService.useDeletePurchase();
 
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
@@ -274,6 +276,28 @@ export function PurchasesPage() {
     setLastScannedItemId(null);
     setBarcode('');
     setBanner({ type: 'success', message: t('purchasesEditing') });
+  };
+
+  const handleDeletePurchase = async (purchase: Purchase) => {
+    const label = purchase.reference?.trim() || purchase.supplierName || purchase.id;
+    const shouldDelete = window.confirm(t('purchasesDeleteConfirm', { label }));
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      setDeletingPurchaseId(purchase.id);
+      await deletePurchase.mutateAsync({ id: purchase.id });
+      if (editingPurchaseId === purchase.id) {
+        handleCancelEdit();
+      }
+      setBanner({ type: 'success', message: t('purchasesDeleteSuccess') });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('purchasesDeleteError');
+      setBanner({ type: 'error', message });
+    } finally {
+      setDeletingPurchaseId(null);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -1160,17 +1184,30 @@ export function PurchasesPage() {
                             {t('purchasesHistoryItems', { count: purchase.lines.length })}
                           </p>
                         </div>
-                        {isEditingCard ? (
-                          <Badge className="bg-emerald-500 text-white">{t('purchasesEditing')}</Badge>
-                        ) : (
+                        <div className="flex items-center gap-2">
+                          {isEditingCard ? (
+                            <Badge className="bg-emerald-500 text-white">{t('purchasesEditing')}</Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              className="bg-emerald-500 hover:bg-emerald-400"
+                              onClick={() => handleEditPurchase(purchase)}
+                              disabled={deletePurchase.isPending && deletingPurchaseId === purchase.id}
+                            >
+                              {t('purchasesEditAction')}
+                            </Button>
+                          )}
                           <Button
                             type="button"
-                            className="bg-emerald-500 hover:bg-emerald-400"
-                            onClick={() => handleEditPurchase(purchase)}
+                            className="bg-red-500 hover:bg-red-400"
+                            onClick={() => void handleDeletePurchase(purchase)}
+                            disabled={deletePurchase.isPending && deletingPurchaseId === purchase.id}
                           >
-                            {t('purchasesEditAction')}
+                            {deletePurchase.isPending && deletingPurchaseId === purchase.id
+                              ? t('inventoryDeleting')
+                              : t('purchasesDeleteAction')}
                           </Button>
-                        )}
+                        </div>
                       </div>
                     </div>
                     <ul className="mt-3 space-y-1 text-xs text-slate-500">

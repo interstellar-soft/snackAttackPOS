@@ -38,6 +38,8 @@ type ProductFormValues = {
   categoryName: string;
   price: string;
   currency: 'USD' | 'LBP';
+  cost: string;
+  stockQuantity: string;
   isPinned: boolean;
   reorderPoint: string;
   additionalBarcodes: ProductFormBarcode[];
@@ -84,6 +86,8 @@ const emptyValues: ProductFormValues = {
   categoryName: '',
   price: '',
   currency: 'USD',
+  cost: '',
+  stockQuantity: '',
   isPinned: false,
   reorderPoint: '3',
   additionalBarcodes: []
@@ -259,6 +263,10 @@ export function ProductsPage() {
     const categoryName = values.categoryName.trim();
     const parsedPrice = Number(values.price);
     const parsedReorderPoint = Number(values.reorderPoint);
+    const costText = values.cost.trim();
+    const quantityText = values.stockQuantity.trim();
+    const parsedCost = costText ? Number(costText) : null;
+    const parsedQuantity = quantityText ? Number(quantityText) : null;
     const additionalBarcodes: ProductBarcodeInput[] = [];
 
     for (const entry of values.additionalBarcodes) {
@@ -307,6 +315,14 @@ export function ProductsPage() {
       return { error: t('inventoryFormIncomplete') };
     }
 
+    if (costText && (!Number.isFinite(parsedCost) || (parsedCost ?? 0) < 0)) {
+      return { error: t('inventoryCostValidationError') };
+    }
+
+    if (quantityText && (!Number.isFinite(parsedQuantity) || (parsedQuantity ?? 0) < 0)) {
+      return { error: t('inventoryStockValidationError') };
+    }
+
     return {
       payload: {
         name,
@@ -317,6 +333,10 @@ export function ProductsPage() {
         isPinned: values.isPinned,
         reorderPoint: parsedReorderPoint,
         ...(sku ? { sku } : {}),
+        ...(parsedCost !== null
+          ? { cost: parsedCost, costCurrency: values.currency }
+          : {}),
+        ...(parsedQuantity !== null ? { quantityOnHand: parsedQuantity } : {}),
         additionalBarcodes
       }
     };
@@ -519,6 +539,14 @@ export function ProductsPage() {
             categoryName: dialog.product.categoryName ?? dialog.product.category ?? '',
             price: dialog.product.priceUsd.toString(),
             currency: 'USD',
+            cost:
+              typeof dialog.product.averageCostUsd === 'number'
+                ? dialog.product.averageCostUsd.toString()
+                : '',
+            stockQuantity:
+              typeof dialog.product.quantityOnHand === 'number'
+                ? dialog.product.quantityOnHand.toString()
+                : '',
             isPinned: dialog.product.isPinned,
             reorderPoint: (dialog.product.reorderPoint ?? 3).toString(),
             additionalBarcodes: mapProductBarcodesToForm(dialog.product)
@@ -678,7 +706,7 @@ function ProductFormDialog({
             />
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+        <div className="grid gap-3 sm:grid-cols-[2fr_2fr_1fr]">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-price">
               {t('inventoryPrice')}
@@ -692,6 +720,23 @@ function ProductFormDialog({
               onChange={handleChange('price')}
               required
             />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-cost">
+              {t('inventoryCost')}
+            </label>
+            <Input
+              id="product-cost"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formValues.cost}
+              onChange={handleChange('cost')}
+              placeholder={t('inventoryCostPlaceholder')}
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('inventoryCostDescription')}
+            </p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-currency">
@@ -708,22 +753,41 @@ function ProductFormDialog({
             </select>
           </div>
         </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-reorder-point">
-            {t('inventoryReorderPointLabel')}
-          </label>
-          <Input
-            id="product-reorder-point"
-            type="number"
-            min="0"
-            step="1"
-            value={formValues.reorderPoint}
-            onChange={handleChange('reorderPoint')}
-            required
-          />
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t('inventoryReorderPointDescription')}
-          </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-reorder-point">
+              {t('inventoryReorderPointLabel')}
+            </label>
+            <Input
+              id="product-reorder-point"
+              type="number"
+              min="0"
+              step="1"
+              value={formValues.reorderPoint}
+              onChange={handleChange('reorderPoint')}
+              required
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('inventoryReorderPointDescription')}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-stock-quantity">
+              {t('inventoryStockQuantityLabel')}
+            </label>
+            <Input
+              id="product-stock-quantity"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formValues.stockQuantity}
+              onChange={handleChange('stockQuantity')}
+              placeholder={t('inventoryStockQuantityPlaceholder')}
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('inventoryStockQuantityDescription')}
+            </p>
+          </div>
         </div>
         <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

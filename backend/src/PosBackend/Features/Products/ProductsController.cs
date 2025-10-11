@@ -85,6 +85,12 @@ public class ProductsController : ControllerBase
             return CreateValidationProblem(priceResult.Errors);
         }
 
+        var costResult = await TryResolveCostAsync(request, cancellationToken);
+        if (!costResult.Succeeded)
+        {
+            return CreateValidationProblem(costResult.Errors);
+        }
+
         if (category is null)
         {
             return CreateValidationProblem(new Dictionary<string, string[]>
@@ -130,14 +136,19 @@ public class ProductsController : ControllerBase
             });
         }
 
+        var initialQuantity = request.QuantityOnHand.HasValue
+            ? decimal.Round(request.QuantityOnHand.Value, 2, MidpointRounding.AwayFromZero)
+            : 0m;
+
         var inventory = new PosBackend.Domain.Entities.Inventory
         {
             Product = product,
-            QuantityOnHand = 0m,
+            QuantityOnHand = initialQuantity,
             ReorderPoint = request.ReorderPoint ?? 3m,
             ReorderQuantity = 0m,
-            AverageCostUsd = 0m,
-            AverageCostLbp = 0m,
+            AverageCostUsd = costResult.HasValue ? costResult.CostUsd : 0m,
+            AverageCostLbp = costResult.HasValue ? costResult.CostLbp : 0m,
+            LastRestockedAt = initialQuantity > 0 ? DateTimeOffset.UtcNow : null,
             IsReorderAlarmEnabled = true
         };
 
@@ -209,30 +220,46 @@ public class ProductsController : ControllerBase
         product.Category = category;
         product.UpdatedAt = DateTime.UtcNow;
 
-        if (request.ReorderPoint is decimal reorderPoint)
+        var inventory = product.Inventory;
+        var requiresInventory = inventory is null
+            && (request.ReorderPoint.HasValue || request.QuantityOnHand.HasValue || costResult.HasValue);
+
+        if (requiresInventory)
         {
-            var inventory = product.Inventory;
-
-            if (inventory is null)
+            inventory = new PosBackend.Domain.Entities.Inventory
             {
-                inventory = new PosBackend.Domain.Entities.Inventory
-                {
-                    Product = product,
-                    ProductId = product.Id,
-                    QuantityOnHand = 0m,
-                    ReorderPoint = reorderPoint,
-                    ReorderQuantity = 0m,
-                    AverageCostUsd = 0m,
-                    AverageCostLbp = 0m,
-                    IsReorderAlarmEnabled = true
-                };
+                Product = product,
+                ProductId = product.Id,
+                QuantityOnHand = 0m,
+                ReorderPoint = request.ReorderPoint ?? 3m,
+                ReorderQuantity = 0m,
+                AverageCostUsd = 0m,
+                AverageCostLbp = 0m,
+                IsReorderAlarmEnabled = true
+            };
 
-                await _db.Inventories.AddAsync(inventory, cancellationToken);
-                product.Inventory = inventory;
-            }
-            else
+            await _db.Inventories.AddAsync(inventory, cancellationToken);
+            product.Inventory = inventory;
+        }
+
+        if (inventory is not null)
+        {
+            if (request.ReorderPoint is decimal reorderPoint)
             {
                 inventory.ReorderPoint = reorderPoint;
+            }
+
+            if (request.QuantityOnHand is decimal quantityOnHand)
+            {
+                var normalizedQuantity = decimal.Round(quantityOnHand, 2, MidpointRounding.AwayFromZero);
+                inventory.QuantityOnHand = normalizedQuantity;
+                inventory.LastRestockedAt = DateTimeOffset.UtcNow;
+            }
+
+            if (costResult.HasValue)
+            {
+                inventory.AverageCostUsd = costResult.CostUsd;
+                inventory.AverageCostLbp = costResult.CostLbp;
             }
         }
 
@@ -462,6 +489,24 @@ public class ProductsController : ControllerBase
             request.Currency = currency;
         }
 
+        if (request.Cost is decimal costValue && costValue < 0)
+        {
+            AddError(errors, nameof(request.Cost), "Cost cannot be negative.");
+        }
+
+        if (request.Cost.HasValue || !string.IsNullOrWhiteSpace(request.CostCurrency))
+        {
+            var normalizedCostCurrency = NormalizeCurrency(request.CostCurrency ?? request.Currency);
+            if (normalizedCostCurrency is null)
+            {
+                AddError(errors, nameof(request.CostCurrency), "Currency must be either USD or LBP.");
+            }
+            else
+            {
+                request.CostCurrency = normalizedCostCurrency;
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(request.CategoryName))
         {
             AddError(errors, nameof(request.CategoryName), "Category name is required.");
@@ -474,6 +519,11 @@ public class ProductsController : ControllerBase
         if (request.ReorderPoint is decimal reorderPoint && reorderPoint < 0)
         {
             AddError(errors, nameof(request.ReorderPoint), "Reorder point cannot be negative.");
+        }
+
+        if (request.QuantityOnHand is decimal quantityOnHand && quantityOnHand < 0)
+        {
+            AddError(errors, nameof(request.QuantityOnHand), "Quantity on hand cannot be negative.");
         }
 
         if (request.Sku is not null)
@@ -577,6 +627,48 @@ public class ProductsController : ControllerBase
             return PriceComputationResult.Failure(new Dictionary<string, string[]>
             {
                 [nameof(request.Currency)] = new[] { "Exchange rate is not configured." }
+            });
+        }
+    }
+
+    private async Task<CostComputationResult> TryResolveCostAsync(ProductMutationRequestBase request, CancellationToken cancellationToken)
+    {
+        if (!request.Cost.HasValue)
+        {
+            return CostComputationResult.None();
+        }
+
+        var currency = NormalizeCurrency(request.CostCurrency ?? request.Currency);
+        if (currency is null)
+        {
+            return CostComputationResult.Failure(new Dictionary<string, string[]>
+            {
+                [nameof(request.CostCurrency)] = new[] { "Currency must be either USD or LBP." }
+            });
+        }
+
+        request.CostCurrency = currency;
+
+        try
+        {
+            var rate = await _currencyService.GetCurrentRateAsync(cancellationToken);
+
+            if (currency == "LBP")
+            {
+                var costLbp = _currencyService.RoundLbp(request.Cost.Value);
+                var costUsd = _currencyService.ConvertLbpToUsd(costLbp, rate.Rate);
+                return CostComputationResult.Success(costUsd, costLbp);
+            }
+
+            var roundedUsd = _currencyService.RoundUsd(request.Cost.Value);
+            var convertedLbp = _currencyService.ConvertUsdToLbp(roundedUsd, rate.Rate);
+            return CostComputationResult.Success(roundedUsd, convertedLbp);
+        }
+        catch (InvalidOperationException)
+        {
+            return CostComputationResult.Failure(new Dictionary<string, string[]>
+            {
+                [nameof(request.CostCurrency)] = new[] { "Exchange rate is not configured." }
             });
         }
     }
@@ -844,6 +936,18 @@ public class ProductsController : ControllerBase
 
         public static PriceComputationResult Failure(IDictionary<string, string[]> errors) =>
             new(false, 0m, 0m, errors);
+    }
+
+    private sealed record CostComputationResult(bool Succeeded, bool HasValue, decimal CostUsd, decimal CostLbp, IDictionary<string, string[]> Errors)
+    {
+        public static CostComputationResult Success(decimal costUsd, decimal costLbp) =>
+            new(true, true, costUsd, costLbp, new Dictionary<string, string[]>(StringComparer.Ordinal));
+
+        public static CostComputationResult None() =>
+            new(true, false, 0m, 0m, new Dictionary<string, string[]>(StringComparer.Ordinal));
+
+        public static CostComputationResult Failure(IDictionary<string, string[]> errors) =>
+            new(false, false, 0m, 0m, errors);
     }
 
     private sealed record ResolvedProductBarcode(string Code, int Quantity, decimal? PriceUsd, decimal? PriceLbp);
