@@ -66,6 +66,7 @@ export function CartPanel({
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [draftValues, setDraftValues] = useState<Record<string, DraftLineValues>>({});
+  const isManuallyEditingQuantityRef = useRef<Record<string, boolean>>({});
   const highlightedDraftQuantity = highlightedItemId
     ? draftValues[highlightedItemId]?.quantity
     : undefined;
@@ -79,6 +80,7 @@ export function CartPanel({
       return acc;
     }, {});
     setDraftValues(nextDrafts);
+    isManuallyEditingQuantityRef.current = {};
   }, [items]);
 
   useEffect(() => {
@@ -86,11 +88,14 @@ export function CartPanel({
     const input = quantityInputRefs.current[highlightedItemId];
     if (input) {
       input.focus();
-      const select = () => input.select();
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(select);
-      } else {
-        select();
+      const isManuallyEditing = isManuallyEditingQuantityRef.current[highlightedItemId];
+      if (!isManuallyEditing) {
+        const select = () => input.select();
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(select);
+        } else {
+          select();
+        }
       }
     }
   }, [highlightedItemId, highlightedDraftQuantity]);
@@ -132,6 +137,7 @@ export function CartPanel({
         discount: prev[lineId]?.discount ?? String(item.discountPercent)
       }
     }));
+    isManuallyEditingQuantityRef.current[lineId] = false;
     if (highlightedItemId === lineId) {
       onQuantityConfirm?.();
     }
@@ -327,6 +333,7 @@ export function CartPanel({
                       }}
                       value={draftValues[item.lineId]?.quantity ?? ''}
                       onChange={(event) => {
+                        isManuallyEditingQuantityRef.current[item.lineId] = true;
                         const value = event.target.value;
                         setDraftValues((prev) => ({
                           ...prev,
