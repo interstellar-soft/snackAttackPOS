@@ -113,6 +113,7 @@ export function POSPage() {
     selectionEnd: number | null;
   } | null>(null);
   const pendingEditableTimeoutRef = useRef<number | null>(null);
+  const pendingBarcodeDigitsRef = useRef('');
   const manualEntrySnapshotRef = useRef<{
     element: HTMLInputElement | HTMLTextAreaElement;
     value: string;
@@ -582,6 +583,7 @@ export function POSPage() {
         window.clearTimeout(pendingEditableTimeoutRef.current);
         pendingEditableTimeoutRef.current = null;
       }
+      pendingBarcodeDigitsRef.current = '';
     };
 
     const restoreManualInput = (text: string) => {
@@ -619,6 +621,7 @@ export function POSPage() {
       }
       clearPendingEditable();
       manualEntrySnapshotRef.current = null;
+      pendingBarcodeDigitsRef.current = '';
     };
 
     const scheduleBufferReset = () => {
@@ -677,6 +680,14 @@ export function POSPage() {
       const now = performance.now();
       const timeSinceLast =
         lastScannerTimeRef.current > 0 ? now - lastScannerTimeRef.current : Number.POSITIVE_INFINITY;
+      const target = event.target as HTMLElement | null;
+      const targetInput = target instanceof HTMLInputElement;
+      const targetTextarea = target instanceof HTMLTextAreaElement;
+      const targetIsEditableElement = targetInput || targetTextarea || target?.isContentEditable === true;
+      const targetAllowsImmediateCapture =
+        target === barcodeInputRef.current ||
+        !targetIsEditableElement ||
+        ((targetInput || targetTextarea) && (target?.readOnly || target?.disabled));
 
       if (isPrintableKey) {
         const hasPendingFirstChar = pendingFirstCharRef.current !== '';
@@ -693,8 +704,8 @@ export function POSPage() {
         if (!shouldHandle) {
           pendingFirstCharRef.current = event.key;
           pendingFirstCharTimeRef.current = now;
+          pendingBarcodeDigitsRef.current = /\d/.test(event.key) ? event.key : '';
 
-          const target = event.target;
           if (
             target instanceof HTMLInputElement ||
             target instanceof HTMLTextAreaElement
@@ -725,17 +736,41 @@ export function POSPage() {
             pendingFirstCharTimeRef.current = 0;
             pendingEditableRef.current = null;
             pendingEditableTimeoutRef.current = null;
+            pendingBarcodeDigitsRef.current = '';
           }, scannerThresholdMs);
+          return;
+        }
+
+        if (!barcodeBufferRef.current) {
+          const existingDigits = pendingBarcodeDigitsRef.current;
+          const nextDigits = /\d/.test(event.key) ? `${existingDigits}${event.key}` : '';
+          const requiredDigitCount = targetAllowsImmediateCapture ? 3 : 6;
+
+          if (!nextDigits) {
+            pendingBarcodeDigitsRef.current = '';
+            return;
+          }
+
+          if (nextDigits.length < requiredDigitCount) {
+            pendingBarcodeDigitsRef.current = nextDigits;
+            return;
+          }
+
+          event.preventDefault();
+          focusBarcodeInput();
+
+          const firstChar = applyPendingFirstChar();
+          const buffered = firstChar ? `${firstChar}${nextDigits.slice(1)}` : nextDigits;
+          barcodeBufferRef.current = buffered;
+          pendingBarcodeDigitsRef.current = '';
+          setBarcode(buffered);
+          lastScannerTimeRef.current = now;
+          scheduleBufferReset();
           return;
         }
 
         event.preventDefault();
         focusBarcodeInput();
-
-        if (!barcodeBufferRef.current) {
-          const firstChar = applyPendingFirstChar();
-          barcodeBufferRef.current = firstChar;
-        }
 
         const nextValue = `${barcodeBufferRef.current}${event.key}`;
         barcodeBufferRef.current = nextValue;
