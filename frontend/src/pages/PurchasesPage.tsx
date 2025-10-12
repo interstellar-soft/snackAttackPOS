@@ -106,6 +106,7 @@ export function PurchasesPage() {
   const barcodeTimeoutRef = useRef<number | null>(null);
   const lastScannerTimeRef = useRef(0);
   const pendingFirstCharRef = useRef('');
+  const pendingFirstCharTimeRef = useRef(0);
   const pendingEditableRef = useRef<{
     element: HTMLInputElement | HTMLTextAreaElement;
     value: string;
@@ -591,6 +592,7 @@ export function PurchasesPage() {
 
     const clearPendingEditable = () => {
       pendingFirstCharRef.current = '';
+      pendingFirstCharTimeRef.current = 0;
       pendingEditableRef.current = null;
       if (pendingEditableTimeoutRef.current !== null) {
         window.clearTimeout(pendingEditableTimeoutRef.current);
@@ -604,6 +606,7 @@ export function PurchasesPage() {
         window.clearTimeout(barcodeTimeoutRef.current);
         barcodeTimeoutRef.current = null;
       }
+      lastScannerTimeRef.current = 0;
       if (clearInput) {
         setBarcode('');
       }
@@ -654,17 +657,24 @@ export function PurchasesPage() {
       }
 
       const now = performance.now();
-      const timeSinceLast = now - lastScannerTimeRef.current;
-      lastScannerTimeRef.current = now;
+      const timeSinceLast =
+        lastScannerTimeRef.current > 0 ? now - lastScannerTimeRef.current : Number.POSITIVE_INFINITY;
 
       if (isPrintableKey) {
+        const hasPendingFirstChar = pendingFirstCharRef.current !== '';
+        const hasBufferedBarcode = barcodeBufferRef.current.length > 0;
+
+        if (hasBufferedBarcode && timeSinceLast > scannerThresholdMs) {
+          clearBuffer();
+        }
+
         const shouldHandle =
           barcodeBufferRef.current.length > 0 ||
-          pendingFirstCharRef.current !== '' ||
-          timeSinceLast <= scannerThresholdMs;
+          (hasPendingFirstChar && now - pendingFirstCharTimeRef.current <= scannerThresholdMs);
 
         if (!shouldHandle) {
           pendingFirstCharRef.current = event.key;
+          pendingFirstCharTimeRef.current = now;
 
           const target = event.target;
           if (
@@ -690,6 +700,7 @@ export function PurchasesPage() {
           }
           pendingEditableTimeoutRef.current = window.setTimeout(() => {
             pendingFirstCharRef.current = '';
+            pendingFirstCharTimeRef.current = 0;
             pendingEditableRef.current = null;
             pendingEditableTimeoutRef.current = null;
           }, scannerThresholdMs);
@@ -707,6 +718,7 @@ export function PurchasesPage() {
         const nextValue = `${barcodeBufferRef.current}${event.key}`;
         barcodeBufferRef.current = nextValue;
         setBarcode(nextValue);
+        lastScannerTimeRef.current = now;
         scheduleBufferReset();
         return;
       }
@@ -715,6 +727,15 @@ export function PurchasesPage() {
         barcodeBufferRef.current.length > 0 || pendingFirstCharRef.current !== '';
 
       if (!shouldHandleEnter) {
+        return;
+      }
+
+      if (
+        barcodeBufferRef.current.length === 0 &&
+        pendingFirstCharRef.current !== '' &&
+        now - pendingFirstCharTimeRef.current > scannerThresholdMs
+      ) {
+        clearPendingEditable();
         return;
       }
 
