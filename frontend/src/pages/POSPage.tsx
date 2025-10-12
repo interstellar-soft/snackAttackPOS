@@ -100,6 +100,7 @@ export function POSPage() {
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const [saveToMyCart, setSaveToMyCart] = useState(false);
   const [isRefund, setIsRefund] = useState(false);
+  const [hasSerialScanner, setHasSerialScanner] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
   const barcodeTimeoutRef = useRef<number | null>(null);
@@ -569,6 +570,50 @@ export function POSPage() {
   );
 
   useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onBarcodeScan) {
+      return;
+    }
+
+    const handleScan = (payload: { code?: string } | undefined) => {
+      const trimmed = payload?.code?.trim();
+      if (!trimmed) {
+        return;
+      }
+      focusBarcodeInput();
+      setBarcode(trimmed);
+      submitScan(trimmed);
+    };
+
+    const unsubscribeScan = api.onBarcodeScan(handleScan);
+    const unsubscribeStatus = api.onBarcodeScannerStatus?.((status) => {
+      setHasSerialScanner(status.status === 'connected');
+    });
+
+    api
+      .getBarcodeScannerStatus?.()
+      .then((status) => {
+        if (!status) {
+          setHasSerialScanner(false);
+          return;
+        }
+        setHasSerialScanner(status.status === 'connected');
+      })
+      .catch((error) => {
+        console.error('Failed to retrieve barcode scanner status', error);
+      });
+
+    return () => {
+      unsubscribeScan?.();
+      unsubscribeStatus?.();
+    };
+  }, [focusBarcodeInput, submitScan]);
+
+  useEffect(() => {
+    if (hasSerialScanner) {
+      return;
+    }
+
     const scannerThresholdMs = 100;
     const minimumBarcodeDigits = 10;
     const barcodePattern = new RegExp(`^\\d{${minimumBarcodeDigits},}$`);
@@ -830,7 +875,7 @@ export function POSPage() {
       window.removeEventListener('keydown', handleKeydown);
       clearBuffer();
     };
-  }, [focusBarcodeInput, submitScan]);
+  }, [focusBarcodeInput, submitScan, hasSerialScanner]);
 
   const handleScanSubmit = (event: React.FormEvent) => {
     event.preventDefault();

@@ -100,6 +100,7 @@ export function PurchasesPage() {
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
   const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null);
+  const [hasSerialScanner, setHasSerialScanner] = useState(false);
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
@@ -595,6 +596,50 @@ export function PurchasesPage() {
   );
 
   useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onBarcodeScan) {
+      return;
+    }
+
+    const handleScan = (payload: { code?: string } | undefined) => {
+      const trimmed = payload?.code?.trim();
+      if (!trimmed) {
+        return;
+      }
+      focusBarcodeInput();
+      setBarcode(trimmed);
+      submitScannedBarcode(trimmed);
+    };
+
+    const unsubscribeScan = api.onBarcodeScan(handleScan);
+    const unsubscribeStatus = api.onBarcodeScannerStatus?.((status) => {
+      setHasSerialScanner(status.status === 'connected');
+    });
+
+    api
+      .getBarcodeScannerStatus?.()
+      .then((status) => {
+        if (!status) {
+          setHasSerialScanner(false);
+          return;
+        }
+        setHasSerialScanner(status.status === 'connected');
+      })
+      .catch((error) => {
+        console.error('Failed to retrieve barcode scanner status', error);
+      });
+
+    return () => {
+      unsubscribeScan?.();
+      unsubscribeStatus?.();
+    };
+  }, [focusBarcodeInput, submitScannedBarcode]);
+
+  useEffect(() => {
+    if (hasSerialScanner) {
+      return;
+    }
+
     const scannerThresholdMs = 100;
     const minimumBarcodeDigits = 10;
     const barcodePattern = new RegExp(`^\\d{${minimumBarcodeDigits},}$`);
@@ -849,7 +894,7 @@ export function PurchasesPage() {
       window.removeEventListener('keydown', handleKeydown);
       clearBuffer();
     };
-  }, [focusBarcodeInput, submitScannedBarcode]);
+  }, [focusBarcodeInput, submitScannedBarcode, hasSerialScanner]);
 
   const totals = useMemo(() => {
     const rate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1;
