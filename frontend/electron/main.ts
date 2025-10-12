@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo, UpdateCheckResult } from 'electron-updater';
 import electronUpdater from 'electron-updater';
 import { bootstrapInfrastructure } from './docker';
+import { initializeBarcodeScanner, shutdownBarcodeScanner } from './barcode';
 
 const { autoUpdater } = electronUpdater;
 
@@ -131,6 +132,7 @@ app.whenReady().then(async () => {
   }
 
   createMainWindow();
+  void initializeBarcodeScanner(() => mainWindow);
   registerAutoUpdaterEvents();
 
   const updateConfigured = isUpdateConfigured();
@@ -150,6 +152,10 @@ app.whenReady().then(async () => {
       createMainWindow();
     }
   });
+});
+
+app.on('before-quit', () => {
+  shutdownBarcodeScanner();
 });
 
 ipcMain.handle('updater/check-now', async () => {
