@@ -114,6 +114,12 @@ export function PurchasesPage() {
     selectionEnd: number | null;
   } | null>(null);
   const pendingEditableTimeoutRef = useRef<number | null>(null);
+  const manualEntrySnapshotRef = useRef<{
+    element: HTMLInputElement | HTMLTextAreaElement;
+    value: string;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+  } | null>(null);
 
   const purchasesQuery = PurchasesService.usePurchases();
   const categoriesQuery = CategoriesService.useCategories();
@@ -589,6 +595,10 @@ export function PurchasesPage() {
 
   useEffect(() => {
     const scannerThresholdMs = 100;
+    const minimumBarcodeDigits = 10;
+    const barcodePattern = new RegExp(`^\\d{${minimumBarcodeDigits},}$`);
+
+    const isLikelyBarcode = (value: string) => barcodePattern.test(value);
 
     const clearPendingEditable = () => {
       pendingFirstCharRef.current = '';
@@ -598,6 +608,29 @@ export function PurchasesPage() {
         window.clearTimeout(pendingEditableTimeoutRef.current);
         pendingEditableTimeoutRef.current = null;
       }
+    };
+
+    const restoreManualInput = (text: string) => {
+      const snapshot = manualEntrySnapshotRef.current;
+      manualEntrySnapshotRef.current = null;
+      if (!snapshot) {
+        return;
+      }
+      const { element, value, selectionStart, selectionEnd } = snapshot;
+      const start = typeof selectionStart === 'number' ? selectionStart : value.length;
+      const end = typeof selectionEnd === 'number' ? selectionEnd : start;
+      const nextValue = `${value.slice(0, start)}${text}${value.slice(end)}`;
+      element.value = nextValue;
+      if (typeof element.setSelectionRange === 'function') {
+        const caret = start + text.length;
+        element.setSelectionRange(caret, caret);
+      }
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      window.setTimeout(() => {
+        if (typeof element.focus === 'function') {
+          element.focus();
+        }
+      }, 0);
     };
 
     const clearBuffer = (clearInput = false) => {
@@ -611,6 +644,7 @@ export function PurchasesPage() {
         setBarcode('');
       }
       clearPendingEditable();
+      manualEntrySnapshotRef.current = null;
     };
 
     const scheduleBufferReset = () => {
@@ -618,6 +652,10 @@ export function PurchasesPage() {
         window.clearTimeout(barcodeTimeoutRef.current);
       }
       barcodeTimeoutRef.current = window.setTimeout(() => {
+        const bufferedValue = barcodeBufferRef.current;
+        if (bufferedValue && !isLikelyBarcode(bufferedValue.trim())) {
+          restoreManualInput(bufferedValue);
+        }
         clearBuffer(true);
       }, scannerThresholdMs);
     };
@@ -629,11 +667,14 @@ export function PurchasesPage() {
       const firstChar = pendingFirstCharRef.current;
       const pendingEditable = pendingEditableRef.current;
       if (pendingEditable) {
+        manualEntrySnapshotRef.current = pendingEditable;
         const { element, value, selectionStart, selectionEnd } = pendingEditable;
         element.value = value;
         if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
           element.setSelectionRange(selectionStart, selectionEnd);
         }
+      } else {
+        manualEntrySnapshotRef.current = null;
       }
       clearPendingEditable();
       return firstChar;
@@ -749,6 +790,17 @@ export function PurchasesPage() {
 
       const pendingValue = barcodeBufferRef.current || barcodeInputRef.current?.value || '';
       const trimmed = pendingValue.trim();
+      if (!trimmed) {
+        clearBuffer(true);
+        return;
+      }
+
+      if (!isLikelyBarcode(trimmed)) {
+        restoreManualInput(pendingValue);
+        clearBuffer(true);
+        return;
+      }
+
       clearBuffer();
 
       if (trimmed) {
