@@ -15,7 +15,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { API_BASE_URL } from '../lib/api';
-import type { Product } from '../lib/ProductsService';
+import { ProductsService, type Product } from '../lib/ProductsService';
 import { PurchasesService, type Purchase, type PurchaseItemInput } from '../lib/PurchasesService';
 import { useAuthStore } from '../stores/authStore';
 import { useStoreProfileStore } from '../stores/storeProfileStore';
@@ -93,6 +93,8 @@ export function PurchasesPage() {
   const [items, setItems] = useState<DraftItem[]>([]);
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [categoryBanner, setCategoryBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
@@ -163,6 +165,22 @@ export function PurchasesPage() {
   useEffect(() => {
     focusBarcodeInput();
   }, [focusBarcodeInput]);
+
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => window.clearTimeout(handler);
+  }, [searchTerm]);
+
+  const trimmedSearchTerm = debouncedSearchTerm.trim();
+
+  const {
+    data: searchResults = [],
+    isFetching: isSearchFetching
+  } = ProductsService.useSearchProducts(debouncedSearchTerm, {
+    enabled: trimmedSearchTerm.length > 0
+  });
 
   useEffect(() => {
     if (!banner) {
@@ -342,6 +360,63 @@ export function PurchasesPage() {
     }
   }, []);
 
+  const addExistingProductToItems = useCallback(
+    (product: Product) => {
+      const increment = Math.max(1, product.scannedQuantity ?? 1);
+      const derivedBarcode =
+        product.scannedMergesWithPrimary === false
+          ? product.scannedBarcode ?? product.barcode
+          : product.barcode;
+
+      let nextHighlightedId: string | null = null;
+      setItems((previous) => {
+        const existingIndex = previous.findIndex((item) => item.productId === product.id);
+        if (existingIndex >= 0) {
+          const next = [...previous];
+          const target = next[existingIndex];
+          const nextQuantity = (Number(target.quantity) || 0) + increment;
+          const updated = { ...target, quantity: nextQuantity.toString(), barcode: derivedBarcode };
+          next[existingIndex] = updated;
+          nextHighlightedId = updated.id;
+          return next;
+        }
+
+        const newItem: DraftItem = {
+          id: product.id,
+          productId: product.id,
+          barcode: derivedBarcode,
+          name: product.name,
+          sku: product.sku?.trim() ?? '',
+          categoryName: product.categoryName ?? product.category ?? '',
+          quantity: increment.toString(),
+          unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
+          profitPercent: calculateProfitPercent(
+            (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
+            product.priceUsd?.toString() ?? ''
+          ),
+          currency: 'USD',
+          salePriceUsd: product.priceUsd?.toString() ?? '',
+          isExisting: true,
+          quantityOnHand: product.quantityOnHand ?? 0
+        };
+        nextHighlightedId = newItem.id;
+        return [...previous, newItem];
+      });
+
+      if (nextHighlightedId) {
+        setLastScannedItemId(nextHighlightedId);
+        window.setTimeout(() => {
+          const input = quantityInputRefs.current[nextHighlightedId!];
+          if (input) {
+            focusAndSelectQuantityInput(input);
+          }
+        });
+      }
+      setBanner(null);
+    },
+    [focusAndSelectQuantityInput]
+  );
+
   const addBarcode = useCallback(
     async (rawCode: string) => {
       const trimmed = rawCode.trim();
@@ -350,91 +425,66 @@ export function PurchasesPage() {
       }
       try {
         const product = await handleFetchProduct(trimmed);
-        const deriveNextItems = (previous: DraftItem[]) => {
-          if (product) {
-            const increment = Math.max(1, product.scannedQuantity ?? 1);
-            const derivedBarcode =
-              product.scannedMergesWithPrimary === false
-                ? product.scannedBarcode ?? product.barcode
-                : product.barcode;
-            const existingIndex = previous.findIndex((item) => item.productId === product.id);
+        if (product) {
+          addExistingProductToItems(product);
+        } else {
+          let nextHighlightedId: string | null = null;
+          setItems((previous) => {
+            const existingIndex = previous.findIndex((item) => item.barcode === trimmed);
             if (existingIndex >= 0) {
               const next = [...previous];
               const target = next[existingIndex];
-              const nextQuantity = (Number(target.quantity) || 0) + increment;
+              const nextQuantity = (Number(target.quantity) || 0) + 1;
               const updated = { ...target, quantity: nextQuantity.toString() };
               next[existingIndex] = updated;
-              return { items: next, highlightId: updated.id };
+              nextHighlightedId = updated.id;
+              return next;
             }
             const newItem: DraftItem = {
-              id: product.id,
-              productId: product.id,
-              barcode: derivedBarcode,
-              name: product.name,
-              sku: product.sku?.trim() ?? '',
-              categoryName: product.categoryName ?? product.category ?? '',
-              quantity: increment.toString(),
-              unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
-              profitPercent: calculateProfitPercent(
-                (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
-                product.priceUsd?.toString() ?? ''
-              ),
+              id: createId(),
+              barcode: trimmed,
+              name: '',
+              sku: '',
+              categoryName: '',
+              quantity: '1',
+              unitCost: '0',
+              profitPercent: '',
               currency: 'USD',
-              salePriceUsd: product.priceUsd?.toString() ?? '',
-              isExisting: true,
-              quantityOnHand: product.quantityOnHand ?? 0
+              salePriceUsd: '',
+              isExisting: false,
+              quantityOnHand: 0
             };
-            return { items: [...previous, newItem], highlightId: newItem.id };
-          }
-          const existingIndex = previous.findIndex((item) => item.barcode === trimmed);
-          if (existingIndex >= 0) {
-            const next = [...previous];
-            const target = next[existingIndex];
-            const nextQuantity = (Number(target.quantity) || 0) + 1;
-            const updated = { ...target, quantity: nextQuantity.toString() };
-            next[existingIndex] = updated;
-            return { items: next, highlightId: updated.id };
-          }
-          const newItem: DraftItem = {
-            id: createId(),
-            barcode: trimmed,
-            name: '',
-            sku: '',
-            categoryName: '',
-            quantity: '1',
-            unitCost: '0',
-            profitPercent: '',
-            currency: 'USD',
-            salePriceUsd: '',
-            isExisting: false,
-            quantityOnHand: 0
-          };
-          return { items: [...previous, newItem], highlightId: newItem.id };
-        };
-
-        let nextHighlightedId: string | null = null;
-        setItems((previous) => {
-          const { items: nextItems, highlightId } = deriveNextItems(previous);
-          nextHighlightedId = highlightId;
-          return nextItems;
-        });
-        if (nextHighlightedId) {
-          setLastScannedItemId(nextHighlightedId);
-          window.setTimeout(() => {
-            const input = quantityInputRefs.current[nextHighlightedId!];
-            if (input) {
-              focusAndSelectQuantityInput(input);
-            }
+            nextHighlightedId = newItem.id;
+            return [...previous, newItem];
           });
+          if (nextHighlightedId) {
+            setLastScannedItemId(nextHighlightedId);
+            window.setTimeout(() => {
+              const input = quantityInputRefs.current[nextHighlightedId!];
+              if (input) {
+                focusAndSelectQuantityInput(input);
+              }
+            });
+          }
+          setBanner(null);
         }
         setBarcode('');
-        setBanner(null);
       } catch (error) {
         const message = error instanceof Error ? error.message : t('purchasesError');
         setBanner({ type: 'error', message });
       }
     },
-    [focusAndSelectQuantityInput, handleFetchProduct, t]
+    [addExistingProductToItems, focusAndSelectQuantityInput, handleFetchProduct, t]
+  );
+
+  const handleSelectSearchProduct = useCallback(
+    (product: Product) => {
+      addExistingProductToItems(product);
+      setSearchTerm('');
+      setDebouncedSearchTerm('');
+      focusBarcodeInput();
+    },
+    [addExistingProductToItems, focusBarcodeInput]
   );
 
   const handleBarcodeAdd = useCallback(async () => {
@@ -847,6 +897,53 @@ export function PurchasesPage() {
                 <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={() => void handleBarcodeAdd()}>
                   {t('purchasesScanAdd')}
                 </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label
+                className="text-sm font-medium text-slate-600 dark:text-slate-300"
+                htmlFor="purchases-product-search"
+              >
+                {t('searchProducts')}
+              </label>
+              <div className="relative">
+                <Input
+                  id="purchases-product-search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder={t('searchProducts')}
+                />
+                {searchTerm.trim() !== '' && (
+                  <div className="absolute z-10 mt-1 max-h-72 w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
+                    {isSearchFetching ? (
+                      <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{t('loading', 'Loading…')}</div>
+                    ) : searchResults.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
+                        {t('inventoryNoResults', 'No products match your search.')}
+                      </div>
+                    ) : (
+                      <ul className="max-h-72 overflow-y-auto py-1">
+                        {searchResults.slice(0, 10).map((product) => (
+                          <li key={product.id}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectSearchProduct(product)}
+                              className="flex w-full flex-col gap-1 px-3 py-2 text-left text-sm hover:bg-emerald-50 focus:bg-emerald-100 focus:outline-none dark:hover:bg-emerald-500/10 dark:focus:bg-emerald-500/20"
+                            >
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{product.name}</span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                {product.categoryName ?? product.category}
+                              </span>
+                              <span className="text-xs text-emerald-600 dark:text-emerald-300">
+                                {formatCurrency(product.priceUsd, 'USD')}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
