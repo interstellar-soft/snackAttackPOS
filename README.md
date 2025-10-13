@@ -21,6 +21,11 @@ To start all services locally, ensure you have Docker and Docker Compose install
 docker compose --env-file .env -f infra/docker-compose.yml up -d --build
 ```
 
+If your network requires an internal npm mirror, copy `.env.example` to `.env`
+and set the `FRONTEND_NPM_*` variables before building. Compose forwards those
+values to the frontend Docker build so you can point npm at a custom registry or
+extend its retry window without modifying the Dockerfile.
+
 The root `.env` file is passed to Compose so environment configuration can be centralized even though the compose file lives in `infra/`. Every service in the compose file now uses `restart: unless-stopped`, so Docker automatically brings the stack back online on the next boot (unless you manually stop the containers).
 
 ## Desktop Builds

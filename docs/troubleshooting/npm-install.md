@@ -69,3 +69,11 @@ polluting Git history.
 
 If none of the steps above resolve the problem, capture the full npm log file referenced in the error message and share it with the
 team so we can dig deeper.
+
+## Docker builds with restricted registries
+
+When Docker is responsible for installing dependencies (for example, during
+`docker compose ... up --build`), copy `.env.example` to `.env` and set the
+`FRONTEND_NPM_*` variables before building. Compose passes those values as build
+arguments so the frontend Dockerfile can point npm at your mirror and reuse the
+retry/backoff settings you configure.
