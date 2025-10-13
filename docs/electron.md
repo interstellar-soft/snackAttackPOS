@@ -26,6 +26,11 @@ are consumed by `electron-builder` when packaging the application.
    npm install
    ```
 
+   The install step automatically runs a postinstall script that rebuilds native
+   modules (such as `serialport`) against the pinned Electron runtime. Skip this
+   automation temporarily by setting `ELECTRON_SKIP_REBUILD=1` if you do not have
+   the native build tooling available yet and plan to run the rebuild later.
+
 2. Launch the desktop shell in development mode:
 
    ```sh
@@ -46,9 +51,11 @@ are consumed by `electron-builder` when packaging the application.
 ## Rebuilding native modules
 
 Some dependencies (for example `serialport`) ship prebuilt binaries that need to
-be rebuilt against the Electron version bundled with Aurora POS. Run the helper
-script from the repository root whenever you upgrade Electron or install a new
-native module:
+be rebuilt against the Electron version bundled with Aurora POS. The
+`npm install` step triggers this automatically via the postinstall hook. If you
+skip the hook (for example by exporting `ELECTRON_SKIP_REBUILD=1` or installing
+with `--omit=dev`), run the helper script from the repository root whenever you
+upgrade Electron or install a new native module:
 
 ```sh
 npm run electron:rebuild --workspace frontend
