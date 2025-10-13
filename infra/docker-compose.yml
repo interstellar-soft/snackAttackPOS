@@ -49,6 +49,12 @@ services:
     build:
       context: ..
       dockerfile: frontend/Dockerfile
+      args:
+        NPM_REGISTRY: ${FRONTEND_NPM_REGISTRY:-https://registry.npmjs.org/}
+        NPM_FETCH_RETRIES: ${FRONTEND_NPM_FETCH_RETRIES:-5}
+        NPM_FETCH_RETRY_MINTIMEOUT: ${FRONTEND_NPM_FETCH_RETRY_MINTIMEOUT:-20000}
+        NPM_FETCH_RETRY_MAXTIMEOUT: ${FRONTEND_NPM_FETCH_RETRY_MAXTIMEOUT:-120000}
+        NPM_NETWORK_TIMEOUT: ${FRONTEND_NPM_NETWORK_TIMEOUT:-600000}
     restart: unless-stopped
     environment:
       VITE_API_URL: ${FRONTEND_API_URL}
