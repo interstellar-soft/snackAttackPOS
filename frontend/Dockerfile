@@ -1,14 +1,11 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# Copy workspace manifest files to leverage cached dependency installs
+# Copy workspace manifests and vendored dependencies for offline builds
 COPY package.json package-lock.json ./
-COPY frontend/package.json frontend/package.json
+COPY node_modules ./node_modules
 
-# Install only the frontend workspace dependencies using the shared lockfile
-RUN npm ci --workspace frontend
-
-# Copy the remaining frontend source code
+# Copy the frontend workspace including its vendored dependencies
 COPY frontend ./frontend
 
 # Build the frontend workspace
