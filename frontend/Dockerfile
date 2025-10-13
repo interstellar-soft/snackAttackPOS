@@ -15,13 +15,7 @@ COPY . ./
 # Docker builds to rely on the committed node_modules directory while still supporting
 # clean installs when the vendored modules are absent.
 RUN if [ -d node_modules ] && [ "$(ls -A node_modules)" ]; then \
-        if npm ls --workspace frontend @rollup/rollup-linux-x64-musl >/dev/null 2>&1; then \
-            echo "Using vendored dependencies for workspace"; \
-        else \
-            echo "Vendored dependencies found but missing linux rollup binary; reinstalling"; \
-            rm -rf node_modules frontend/node_modules; \
-            npm ci; \
-        fi; \
+        echo "Using vendored dependencies for workspace"; \
     elif [ -d frontend/node_modules ] && [ "$(ls -A frontend/node_modules)" ]; then \
         echo "Using vendored dependencies for frontend workspace"; \
     else \
