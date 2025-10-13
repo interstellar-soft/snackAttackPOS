@@ -74,6 +74,9 @@
       "dist-electron/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "node_modules/@serialport/**"
+    ],
     "mac": {
       "target": [
         "dmg",
