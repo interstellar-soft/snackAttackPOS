@@ -43,6 +43,21 @@ are consumed by `electron-builder` when packaging the application.
    Hot-module reloading continues to work for renderer changes. Restart Electron
    when updating `frontend/electron/*` files.
 
+## Rebuilding native modules
+
+Some dependencies (for example `serialport`) ship prebuilt binaries that need to
+be rebuilt against the Electron version bundled with Aurora POS. Run the helper
+script from the repository root whenever you upgrade Electron or install a new
+native module:
+
+```sh
+npm run electron:rebuild --workspace frontend
+```
+
+The script wraps `electron-rebuild` and pins the Electron runtime to match the
+version declared in `frontend/package.json`, ensuring reproducible rebuilds on
+all platforms.
+
 ## Building Installers
 
 1. Install dependencies (if you only ran the dev command previously you already
