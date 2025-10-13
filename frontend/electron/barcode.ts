@@ -175,7 +175,7 @@ const openSerialPort = async (windowProvider: () => BrowserWindow | null, skipDe
     scheduleReconnect(windowProvider, path);
   });
 
-  parser = serialPort.pipe(new ReadlineParser({ delimiter: /\r?\n/ }));
+  parser = serialPort.pipe(new ReadlineParser({ delimiter: '\n' }));
   parser.on('data', (chunk: Buffer | string) => {
     const raw = typeof chunk === 'string' ? chunk : chunk.toString();
     const trimmed = raw.trim();
