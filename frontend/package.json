@@ -19,7 +19,8 @@
     "build:electron:watch": "node scripts/build-electron.mjs --watch",
     "electron:serve": "wait-on tcp:5173 file:dist-electron/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "electron:dev": "concurrently -k \"npm:dev\" \"npm:build:electron:watch\" \"npm:electron:serve\"",
-    "electron:package": "npm run build && npm run build:electron && electron-builder"
+    "electron:package": "npm run build && npm run build:electron && electron-builder",
+    "electron:rebuild": "electron-rebuild --force --runtime=electron --version=38.2.2"
   },
   "dependencies": {
     "@serialport/parser-readline": "^13.0.0",
@@ -45,6 +46,7 @@
     "@types/react-router-dom": "^5.3.3",
     "@typescript-eslint/eslint-plugin": "^6.20.0",
     "@typescript-eslint/parser": "^6.20.0",
+    "@electron/rebuild": "^3.5.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
