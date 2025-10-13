@@ -3,7 +3,7 @@ WORKDIR /app
 
 # Copy the workspace manifests first so dependency installation decisions can be cached
 COPY package.json package-lock.json ./
-COPY frontend/package.json frontend/package-lock.json ./frontend/
+COPY frontend/package*.json ./frontend/
 
 # Bring the remainder of the repository – including any vendored node_modules –
 # into the build context. When the vendored dependencies are present this keeps
