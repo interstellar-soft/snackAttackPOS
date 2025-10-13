@@ -1,6 +1,12 @@
 # Node modules and build outputs
+# Node modules are required for offline Docker builds
+# Keep default ignore but explicitly include the workspace installs we vendor
 node_modules
 **/node_modules
+# Allow vendored node modules to be sent to the Docker build context
+!node_modules
+!frontend/node_modules
+
 frontend/dist
 frontend/dist-electron
 frontend/release
