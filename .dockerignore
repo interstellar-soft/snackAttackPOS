@@ -1,0 +1,24 @@
+# Node modules and build outputs
+node_modules
+**/node_modules
+frontend/dist
+frontend/dist-electron
+frontend/release
+
+# Git and editor files
+.git
+.gitignore
+.vscode
+.idea
+
+# Python artifacts
+__pycache__
+*.pyc
+
+# Dotnet build artifacts
+backend/bin
+backend/obj
+
+# Environment files
+.env
+.env.*

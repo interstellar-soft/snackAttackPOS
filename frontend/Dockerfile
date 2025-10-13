@@ -1,15 +1,22 @@
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-RUN if [ -f package-lock.json ]; then npm ci; \
-    elif [ -f pnpm-lock.yaml ]; then npm install -g pnpm && pnpm install; \
-    elif [ -f yarn.lock ]; then yarn install; \
-    else npm install; fi
-COPY . .
-RUN npm run build
+
+# Copy workspace manifest files to leverage cached dependency installs
+COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package.json
+
+# Install only the frontend workspace dependencies using the shared lockfile
+RUN npm ci --workspace frontend
+
+# Copy the remaining frontend source code
+COPY frontend ./frontend
+
+# Build the frontend workspace
+RUN npm run build --workspace frontend
 
 FROM nginx:1.25-alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Serve the built frontend
+COPY --from=build /app/frontend/dist /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
