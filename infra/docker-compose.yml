@@ -47,7 +47,8 @@ services:
 
   frontend:
     build:
-      context: ../frontend
+      context: ..
+      dockerfile: frontend/Dockerfile
     restart: unless-stopped
     environment:
       VITE_API_URL: ${FRONTEND_API_URL}
