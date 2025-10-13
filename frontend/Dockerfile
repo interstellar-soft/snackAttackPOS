@@ -3,6 +3,7 @@ WORKDIR /app
 
 # Copy workspace manifests and install dependencies
 COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package.json
 RUN npm ci
 
 # Copy the frontend workspace including its vendored dependencies
