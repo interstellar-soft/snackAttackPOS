@@ -35,6 +35,8 @@ to bring up the backend stack and sign in.
 
 This monorepo uses npm workspaces. Running `npm install` from the repository root will install the `frontend/` dependencies automatically.
 If you prefer to manage the frontend in isolation you can continue to run `npm install` directly from the `frontend/` directory.
+Windows developers who run into `ECONNRESET` or `EPERM` errors during installation can follow the steps in
+[`docs/troubleshooting/npm-install.md`](docs/troubleshooting/npm-install.md).
 
 ## Building the frontend bundle
 
