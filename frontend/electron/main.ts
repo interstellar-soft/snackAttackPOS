@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session } from 'electron';
 import log from 'electron-log';
 import path from 'node:path';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo, UpdateCheckResult } from 'electron-updater';
@@ -50,7 +50,8 @@ const createMainWindow = () => {
       contextIsolation: true,
       nodeIntegration: false,
       preload: preloadPath,
-      zoomFactor: 0.7
+      zoomFactor: 0.7,
+      enableBlinkFeatures: 'Serial'
     }
   });
 
@@ -115,6 +116,71 @@ app.on('window-all-closed', () => {
 app.whenReady().then(async () => {
   if (isDev) {
     process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+  }
+
+  const defaultSession = session.defaultSession;
+
+  if (defaultSession) {
+    defaultSession.setPermissionRequestHandler((_, permission, callback) => {
+      if (permission === 'serial') {
+        callback(true);
+        return;
+      }
+      callback(false);
+    });
+
+    defaultSession.on('select-serial-port', (event, portList, webContents, callback) => {
+      event.preventDefault();
+
+      if (portList.length === 0) {
+        callback('');
+        return;
+      }
+
+      if (portList.length === 1) {
+        callback(portList[0]?.portId ?? '');
+        return;
+      }
+
+      const browserWindow = BrowserWindow.fromWebContents(webContents) ?? mainWindow ?? undefined;
+      const buttons = portList.map((port, index) => port.displayName ?? port.portId ?? `Port ${index + 1}`);
+      const detail = portList
+        .map((port, index) => {
+          const name = port.displayName ?? port.portId ?? `Port ${index + 1}`;
+          const vendor = port.vendorId ? `Vendor: ${port.vendorId}` : null;
+          const product = port.productId ? `Product: ${port.productId}` : null;
+          const segments = [vendor, product].filter(Boolean);
+          return segments.length > 0 ? `${name} (${segments.join(', ')})` : name;
+        })
+        .join('\n');
+
+      const dialogOptions = {
+        type: 'question' as const,
+        title: 'Select scanner',
+        message: 'Choose a serial device to connect to the scanner.',
+        detail,
+        buttons: [...buttons, 'Cancel'],
+        cancelId: buttons.length,
+        defaultId: 0
+      };
+
+      const selectionPromise = browserWindow
+        ? dialog.showMessageBox(browserWindow, dialogOptions)
+        : dialog.showMessageBox(dialogOptions);
+
+      void selectionPromise
+        .then((result) => {
+          if (result.response >= 0 && result.response < portList.length) {
+            callback(portList[result.response]?.portId ?? '');
+            return;
+          }
+          callback('');
+        })
+        .catch((error) => {
+          log.error('Failed to show serial port selection dialog', error);
+          callback('');
+        });
+    });
   }
 
   if (updateFeedUrl) {
