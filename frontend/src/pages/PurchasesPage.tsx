@@ -105,17 +105,6 @@ export function PurchasesPage() {
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
-  const barcodeTimeoutRef = useRef<number | null>(null);
-  const lastScannerTimeRef = useRef(0);
-  const pendingFirstCharRef = useRef('');
-  const pendingFirstCharTimeRef = useRef(0);
-  const pendingEditableRef = useRef<{
-    element: HTMLInputElement | HTMLTextAreaElement;
-    value: string;
-    selectionStart: number | null;
-    selectionEnd: number | null;
-  } | null>(null);
-  const pendingEditableTimeoutRef = useRef<number | null>(null);
 
   const purchasesQuery = PurchasesService.usePurchases();
   const categoriesQuery = CategoriesService.useCategories();
@@ -627,177 +616,154 @@ export function PurchasesPage() {
   useEffect(() => {
     if (isSerialConnected) {
       barcodeBufferRef.current = '';
-      lastScannerTimeRef.current = 0;
       return;
     }
 
-    const scannerThresholdMs = 100;
-
-    const clearPendingEditable = () => {
-      pendingFirstCharRef.current = '';
-      pendingFirstCharTimeRef.current = 0;
-      pendingEditableRef.current = null;
-      if (pendingEditableTimeoutRef.current !== null) {
-        window.clearTimeout(pendingEditableTimeoutRef.current);
-        pendingEditableTimeoutRef.current = null;
-      }
-    };
-
     const clearBuffer = (clearInput = false) => {
       barcodeBufferRef.current = '';
-      if (barcodeTimeoutRef.current !== null) {
-        window.clearTimeout(barcodeTimeoutRef.current);
-        barcodeTimeoutRef.current = null;
-      }
-      lastScannerTimeRef.current = 0;
       if (clearInput) {
         setBarcode('');
       }
-      clearPendingEditable();
     };
 
-    const scheduleBufferReset = () => {
-      if (barcodeTimeoutRef.current !== null) {
-        window.clearTimeout(barcodeTimeoutRef.current);
-      }
-      barcodeTimeoutRef.current = window.setTimeout(() => {
-        clearBuffer(true);
-      }, scannerThresholdMs);
+    const isEditableTarget = (
+      target: EventTarget | null
+    ): target is HTMLInputElement | HTMLTextAreaElement | (HTMLElement & { isContentEditable: true }) => {
+      return (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      );
     };
 
-    const applyPendingFirstChar = () => {
-      if (!pendingFirstCharRef.current) {
-        return '';
-      }
-      const firstChar = pendingFirstCharRef.current;
-      const pendingEditable = pendingEditableRef.current;
-      if (pendingEditable) {
-        const { element, value, selectionStart, selectionEnd } = pendingEditable;
-        element.value = value;
-        if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
-          element.setSelectionRange(selectionStart, selectionEnd);
+    const isActiveEditableInput = (target: EventTarget | null) => {
+      if (target instanceof HTMLInputElement) {
+        if (target === barcodeInputRef.current) {
+          return false;
         }
+        return !target.readOnly && !target.disabled;
       }
-      clearPendingEditable();
-      return firstChar;
+      if (target instanceof HTMLTextAreaElement) {
+        if (target === barcodeInputRef.current) {
+          return false;
+        }
+        return !target.readOnly && !target.disabled;
+      }
+      if (target instanceof HTMLElement && target.isContentEditable) {
+        return target !== barcodeInputRef.current;
+      }
+      return false;
+    };
+
+    const getEditableValue = (
+      target: HTMLInputElement | HTMLTextAreaElement | (HTMLElement & { isContentEditable: true })
+    ) => {
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        return target.value;
+      }
+      return target.textContent ?? '';
+    };
+
+    const clearEditableValue = (
+      target: HTMLInputElement | HTMLTextAreaElement | (HTMLElement & { isContentEditable: true })
+    ) => {
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        target.value = '';
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        target.textContent = '';
+      }
+    };
+
+    const isLikelyBarcode = (value: string) => {
+      if (value.length < 4) {
+        return false;
+      }
+      return /^[A-Za-z0-9-]+$/.test(value);
     };
 
     const handleKeydown = (event: KeyboardEvent) => {
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (activeElement === barcodeInputRef.current) {
+      if (event.isComposing) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+
+      if (target === barcodeInputRef.current) {
+        if (event.key === 'Escape') {
+          clearBuffer(true);
+        }
         return;
       }
 
       if (event.ctrlKey || event.metaKey || event.altKey) {
+        clearBuffer();
         return;
       }
 
       const isPrintableKey = event.key.length === 1 && event.key !== 'Enter';
-      const isEnter = event.key === 'Enter';
-
-      if (!isPrintableKey && !isEnter) {
-        return;
-      }
-
-      const now = performance.now();
-      const timeSinceLast =
-        lastScannerTimeRef.current > 0 ? now - lastScannerTimeRef.current : Number.POSITIVE_INFINITY;
+      const isEnterKey = event.key === 'Enter';
 
       if (isPrintableKey) {
-        const hasPendingFirstChar = pendingFirstCharRef.current !== '';
-        const hasBufferedBarcode = barcodeBufferRef.current.length > 0;
-
-        if (hasBufferedBarcode && timeSinceLast > scannerThresholdMs) {
+        if (isActiveEditableInput(target)) {
           clearBuffer();
-        }
-
-        const shouldHandle =
-          barcodeBufferRef.current.length > 0 ||
-          (hasPendingFirstChar && now - pendingFirstCharTimeRef.current <= scannerThresholdMs);
-
-        if (!shouldHandle) {
-          pendingFirstCharRef.current = event.key;
-          pendingFirstCharTimeRef.current = now;
-
-          const target = event.target;
-          if (
-            target instanceof HTMLInputElement ||
-            target instanceof HTMLTextAreaElement
-          ) {
-            if (target !== barcodeInputRef.current && !target.readOnly && !target.disabled) {
-              pendingEditableRef.current = {
-                element: target,
-                value: target.value,
-                selectionStart: target.selectionStart,
-                selectionEnd: target.selectionEnd
-              };
-            } else {
-              pendingEditableRef.current = null;
-            }
-          } else {
-            pendingEditableRef.current = null;
-          }
-
-          if (pendingEditableTimeoutRef.current !== null) {
-            window.clearTimeout(pendingEditableTimeoutRef.current);
-          }
-          pendingEditableTimeoutRef.current = window.setTimeout(() => {
-            pendingFirstCharRef.current = '';
-            pendingFirstCharTimeRef.current = 0;
-            pendingEditableRef.current = null;
-            pendingEditableTimeoutRef.current = null;
-          }, scannerThresholdMs);
           return;
         }
 
         event.preventDefault();
         focusBarcodeInput();
-
-        if (!barcodeBufferRef.current) {
-          const firstChar = applyPendingFirstChar();
-          barcodeBufferRef.current = firstChar;
-        }
-
         const nextValue = `${barcodeBufferRef.current}${event.key}`;
         barcodeBufferRef.current = nextValue;
         setBarcode(nextValue);
-        lastScannerTimeRef.current = now;
-        scheduleBufferReset();
         return;
       }
 
-      const shouldHandleEnter =
-        barcodeBufferRef.current.length > 0 || pendingFirstCharRef.current !== '';
+      if (isEnterKey) {
+        if (barcodeBufferRef.current) {
+          event.preventDefault();
+          const trimmedBuffer = barcodeBufferRef.current.trim();
+          clearBuffer();
+          if (trimmedBuffer) {
+            setBarcode(trimmedBuffer);
+            submitScannedBarcode(trimmedBuffer);
+          }
+          return;
+        }
 
-      if (!shouldHandleEnter) {
+        if (isEditableTarget(target) && target !== barcodeInputRef.current) {
+          const value = getEditableValue(target);
+          const trimmed = value.trim();
+          if (isLikelyBarcode(trimmed)) {
+            event.preventDefault();
+            clearEditableValue(target);
+            focusBarcodeInput();
+            setBarcode(trimmed);
+            submitScannedBarcode(trimmed);
+            return;
+          }
+        }
+
+        clearBuffer();
         return;
       }
 
-      if (
-        barcodeBufferRef.current.length === 0 &&
-        pendingFirstCharRef.current !== '' &&
-        now - pendingFirstCharTimeRef.current > scannerThresholdMs
-      ) {
-        clearPendingEditable();
+      if (event.key === 'Backspace') {
+        if (barcodeBufferRef.current) {
+          event.preventDefault();
+          barcodeBufferRef.current = barcodeBufferRef.current.slice(0, -1);
+          setBarcode(barcodeBufferRef.current);
+        } else {
+          clearBuffer();
+        }
         return;
       }
 
-      event.preventDefault();
-      focusBarcodeInput();
-
-      if (!barcodeBufferRef.current) {
-        const firstChar = applyPendingFirstChar();
-        barcodeBufferRef.current = firstChar;
+      if (event.key === 'Escape') {
+        clearBuffer(true);
+        return;
       }
 
-      const pendingValue = barcodeBufferRef.current || barcodeInputRef.current?.value || '';
-      const trimmed = pendingValue.trim();
       clearBuffer();
-
-      if (trimmed) {
-        setBarcode(trimmed);
-        submitScannedBarcode(trimmed);
-      }
     };
 
     window.addEventListener('keydown', handleKeydown);
