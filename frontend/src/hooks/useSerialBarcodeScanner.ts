@@ -202,7 +202,12 @@ export function useSerialBarcodeScanner({
       await connectToPort(port);
     } catch (requestError) {
       const message = getErrorMessage(requestError);
-      if (message !== 'The user aborted a request.') {
+      const userDismissedMessages = [
+        'The user aborted a request.',
+        "Failed to execute 'requestPort' on 'Serial': No port selected by the user.",
+      ];
+
+      if (!userDismissedMessages.includes(message)) {
         setError(message);
       }
     } finally {
