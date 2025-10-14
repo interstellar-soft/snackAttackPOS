@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent, KeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { TopBar } from '../components/pos/TopBar';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { useSerialScanner } from '../contexts/SerialScannerContext';
 import {
   ProductsService,
   type CreateProductInput,
@@ -594,10 +595,20 @@ function ProductFormDialog({
 }: ProductFormDialogProps) {
   const { t } = useTranslation();
   const [formValues, setFormValues] = useState<ProductFormValues>(values);
+  const barcodeInputRef = useRef<HTMLInputElement | null>(null);
+  const activeBarcodeFieldRef = useRef<{ type: 'main' } | { type: 'additional'; id: string }>(
+    { type: 'main' }
+  );
+
+  const { subscribeToScan: subscribeToSerialScan } = useSerialScanner();
 
   useEffect(() => {
     setFormValues(values);
   }, [values]);
+
+  useEffect(() => {
+    barcodeInputRef.current?.focus();
+  }, []);
 
   const handleChange = (
     field: Exclude<keyof ProductFormValues, 'isPinned' | 'additionalBarcodes'>
@@ -620,6 +631,20 @@ function ProductFormDialog({
       event.preventDefault();
     }
   };
+
+  const handleMainBarcodeFocus = useCallback(() => {
+    activeBarcodeFieldRef.current = { type: 'main' };
+  }, []);
+
+  const handleBarcodeFieldBlur = useCallback(() => {
+    activeBarcodeFieldRef.current = { type: 'main' };
+  }, []);
+
+  const handleAdditionalBarcodeFocus = useCallback((id: string) => {
+    return () => {
+      activeBarcodeFieldRef.current = { type: 'additional', id };
+    };
+  }, []);
 
   const handleBarcodeChange =
     (id: string, field: keyof Omit<ProductFormBarcode, 'currency'>) =>
@@ -656,7 +681,41 @@ function ProductFormDialog({
       ...previous,
       additionalBarcodes: previous.additionalBarcodes.filter((barcode) => barcode.id !== id)
     }));
+    activeBarcodeFieldRef.current = { type: 'main' };
   };
+
+  const handleSerialScan = useCallback(
+    (code: string) => {
+      const trimmed = code.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      setFormValues((previous) => {
+        const activeField = activeBarcodeFieldRef.current;
+        if (activeField?.type === 'additional') {
+          return {
+            ...previous,
+            additionalBarcodes: previous.additionalBarcodes.map((barcode) =>
+              barcode.id === activeField.id ? { ...barcode, code: trimmed } : barcode
+            )
+          };
+        }
+
+        return { ...previous, barcode: trimmed };
+      });
+
+      if (activeBarcodeFieldRef.current?.type !== 'additional') {
+        barcodeInputRef.current?.focus();
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSerialScan(handleSerialScan);
+    return unsubscribe;
+  }, [handleSerialScan, subscribeToSerialScan]);
 
   return (
     <DialogShell title={title} onClose={onClose}>
@@ -693,9 +752,12 @@ function ProductFormDialog({
             </label>
             <Input
               id="product-barcode"
+              ref={barcodeInputRef}
               value={formValues.barcode}
               onChange={handleChange('barcode')}
               onKeyDown={preventBarcodeSubmit}
+              onFocus={handleMainBarcodeFocus}
+              onBlur={handleBarcodeFieldBlur}
               placeholder={t('inventoryBarcodePlaceholder')}
               required
             />
@@ -834,6 +896,8 @@ function ProductFormDialog({
                         value={barcode.code}
                         onChange={handleBarcodeChange(barcode.id, 'code')}
                         onKeyDown={preventBarcodeSubmit}
+                        onFocus={handleAdditionalBarcodeFocus(barcode.id)}
+                        onBlur={handleBarcodeFieldBlur}
                         placeholder={t('inventoryBarcodePlaceholder')}
                       />
                     </div>
