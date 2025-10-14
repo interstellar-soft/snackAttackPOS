@@ -432,8 +432,14 @@ export function POSPage() {
     [focusBarcodeInput, submitScan]
   );
 
-  const { isSupported: isSerialSupported, isConnecting: isSerialConnecting, isConnected: isSerialConnected, error: serialError } =
-    useSerialBarcodeScanner({
+  const {
+    isSupported: isSerialSupported,
+    isConnecting: isSerialConnecting,
+    isConnected: isSerialConnected,
+    error: serialError,
+    requestPort: requestSerialPort,
+    disconnect: disconnectSerialPort
+  } = useSerialBarcodeScanner({
       onScan: handleSerialScan,
       onConnect: () => {
         setSerialStatusMessage(null);
@@ -444,6 +450,15 @@ export function POSPage() {
       },
       preferredPortHint: SERIAL_PORT_HINT
     });
+
+  const handleSerialConnectClick = useCallback(() => {
+    setSerialStatusMessage(null);
+    void requestSerialPort();
+  }, [requestSerialPort]);
+
+  const handleSerialDisconnectClick = useCallback(() => {
+    void disconnectSerialPort();
+  }, [disconnectSerialPort]);
 
   useEffect(() => {
     setSerialStatusMessage(serialError ?? null);
@@ -831,6 +846,28 @@ export function POSPage() {
               <Button type="submit" size="sm">
                 Scan
               </Button>
+              {isSerialSupported && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleSerialConnectClick}
+                    disabled={isSerialConnecting || isSerialConnected}
+                  >
+                    {isSerialConnecting ? t('scannerConnecting') : t('connectScanner')}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleSerialDisconnectClick}
+                    disabled={!isSerialConnected || isSerialConnecting}
+                  >
+                    {t('disconnectScanner')}
+                  </Button>
+                </div>
+              )}
             </form>
             <div className="space-y-1 text-xs">
               {!isSerialSupported && (
