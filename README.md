@@ -31,6 +31,12 @@ If you install the packaged desktop build and run into a blank window, follow th
 post-install checklist in [`docs/desktop-post-install.md`](docs/desktop-post-install.md)
 to bring up the backend stack and sign in.
 
+## Connecting a barcode scanner
+
+Aurora POS can connect directly to USB barcode scanners that expose a serial (COM) interface through the browser's Web Serial API.
+For step-by-step instructions on choosing a compatible browser, configuring the scanner, and pairing it with the POS screen, see
+[`docs/scanner-setup.md`](docs/scanner-setup.md).
+
 ## Installing JavaScript dependencies
 
 This monorepo uses npm workspaces. Running `npm install` from the repository root will install the `frontend/` dependencies automatically.
