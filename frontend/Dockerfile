@@ -33,10 +33,43 @@ COPY . ./
 # Install dependencies only when vendored modules are unavailable. This allows offline
 # Docker builds to rely on the committed node_modules directory while still supporting
 # clean installs when the vendored modules are absent.
-RUN if [ -d node_modules ] && [ "$(ls -A node_modules)" ]; then \
-        echo "Using vendored dependencies for workspace"; \
-    elif [ -d frontend/node_modules ] && [ "$(ls -A frontend/node_modules)" ]; then \
-        echo "Using vendored dependencies for frontend workspace"; \
+RUN vendored_frontend_dir="frontend/node_modules"; \
+    vendored_workspace_dir="node_modules"; \
+    has_vendored_workspace=false; \
+    has_vendored_frontend=false; \
+    if [ -d "$vendored_workspace_dir" ] && [ "$(ls -A "$vendored_workspace_dir")" ]; then \
+        has_vendored_workspace=true; \
+    fi; \
+    if [ -d "$vendored_frontend_dir" ] && [ "$(ls -A "$vendored_frontend_dir")" ]; then \
+        has_vendored_frontend=true; \
+    fi; \
+    rollup_platform=$(node -p "process.platform"); \
+    rollup_arch=$(node -p "process.arch"); \
+    rollup_variant="rollup-${rollup_platform}-${rollup_arch}"; \
+    if [ "$rollup_platform" = "linux" ]; then \
+        if command -v ldd >/dev/null 2>&1 && ldd /bin/sh 2>&1 | grep -qi musl; then \
+            rollup_variant="${rollup_variant}-musl"; \
+        else \
+            rollup_variant="${rollup_variant}-gnu"; \
+        fi; \
+    fi; \
+    rollup_native_pkg="$vendored_workspace_dir/@rollup/${rollup_variant}/package.json"; \
+    rollup_native_pkg_frontend="$vendored_frontend_dir/@rollup/${rollup_variant}/package.json"; \
+    has_native_rollup=false; \
+    if [ -f "$rollup_native_pkg" ] || [ -f "$rollup_native_pkg_frontend" ]; then \
+        has_native_rollup=true; \
+    fi; \
+    if ${has_vendored_workspace} || ${has_vendored_frontend}; then \
+        if ${has_native_rollup}; then \
+            if ${has_vendored_workspace}; then \
+                echo "Using vendored dependencies for workspace"; \
+            else \
+                echo "Using vendored dependencies for frontend workspace"; \
+            fi; \
+        else \
+            echo "Vendored dependencies detected but missing native Rollup binary for ${rollup_variant}; running npm ci"; \
+            npm ci; \
+        fi; \
     else \
         echo "Vendored dependencies not found, running npm ci"; \
         npm ci; \
