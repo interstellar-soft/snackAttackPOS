@@ -592,7 +592,14 @@ export function PurchasesPage() {
     [focusBarcodeInput, submitScannedBarcode]
   );
 
-  const { isSupported: isSerialSupported, isConnecting: isSerialConnecting, isConnected: isSerialConnected, error: serialError } =
+  const {
+    isSupported: isSerialSupported,
+    isConnecting: isSerialConnecting,
+    isConnected: isSerialConnected,
+    error: serialError,
+    requestPort: requestSerialPort,
+    disconnect: disconnectSerialPort
+  } =
     useSerialBarcodeScanner({
       onScan: handleSerialScan,
       onConnect: () => {
@@ -608,6 +615,14 @@ export function PurchasesPage() {
   useEffect(() => {
     setSerialStatusMessage(serialError ?? null);
   }, [serialError]);
+
+  const handleSerialButtonClick = useCallback(() => {
+    if (isSerialConnected) {
+      void disconnectSerialPort();
+      return;
+    }
+    void requestSerialPort();
+  }, [disconnectSerialPort, isSerialConnected, requestSerialPort]);
 
   useEffect(() => {
     if (isSerialConnected) {
@@ -941,6 +956,18 @@ export function PurchasesPage() {
                         ? t('scannerConnecting')
                         : t('scannerDisconnectedStatus')}
                   </p>
+                )}
+                {isSerialSupported && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSerialButtonClick}
+                      disabled={isSerialConnecting}
+                    >
+                      {isSerialConnected ? t('disconnectScanner') : t('connectScanner')}
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

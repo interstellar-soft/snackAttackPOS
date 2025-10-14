@@ -322,7 +322,7 @@ export function useSerialBarcodeScanner({
             const label = preferredPortLabelRef.current ?? hint;
             if (!ports.length) {
               setError(
-                `Preferred serial port "${label}" has not been authorized yet. Click "Pair scanner" to grant browser access and ensure the device is connected.`
+                `Preferred serial port "${label}" has not been authorized yet. Use the "Connect scanner" button above the barcode field to grant browser access and ensure the device is connected.`
               );
             } else {
               setError(`Preferred serial port "${label}" not found among authorized devices.`);
