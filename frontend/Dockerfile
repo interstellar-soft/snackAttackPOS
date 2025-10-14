@@ -43,32 +43,11 @@ RUN vendored_frontend_dir="frontend/node_modules"; \
     if [ -d "$vendored_frontend_dir" ] && [ "$(ls -A "$vendored_frontend_dir")" ]; then \
         has_vendored_frontend=true; \
     fi; \
-    rollup_platform=$(node -p "process.platform"); \
-    rollup_arch=$(node -p "process.arch"); \
-    rollup_variant="rollup-${rollup_platform}-${rollup_arch}"; \
-    if [ "$rollup_platform" = "linux" ]; then \
-        if command -v ldd >/dev/null 2>&1 && ldd /bin/sh 2>&1 | grep -qi musl; then \
-            rollup_variant="${rollup_variant}-musl"; \
-        else \
-            rollup_variant="${rollup_variant}-gnu"; \
-        fi; \
-    fi; \
-    rollup_native_pkg="$vendored_workspace_dir/@rollup/${rollup_variant}/package.json"; \
-    rollup_native_pkg_frontend="$vendored_frontend_dir/@rollup/${rollup_variant}/package.json"; \
-    has_native_rollup=false; \
-    if [ -f "$rollup_native_pkg" ] || [ -f "$rollup_native_pkg_frontend" ]; then \
-        has_native_rollup=true; \
-    fi; \
     if ${has_vendored_workspace} || ${has_vendored_frontend}; then \
-        if ${has_native_rollup}; then \
-            if ${has_vendored_workspace}; then \
-                echo "Using vendored dependencies for workspace"; \
-            else \
-                echo "Using vendored dependencies for frontend workspace"; \
-            fi; \
+        if ${has_vendored_workspace}; then \
+            echo "Using vendored dependencies for workspace"; \
         else \
-            echo "Vendored dependencies detected but missing native Rollup binary for ${rollup_variant}; running npm ci"; \
-            npm ci; \
+            echo "Using vendored dependencies for frontend workspace"; \
         fi; \
     else \
         echo "Vendored dependencies not found, running npm ci"; \
