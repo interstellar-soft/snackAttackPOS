@@ -2,6 +2,8 @@
 const { execFileSync } = require('node:child_process');
 const { arch, platform, report } = require('node:process');
 
+const MESSAGE_PREFIX = '[ensure-rollup-native]';
+
 function isMusl() {
   try {
     return !report.getReport().header.glibcVersionRuntime;
@@ -74,29 +76,7 @@ function resolvePackageBase() {
   return archEntry.base;
 }
 
-function ensureRollupNative() {
-  let rollupPackageJson;
-  try {
-    rollupPackageJson = require('rollup/package.json');
-  } catch (error) {
-    return;
-  }
-
-  const packageBase = resolvePackageBase();
-  if (!packageBase) {
-    return;
-  }
-
-  const packageName = `@rollup/rollup-${packageBase}`;
-
-  try {
-    require.resolve(packageName);
-    return;
-  } catch (error) {
-    // continue to install
-  }
-
-  const version = rollupPackageJson.version;
+function installRollupPackage(packageName, version) {
   const installTarget = `${packageName}@${version}`;
   const npmExecPath = process.env.npm_execpath;
   const nodeExecPath = process.env.npm_node_execpath || process.execPath;
@@ -104,8 +84,7 @@ function ensureRollupNative() {
     ? [nodeExecPath, npmExecPath]
     : [npmExecPath || 'npm'];
 
-  const messagePrefix = '[ensure-rollup-native]';
-  console.log(`${messagePrefix} Installing missing optional dependency ${installTarget}`);
+  console.log(`${MESSAGE_PREFIX} Installing missing optional dependency ${installTarget}`);
 
   try {
     const [executable, script] = command.length === 2 ? command : [command[0], undefined];
@@ -118,10 +97,40 @@ function ensureRollupNative() {
     });
   } catch (error) {
     console.warn(
-      `${messagePrefix} Failed to install ${installTarget}.\n` +
-        `${messagePrefix} Rollup may fall back to a slower WASM build or fail to start.\n` +
-        `${messagePrefix} If the problem persists, please install the package manually.`
+      `${MESSAGE_PREFIX} Failed to install ${installTarget}.\n` +
+        `${MESSAGE_PREFIX} Rollup may fall back to a slower WASM build or fail to start.\n` +
+        `${MESSAGE_PREFIX} If the problem persists, please install the package manually.`
     );
+  }
+}
+
+function ensureRollupNative() {
+  let rollupPackageJson;
+  try {
+    rollupPackageJson = require('rollup/package.json');
+  } catch (error) {
+    return;
+  }
+
+  const packageBase = resolvePackageBase();
+  const version = rollupPackageJson.version;
+
+  if (packageBase) {
+    const packageName = `@rollup/rollup-${packageBase}`;
+
+    try {
+      require.resolve(packageName);
+    } catch (error) {
+      installRollupPackage(packageName, version);
+    }
+  }
+
+  try {
+    require.resolve('@rollup/wasm-node/dist/native.js');
+  } catch (error) {
+    if (error && error.code === 'MODULE_NOT_FOUND') {
+      installRollupPackage('@rollup/wasm-node', version);
+    }
   }
 }
 
