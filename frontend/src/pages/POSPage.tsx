@@ -18,8 +18,7 @@ import { Input } from '../components/ui/input';
 import { useCartStore } from '../stores/cartStore';
 import { Button } from '../components/ui/button';
 import { useLanguageDirection } from '../hooks/useLanguageDirection';
-import { useSerialBarcodeScanner } from '../hooks/useSerialBarcodeScanner';
-import { SERIAL_PORT_HINT } from '../lib/serialConfig';
+import { useSerialScanner } from '../contexts/SerialScannerContext';
 import { TenderPanel } from '../components/pos/TenderPanel';
 import { CurrencyRateModal } from '../components/pos/CurrencyRateModal';
 import { OverrideModal } from '../components/pos/OverrideModal';
@@ -438,18 +437,31 @@ export function POSPage() {
     isConnected: isSerialConnected,
     error: serialError,
     requestPort: requestSerialPort,
-    disconnect: disconnectSerialPort
-  } = useSerialBarcodeScanner({
-      onScan: handleSerialScan,
-      onConnect: () => {
-        setSerialStatusMessage(null);
-        focusBarcodeInput();
-      },
-      onDisconnect: () => {
-        setSerialStatusMessage(null);
-      },
-      preferredPortHint: SERIAL_PORT_HINT
+    disconnect: disconnectSerialPort,
+    subscribeToScan: subscribeToSerialScan,
+    subscribeToConnect: subscribeToSerialConnect,
+    subscribeToDisconnect: subscribeToSerialDisconnect
+  } = useSerialScanner();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSerialScan(handleSerialScan);
+    return unsubscribe;
+  }, [handleSerialScan, subscribeToSerialScan]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSerialConnect(() => {
+      setSerialStatusMessage(null);
+      focusBarcodeInput();
     });
+    return unsubscribe;
+  }, [focusBarcodeInput, subscribeToSerialConnect]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSerialDisconnect(() => {
+      setSerialStatusMessage(null);
+    });
+    return unsubscribe;
+  }, [subscribeToSerialDisconnect]);
 
   const handleSerialConnectClick = useCallback(() => {
     setSerialStatusMessage(null);

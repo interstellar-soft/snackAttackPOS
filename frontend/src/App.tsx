@@ -6,6 +6,7 @@ import { queryClient } from './lib/api';
 import { useAuthStore } from './stores/authStore';
 import { useStoreProfileStore } from './stores/storeProfileStore';
 import type { UpdaterMessage } from './types/electron';
+import { SerialScannerProvider } from './contexts/SerialScannerContext';
 
 const POSPage = lazy(async () => ({
   default: (await import('./pages/POSPage')).POSPage
@@ -134,8 +135,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div className="p-6">Loading…</div>}>
-        <RouterProvider>
-          <Routes>
+        <SerialScannerProvider>
+          <RouterProvider>
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route
               path="/"
@@ -218,8 +220,9 @@ export default function App() {
               }
             />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </RouterProvider>
+            </Routes>
+          </RouterProvider>
+        </SerialScannerProvider>
       </Suspense>
     </QueryClientProvider>
   );

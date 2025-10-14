@@ -22,8 +22,7 @@ import { useStoreProfileStore } from '../stores/storeProfileStore';
 import { formatCurrency } from '../lib/utils';
 import { CategorySelect } from '../components/purchases/CategorySelect';
 import { CategoriesService } from '../lib/CategoriesService';
-import { useSerialBarcodeScanner } from '../hooks/useSerialBarcodeScanner';
-import { SERIAL_PORT_HINT } from '../lib/serialConfig';
+import { useSerialScanner } from '../contexts/SerialScannerContext';
 
 interface DraftItem {
   id: string;
@@ -592,18 +591,35 @@ export function PurchasesPage() {
     [focusBarcodeInput, submitScannedBarcode]
   );
 
-  const { isSupported: isSerialSupported, isConnecting: isSerialConnecting, isConnected: isSerialConnected, error: serialError } =
-    useSerialBarcodeScanner({
-      onScan: handleSerialScan,
-      onConnect: () => {
-        setSerialStatusMessage(null);
-        focusBarcodeInput();
-      },
-      onDisconnect: () => {
-        setSerialStatusMessage(null);
-      },
-      preferredPortHint: SERIAL_PORT_HINT
+  const {
+    isSupported: isSerialSupported,
+    isConnecting: isSerialConnecting,
+    isConnected: isSerialConnected,
+    error: serialError,
+    subscribeToScan: subscribeToSerialScan,
+    subscribeToConnect: subscribeToSerialConnect,
+    subscribeToDisconnect: subscribeToSerialDisconnect
+  } = useSerialScanner();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSerialScan(handleSerialScan);
+    return unsubscribe;
+  }, [handleSerialScan, subscribeToSerialScan]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSerialConnect(() => {
+      setSerialStatusMessage(null);
+      focusBarcodeInput();
     });
+    return unsubscribe;
+  }, [focusBarcodeInput, subscribeToSerialConnect]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSerialDisconnect(() => {
+      setSerialStatusMessage(null);
+    });
+    return unsubscribe;
+  }, [subscribeToSerialDisconnect]);
 
   useEffect(() => {
     setSerialStatusMessage(serialError ?? null);
