@@ -21,6 +21,8 @@ interface TopBarProps {
   isProducts?: boolean;
   onNavigateOffers?: () => void;
   isOffers?: boolean;
+  onNavigateAlarms?: () => void;
+  isAlarms?: boolean;
   onNavigateInventory?: () => void;
   isInventory?: boolean;
   onNavigatePurchases?: () => void;
@@ -45,6 +47,8 @@ export function TopBar({
   isProducts,
   onNavigateOffers,
   isOffers,
+  onNavigateAlarms,
+  isAlarms,
   onNavigateInventory,
   isInventory,
   onNavigatePurchases,
@@ -68,6 +72,7 @@ export function TopBar({
     !isProfits &&
     !isMyCart &&
     !isOffers &&
+    !isAlarms &&
     !isInventory &&
     !isPurchases &&
     !isInvoices &&
@@ -110,6 +115,12 @@ export function TopBar({
       label: t('products'),
       onClick: onNavigateProducts,
       isActive: Boolean(isProducts)
+    },
+    {
+      key: 'alarms',
+      label: t('alarms'),
+      onClick: onNavigateAlarms,
+      isActive: Boolean(isAlarms)
     },
     {
       key: 'inventory',

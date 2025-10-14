@@ -36,7 +36,6 @@ export function InventoryPage() {
   const summaryData = inventorySummary.data;
   const categories = summaryData?.categories ?? [];
   const items = summaryData?.items ?? [];
-  const restockAlerts = items.filter((item) => item.isReorderAlarmEnabled && item.needsReorder);
 
   const handleViewChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value === 'items' ? 'items' : 'categories';
@@ -52,6 +51,7 @@ export function InventoryPage() {
         onNavigateProfits={canManageInventory ? () => navigate('/profits') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
+        onNavigateAlarms={canManageInventory ? () => navigate('/alarms') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
@@ -108,29 +108,6 @@ export function InventoryPage() {
               </div>
             </div>
           </Card>
-          {restockAlerts.length > 0 && (
-            <Card className="space-y-3 border border-red-200 bg-red-50 p-6 dark:border-red-500/40 dark:bg-red-500/10">
-              <div>
-                <h3 className="text-xl font-semibold text-red-700 dark:text-red-200">
-                  {t('inventoryReorderAlertsTitle')}
-                </h3>
-                <p className="text-sm text-red-600 dark:text-red-300">
-                  {t('inventoryReorderAlertsDescription')}
-                </p>
-              </div>
-              <ul className="space-y-2">
-                {restockAlerts.map((alert) => (
-                  <li key={alert.productId} className="text-sm text-red-700 dark:text-red-200">
-                    {t('inventoryReorderAlertItem', {
-                      name: alert.productName,
-                      quantity: numberFormatter.format(alert.quantityOnHand ?? 0),
-                      reorderPoint: numberFormatter.format(alert.reorderPoint ?? 0)
-                    })}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
           <Card className="space-y-4 p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
