@@ -100,7 +100,6 @@ export function POSPage() {
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const [saveToMyCart, setSaveToMyCart] = useState(false);
   const [isRefund, setIsRefund] = useState(false);
-  const [hasSerialScanner, setHasSerialScanner] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
   const barcodeTimeoutRef = useRef<number | null>(null);
@@ -114,13 +113,6 @@ export function POSPage() {
     selectionEnd: number | null;
   } | null>(null);
   const pendingEditableTimeoutRef = useRef<number | null>(null);
-  const pendingBarcodeDigitsRef = useRef('');
-  const manualEntrySnapshotRef = useRef<{
-    element: HTMLInputElement | HTMLTextAreaElement;
-    value: string;
-    selectionStart: number | null;
-    selectionEnd: number | null;
-  } | null>(null);
   const pricingRequestIdRef = useRef(0);
 
   const focusBarcodeInput = useCallback(() => {
@@ -570,55 +562,7 @@ export function POSPage() {
   );
 
   useEffect(() => {
-    const api = window.electronAPI;
-    if (!api?.onBarcodeScan) {
-      return;
-    }
-
-    const handleScan = (payload: { code?: string } | undefined) => {
-      const trimmed = payload?.code?.trim();
-      if (!trimmed) {
-        return;
-      }
-      focusBarcodeInput();
-      setBarcode(trimmed);
-      submitScan(trimmed);
-    };
-
-    const unsubscribeScan = api.onBarcodeScan(handleScan);
-    const unsubscribeStatus = api.onBarcodeScannerStatus?.((status) => {
-      setHasSerialScanner(status.status === 'connected');
-    });
-
-    api
-      .getBarcodeScannerStatus?.()
-      .then((status) => {
-        if (!status) {
-          setHasSerialScanner(false);
-          return;
-        }
-        setHasSerialScanner(status.status === 'connected');
-      })
-      .catch((error) => {
-        console.error('Failed to retrieve barcode scanner status', error);
-      });
-
-    return () => {
-      unsubscribeScan?.();
-      unsubscribeStatus?.();
-    };
-  }, [focusBarcodeInput, submitScan]);
-
-  useEffect(() => {
-    if (hasSerialScanner) {
-      return;
-    }
-
     const scannerThresholdMs = 100;
-    const minimumBarcodeDigits = 10;
-    const barcodePattern = new RegExp(`^\\d{${minimumBarcodeDigits},}$`);
-
-    const isLikelyBarcode = (value: string) => barcodePattern.test(value);
 
     const clearPendingEditable = () => {
       pendingFirstCharRef.current = '';
@@ -628,30 +572,6 @@ export function POSPage() {
         window.clearTimeout(pendingEditableTimeoutRef.current);
         pendingEditableTimeoutRef.current = null;
       }
-      pendingBarcodeDigitsRef.current = '';
-    };
-
-    const restoreManualInput = (text: string) => {
-      const snapshot = manualEntrySnapshotRef.current;
-      manualEntrySnapshotRef.current = null;
-      if (!snapshot) {
-        return;
-      }
-      const { element, value, selectionStart, selectionEnd } = snapshot;
-      const start = typeof selectionStart === 'number' ? selectionStart : value.length;
-      const end = typeof selectionEnd === 'number' ? selectionEnd : start;
-      const nextValue = `${value.slice(0, start)}${text}${value.slice(end)}`;
-      element.value = nextValue;
-      if (typeof element.setSelectionRange === 'function') {
-        const caret = start + text.length;
-        element.setSelectionRange(caret, caret);
-      }
-      element.dispatchEvent(new Event('input', { bubbles: true }));
-      window.setTimeout(() => {
-        if (typeof element.focus === 'function') {
-          element.focus();
-        }
-      }, 0);
     };
 
     const clearBuffer = (clearInput = false) => {
@@ -665,8 +585,6 @@ export function POSPage() {
         setBarcode('');
       }
       clearPendingEditable();
-      manualEntrySnapshotRef.current = null;
-      pendingBarcodeDigitsRef.current = '';
     };
 
     const scheduleBufferReset = () => {
@@ -674,10 +592,6 @@ export function POSPage() {
         window.clearTimeout(barcodeTimeoutRef.current);
       }
       barcodeTimeoutRef.current = window.setTimeout(() => {
-        const bufferedValue = barcodeBufferRef.current;
-        if (bufferedValue && !isLikelyBarcode(bufferedValue.trim())) {
-          restoreManualInput(bufferedValue);
-        }
         clearBuffer(true);
       }, scannerThresholdMs);
     };
@@ -689,7 +603,6 @@ export function POSPage() {
       const firstChar = pendingFirstCharRef.current;
       const pendingEditable = pendingEditableRef.current;
       if (pendingEditable) {
-        manualEntrySnapshotRef.current = pendingEditable;
         const { element, value, selectionStart, selectionEnd } = pendingEditable;
         element.value = value;
         if (
@@ -698,8 +611,6 @@ export function POSPage() {
         ) {
           element.setSelectionRange(selectionStart, selectionEnd);
         }
-      } else {
-        manualEntrySnapshotRef.current = null;
       }
       clearPendingEditable();
       return firstChar;
@@ -725,14 +636,6 @@ export function POSPage() {
       const now = performance.now();
       const timeSinceLast =
         lastScannerTimeRef.current > 0 ? now - lastScannerTimeRef.current : Number.POSITIVE_INFINITY;
-      const target = event.target as HTMLElement | null;
-      const targetInput = target instanceof HTMLInputElement;
-      const targetTextarea = target instanceof HTMLTextAreaElement;
-      const targetIsEditableElement = targetInput || targetTextarea || target?.isContentEditable === true;
-      const targetAllowsImmediateCapture =
-        target === barcodeInputRef.current ||
-        !targetIsEditableElement ||
-        ((targetInput || targetTextarea) && (target?.readOnly || target?.disabled));
 
       if (isPrintableKey) {
         const hasPendingFirstChar = pendingFirstCharRef.current !== '';
@@ -749,8 +652,8 @@ export function POSPage() {
         if (!shouldHandle) {
           pendingFirstCharRef.current = event.key;
           pendingFirstCharTimeRef.current = now;
-          pendingBarcodeDigitsRef.current = /\d/.test(event.key) ? event.key : '';
 
+          const target = event.target;
           if (
             target instanceof HTMLInputElement ||
             target instanceof HTMLTextAreaElement
@@ -781,41 +684,17 @@ export function POSPage() {
             pendingFirstCharTimeRef.current = 0;
             pendingEditableRef.current = null;
             pendingEditableTimeoutRef.current = null;
-            pendingBarcodeDigitsRef.current = '';
           }, scannerThresholdMs);
-          return;
-        }
-
-        if (!barcodeBufferRef.current) {
-          const existingDigits = pendingBarcodeDigitsRef.current;
-          const nextDigits = /\d/.test(event.key) ? `${existingDigits}${event.key}` : '';
-          const requiredDigitCount = targetAllowsImmediateCapture ? 3 : 6;
-
-          if (!nextDigits) {
-            pendingBarcodeDigitsRef.current = '';
-            return;
-          }
-
-          if (nextDigits.length < requiredDigitCount) {
-            pendingBarcodeDigitsRef.current = nextDigits;
-            return;
-          }
-
-          event.preventDefault();
-          focusBarcodeInput();
-
-          const firstChar = applyPendingFirstChar();
-          const buffered = firstChar ? `${firstChar}${nextDigits.slice(1)}` : nextDigits;
-          barcodeBufferRef.current = buffered;
-          pendingBarcodeDigitsRef.current = '';
-          setBarcode(buffered);
-          lastScannerTimeRef.current = now;
-          scheduleBufferReset();
           return;
         }
 
         event.preventDefault();
         focusBarcodeInput();
+
+        if (!barcodeBufferRef.current) {
+          const firstChar = applyPendingFirstChar();
+          barcodeBufferRef.current = firstChar;
+        }
 
         const nextValue = `${barcodeBufferRef.current}${event.key}`;
         barcodeBufferRef.current = nextValue;
@@ -852,22 +731,12 @@ export function POSPage() {
       const pendingValue =
         barcodeBufferRef.current || barcodeInputRef.current?.value || '';
       const trimmed = pendingValue.trim();
-
-      if (!trimmed) {
-        clearBuffer(true);
-        return;
-      }
-
-      if (!isLikelyBarcode(trimmed)) {
-        restoreManualInput(pendingValue);
-        clearBuffer(true);
-        return;
-      }
-
       clearBuffer();
 
-      setBarcode(trimmed);
-      submitScan(trimmed);
+      if (trimmed) {
+        setBarcode(trimmed);
+        submitScan(trimmed);
+      }
     };
 
     window.addEventListener('keydown', handleKeydown);
@@ -875,7 +744,7 @@ export function POSPage() {
       window.removeEventListener('keydown', handleKeydown);
       clearBuffer();
     };
-  }, [focusBarcodeInput, submitScan, hasSerialScanner]);
+  }, [focusBarcodeInput, submitScan]);
 
   const handleScanSubmit = (event: React.FormEvent) => {
     event.preventDefault();

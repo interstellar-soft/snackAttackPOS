@@ -12,19 +12,16 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/run-vite-with-rollup-shim.mjs build",
+    "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "postinstall": "node ../scripts/ensure-rollup-native.js && node scripts/postinstall-rebuild.mjs",
     "build:electron": "node scripts/build-electron.mjs",
     "build:electron:watch": "node scripts/build-electron.mjs --watch",
     "electron:serve": "wait-on tcp:5173 file:dist-electron/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "electron:dev": "concurrently -k \"npm:dev\" \"npm:build:electron:watch\" \"npm:electron:serve\"",
-    "electron:package": "npm run build && npm run build:electron && electron-builder",
-    "electron:rebuild": "electron-rebuild --force --runtime=electron --version=38.2.2"
+    "electron:package": "npm run build && npm run build:electron && electron-builder"
   },
   "dependencies": {
-    "@serialport/parser-readline": "^13.0.0",
     "@tanstack/react-query": "^5.35.5",
     "@tanstack/react-query-devtools": "^5.35.5",
     "@types/react": "^18.2.38",
@@ -39,7 +36,6 @@
     "react-i18next": "13.5.0",
     "react-router-dom": "^6.21.1",
     "recharts": "^2.10.3",
-    "serialport": "^13.0.0",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
@@ -47,9 +43,7 @@
     "@types/react-router-dom": "^5.3.3",
     "@typescript-eslint/eslint-plugin": "^6.20.0",
     "@typescript-eslint/parser": "^6.20.0",
-    "@electron/rebuild": "^3.5.0",
     "@vitejs/plugin-react": "^4.7.0",
-    "@rollup/wasm-node": "^4.0.0",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
@@ -77,9 +71,6 @@
       "dist/**/*",
       "dist-electron/**/*",
       "package.json"
-    ],
-    "asarUnpack": [
-      "node_modules/@serialport/**"
     ],
     "mac": {
       "target": [
@@ -111,8 +102,5 @@
         "url": "https://updates.example.com/aurora-pos/"
       }
     ]
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.52.4"
   }
 }

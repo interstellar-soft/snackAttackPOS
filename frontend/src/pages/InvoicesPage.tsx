@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '../components/pos/TopBar';
@@ -61,10 +61,8 @@ export function InvoicesPage() {
   const [paidLbp, setPaidLbp] = useState('');
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [lastFocusedId, setLastFocusedId] = useState<string | null>(null);
-  const [isSerialScannerConnected, setSerialScannerConnected] = useState(false);
 
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const barcodeInputRef = useRef<HTMLInputElement | null>(null);
 
   const transactionsQuery = TransactionsService.useTransactions();
   const transactionQuery = TransactionsService.useTransaction(selectedId ?? undefined);
@@ -131,159 +129,91 @@ export function InvoicesPage() {
     setBanner(null);
   };
 
-  const handleFetchProduct = useCallback(
-    async (code: string): Promise<Product | null> => {
-      const trimmed = code.trim();
-      if (!trimmed) {
-        return null;
-      }
-      const response = await fetch(`${API_BASE_URL}/api/products/scan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ barcode: trimmed })
-      });
-      if (response.status === 404) {
-        return null;
-      }
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || t('invoicesUpdateError'));
-      }
-      return (await response.json()) as Product;
-    },
-    [token, t]
-  );
-
-  const handleAddProduct = useCallback(
-    async (override?: string) => {
-      const source = typeof override === 'string' ? override : barcode;
-      const trimmed = source.trim();
-      if (!trimmed) {
-        return;
-      }
-      try {
-        const product = await handleFetchProduct(trimmed);
-        if (!product) {
-          setBanner({ type: 'error', message: t('invoicesUpdateError') });
-          return;
-        }
-        setItems((previous) => {
-          const increment = Math.max(1, product.scannedQuantity ?? 1);
-          const existingIndex = previous.findIndex((item) => item.productId === product.id);
-          if (existingIndex >= 0) {
-            const next = [...previous];
-            const target = next[existingIndex];
-            const nextQuantity = (Number(target.quantity) || 0) + increment;
-            next[existingIndex] = { ...target, quantity: nextQuantity.toString() };
-            setLastFocusedId(target.id);
-            return next;
-          }
-          const scannedQuantity = Math.max(1, product.scannedQuantity ?? 1);
-          const baseUnitPrice = product.priceUsd ?? 0;
-          const resolvedTotal =
-            typeof product.scannedTotalUsd === 'number'
-              ? product.scannedTotalUsd
-              : typeof product.scannedUnitPriceUsd === 'number'
-                ? product.scannedUnitPriceUsd * scannedQuantity
-                : baseUnitPrice * scannedQuantity;
-          const unitPrice =
-            typeof product.scannedUnitPriceUsd === 'number'
-              ? product.scannedUnitPriceUsd
-              : Math.round((resolvedTotal / scannedQuantity) * 100) / 100;
-          const derivedBarcode =
-            product.scannedMergesWithPrimary === false
-              ? product.scannedBarcode ?? product.barcode ?? trimmed
-              : product.barcode ?? trimmed;
-          const draft: InvoiceDraftItem = {
-            id: product.id ?? createId(),
-            productId: product.id,
-            productName: product.name,
-            barcode: derivedBarcode,
-            priceRuleId: null,
-            priceRuleDescription: null,
-            baseUnitPriceUsd: unitPrice,
-            unitPriceUsd: unitPrice,
-            quantity: increment.toString(),
-            manualDiscount: '',
-            quantityOnHand: product.quantityOnHand ?? 0,
-            isWaste: false
-          };
-          setLastFocusedId(draft.id);
-          return [...previous, draft];
-        });
-        setBarcode('');
-        setBanner(null);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : t('invoicesUpdateError');
-        setBanner({ type: 'error', message });
-      }
-    },
-    [barcode, handleFetchProduct, t]
-  );
-
-  useEffect(() => {
-    if (!isSerialScannerConnected) {
-      return;
+  const handleFetchProduct = async (code: string): Promise<Product | null> => {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      return null;
     }
-    const input = barcodeInputRef.current;
-    if (input) {
-      input.focus();
-      if (typeof input.setSelectionRange === 'function') {
-        const length = input.value.length;
-        input.setSelectionRange(length, length);
-      }
-    }
-  }, [isSerialScannerConnected]);
-
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (!api?.onBarcodeScan) {
-      return;
-    }
-
-    const handleScan = (payload: { code?: string } | undefined) => {
-      const trimmed = payload?.code?.trim();
-      if (!trimmed) {
-        return;
-      }
-      const input = barcodeInputRef.current;
-      if (input) {
-        input.focus();
-        if (typeof input.setSelectionRange === 'function') {
-          const caret = trimmed.length;
-          input.setSelectionRange(caret, caret);
-        }
-      }
-      setBarcode(trimmed);
-      void handleAddProduct(trimmed);
-    };
-
-    const unsubscribeScan = api.onBarcodeScan(handleScan);
-    const unsubscribeStatus = api.onBarcodeScannerStatus?.((status) => {
-      setSerialScannerConnected(status.status === 'connected');
+    const response = await fetch(`${API_BASE_URL}/api/products/scan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ barcode: trimmed })
     });
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || t('invoicesUpdateError'));
+    }
+    return (await response.json()) as Product;
+  };
 
-    api
-      .getBarcodeScannerStatus?.()
-      .then((status) => {
-        if (!status) {
-          setSerialScannerConnected(false);
-          return;
+  const handleAddProduct = async () => {
+    const trimmed = barcode.trim();
+    if (!trimmed) {
+      return;
+    }
+    try {
+      const product = await handleFetchProduct(trimmed);
+      if (!product) {
+        setBanner({ type: 'error', message: t('invoicesUpdateError') });
+        return;
+      }
+      setItems((previous) => {
+        const increment = Math.max(1, product.scannedQuantity ?? 1);
+        const existingIndex = previous.findIndex((item) => item.productId === product.id);
+        if (existingIndex >= 0) {
+          const next = [...previous];
+          const target = next[existingIndex];
+          const nextQuantity = (Number(target.quantity) || 0) + increment;
+          next[existingIndex] = { ...target, quantity: nextQuantity.toString() };
+          setLastFocusedId(target.id);
+          return next;
         }
-        setSerialScannerConnected(status.status === 'connected');
-      })
-      .catch((error) => {
-        console.error('Failed to retrieve barcode scanner status', error);
+        const scannedQuantity = Math.max(1, product.scannedQuantity ?? 1);
+        const baseUnitPrice = product.priceUsd ?? 0;
+        const resolvedTotal =
+          typeof product.scannedTotalUsd === 'number'
+            ? product.scannedTotalUsd
+            : typeof product.scannedUnitPriceUsd === 'number'
+              ? product.scannedUnitPriceUsd * scannedQuantity
+              : baseUnitPrice * scannedQuantity;
+        const unitPrice =
+          typeof product.scannedUnitPriceUsd === 'number'
+            ? product.scannedUnitPriceUsd
+            : Math.round((resolvedTotal / scannedQuantity) * 100) / 100;
+        const derivedBarcode =
+          product.scannedMergesWithPrimary === false
+            ? product.scannedBarcode ?? product.barcode ?? trimmed
+            : product.barcode ?? trimmed;
+        const draft: InvoiceDraftItem = {
+          id: product.id ?? createId(),
+          productId: product.id,
+          productName: product.name,
+          barcode: derivedBarcode,
+          priceRuleId: null,
+          priceRuleDescription: null,
+          baseUnitPriceUsd: unitPrice,
+          unitPriceUsd: unitPrice,
+          quantity: increment.toString(),
+          manualDiscount: '',
+          quantityOnHand: product.quantityOnHand ?? 0,
+          isWaste: false
+        };
+        setLastFocusedId(draft.id);
+        return [...previous, draft];
       });
-
-    return () => {
-      unsubscribeScan?.();
-      unsubscribeStatus?.();
-    };
-  }, [handleAddProduct]);
+      setBarcode('');
+      setBanner(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('invoicesUpdateError');
+      setBanner({ type: 'error', message });
+    }
+  };
 
   const handleLineChange = (id: string, field: 'quantity' | 'manualDiscount', value: string) => {
     setItems((previous) =>
@@ -479,7 +409,6 @@ export function InvoicesPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div className="flex flex-1 gap-2">
                     <Input
-                      ref={barcodeInputRef}
                       value={barcode}
                       onChange={(event) => setBarcode(event.target.value)}
                       onKeyDown={(event) => {
