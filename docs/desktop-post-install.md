@@ -72,11 +72,6 @@ the ML microservice that power the UI described below.
   replaces the files under
   `%LOCALAPPDATA%\Programs\aurora-pos-frontend\resources\app.asar` with a
   fresh copy so the preload script can be loaded normally.
-- **"No native build was found" when launching the app?** The barcode scanner
-  integration depends on native bindings that must be rebuilt for Electron. Run
-  `npm install` (or `npm run electron:rebuild --workspace frontend`) on the
-  developer workstation and reinstall the packaged build. See
-  `docs/troubleshooting/electron-native-modules.md` for the full checklist.
 - **Resetting the demo data:** stop the containers, delete the `postgres-data`
   Docker volume, and re-run the `docker compose` command. The backend migrates
   the database and re-seeds users and inventory on startup.

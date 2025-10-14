@@ -21,11 +21,6 @@ To start all services locally, ensure you have Docker and Docker Compose install
 docker compose --env-file .env -f infra/docker-compose.yml up -d --build
 ```
 
-If your network requires an internal npm mirror, copy `.env.example` to `.env`
-and set the `FRONTEND_NPM_*` variables before building. Compose forwards those
-values to the frontend Docker build so you can point npm at a custom registry or
-extend its retry window without modifying the Dockerfile.
-
 The root `.env` file is passed to Compose so environment configuration can be centralized even though the compose file lives in `infra/`. Every service in the compose file now uses `restart: unless-stopped`, so Docker automatically brings the stack back online on the next boot (unless you manually stop the containers).
 
 ## Desktop Builds
@@ -40,8 +35,6 @@ to bring up the backend stack and sign in.
 
 This monorepo uses npm workspaces. Running `npm install` from the repository root will install the `frontend/` dependencies automatically.
 If you prefer to manage the frontend in isolation you can continue to run `npm install` directly from the `frontend/` directory.
-Windows developers who run into `ECONNRESET` or `EPERM` errors during installation can follow the steps in
-[`docs/troubleshooting/npm-install.md`](docs/troubleshooting/npm-install.md).
 
 ## Building the frontend bundle
 
