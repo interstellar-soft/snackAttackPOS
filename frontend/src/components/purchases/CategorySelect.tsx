@@ -11,6 +11,7 @@ interface CategorySelectProps {
   disabled?: boolean;
   name?: string;
   required?: boolean;
+  id?: string;
 }
 
 interface CategoryOption {
@@ -26,7 +27,8 @@ export function CategorySelect({
   placeholder,
   disabled,
   name,
-  required
+  required,
+  id
 }: CategorySelectProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -218,6 +220,7 @@ export function CategorySelect({
   return (
     <div ref={containerRef} className="relative" onBlur={handleContainerBlur}>
       <button
+        id={id}
         ref={buttonRef}
         type="button"
         disabled={disabled}
@@ -254,6 +257,7 @@ export function CategorySelect({
           tabIndex={-1}
           value={value}
           name={name}
+          id={id ? `${id}-hidden` : undefined}
           required={required}
           onChange={() => {}}
         />

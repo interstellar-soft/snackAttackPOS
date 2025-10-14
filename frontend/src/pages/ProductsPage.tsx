@@ -6,6 +6,7 @@ import { TopBar } from '../components/pos/TopBar';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { CategorySelect } from '../components/purchases/CategorySelect';
 import { useSerialScanner } from '../contexts/SerialScannerContext';
 import {
   ProductsService,
@@ -143,6 +144,20 @@ export function ProductsPage() {
   const isFiltering = searchTerm.trim().length > 0;
   const hasProducts = totalProducts > 0;
   const hasFilteredResults = filteredProducts.length > 0;
+  const categoryOptions = useMemo(() => {
+    const categories = new Set<string>();
+    for (const product of productsQuery.data ?? []) {
+      const rawCategory = product.categoryName ?? product.category;
+      if (!rawCategory) {
+        continue;
+      }
+      const normalized = rawCategory.trim();
+      if (normalized) {
+        categories.add(normalized);
+      }
+    }
+    return Array.from(categories).sort((a, b) => a.localeCompare(b));
+  }, [productsQuery.data]);
   const renderTableRows = () => {
     if (!hasProducts) {
       return (
@@ -527,6 +542,7 @@ export function ProductsPage() {
           isSubmitting={createProduct.isPending}
           errorMessage={dialog.error ?? (createProduct.error ? createProduct.error.message : undefined)}
           storeName={storeName}
+          categories={categoryOptions}
         />
       )}
       {dialog?.type === 'edit' && (
@@ -557,6 +573,7 @@ export function ProductsPage() {
           isSubmitting={updateProduct.isPending}
           errorMessage={dialog.error ?? (updateProduct.error ? updateProduct.error.message : undefined)}
           storeName={storeName}
+          categories={categoryOptions}
         />
       )}
       {dialog?.type === 'delete' && (
@@ -581,6 +598,7 @@ interface ProductFormDialogProps {
   isSubmitting: boolean;
   errorMessage?: string;
   storeName?: string;
+  categories: string[];
 }
 
 function ProductFormDialog({
@@ -591,7 +609,8 @@ function ProductFormDialog({
   onSubmit,
   isSubmitting,
   errorMessage,
-  storeName
+  storeName,
+  categories
 }: ProductFormDialogProps) {
   const { t } = useTranslation();
   const [formValues, setFormValues] = useState<ProductFormValues>(values);
@@ -619,6 +638,10 @@ function ProductFormDialog({
 
   const handlePinnedChange = (event: ChangeEvent<HTMLInputElement>) => {
     setFormValues((previous) => ({ ...previous, isPinned: event.target.checked }));
+  };
+
+  const handleCategoryChange = (nextValue: string) => {
+    setFormValues((previous) => ({ ...previous, categoryName: nextValue }));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -766,11 +789,13 @@ function ProductFormDialog({
             <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="product-category">
               {t('inventoryCategoryName')}
             </label>
-            <Input
-              id="product-category"
+            <CategorySelect
+              categories={categories}
               value={formValues.categoryName}
-              onChange={handleChange('categoryName')}
+              onChange={handleCategoryChange}
               placeholder={t('inventoryCategoryNamePlaceholder')}
+              id="product-category"
+              name="product-category"
               required
             />
           </div>
