@@ -41,6 +41,9 @@ const InvoicesPage = lazy(async () => ({
 const MyCartPage = lazy(async () => ({
   default: (await import('./pages/MyCartPage')).MyCartPage
 }));
+const AlarmsPage = lazy(async () => ({
+  default: (await import('./pages/AlarmsPage')).AlarmsPage
+}));
 
 interface ProtectedRouteProps {
   children: JSX.Element;
@@ -192,6 +195,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin', 'manager']}>
                   <PurchasesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/alarms"
+              element={
+                <ProtectedRoute roles={['admin', 'manager']}>
+                  <AlarmsPage />
                 </ProtectedRoute>
               }
             />

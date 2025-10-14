@@ -892,6 +892,7 @@ export function PurchasesPage() {
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
+        onNavigateAlarms={canManageInventory ? () => navigate('/alarms') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}

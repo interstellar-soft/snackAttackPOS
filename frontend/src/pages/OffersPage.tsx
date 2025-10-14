@@ -286,6 +286,7 @@ export function OffersPage() {
         onNavigateProfits={canSeeAnalytics ? () => navigate('/profits') : undefined}
         onNavigateInvoices={canSeeAnalytics ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canSeeAnalytics ? () => navigate('/purchases') : undefined}
+        onNavigateAlarms={canSeeAnalytics ? () => navigate('/alarms') : undefined}
         onNavigateSettings={canSeeAnalytics ? () => navigate('/settings') : undefined}
         onNavigateProducts={canSeeAnalytics ? () => navigate('/products') : undefined}
         onNavigateInventory={canSeeAnalytics ? () => navigate('/inventory') : undefined}

@@ -50,17 +50,8 @@ const createMainWindow = () => {
       contextIsolation: true,
       nodeIntegration: false,
       preload: preloadPath,
-      zoomFactor: 0.7,
       enableBlinkFeatures: 'Serial'
     }
-  });
-
-  mainWindow.webContents
-    .setVisualZoomLevelLimits(0.5, 3)
-    .catch((error) => log.error('Failed to configure zoom limits', error));
-
-  mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow?.webContents.setZoomFactor(0.7);
   });
 
   mainWindow.on('ready-to-show', () => {

@@ -204,6 +204,7 @@ export function AnalyticsPage() {
         onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
+        onNavigateAlarms={canManageInventory ? () => navigate('/alarms') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}

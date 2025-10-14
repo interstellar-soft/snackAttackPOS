@@ -436,6 +436,7 @@ export function ProductsPage() {
         onNavigateProfits={canSeeAnalytics ? () => navigate('/profits') : undefined}
         onNavigateInvoices={canSeeAnalytics ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canSeeAnalytics ? () => navigate('/purchases') : undefined}
+        onNavigateAlarms={canSeeAnalytics ? () => navigate('/alarms') : undefined}
         onNavigateSettings={canSeeAnalytics ? () => navigate('/settings') : undefined}
         onNavigateProducts={canSeeAnalytics ? () => navigate('/products') : undefined}
         onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}

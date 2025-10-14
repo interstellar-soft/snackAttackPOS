@@ -66,6 +66,7 @@ export function SettingsPage() {
         onNavigateProfits={canManageInventory ? () => navigate('/profits') : undefined}
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
+        onNavigateAlarms={canManageInventory ? () => navigate('/alarms') : undefined}
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
