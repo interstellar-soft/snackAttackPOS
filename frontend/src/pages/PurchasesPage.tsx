@@ -22,6 +22,7 @@ import { useStoreProfileStore } from '../stores/storeProfileStore';
 import { formatCurrency } from '../lib/utils';
 import { CategorySelect } from '../components/purchases/CategorySelect';
 import { CategoriesService } from '../lib/CategoriesService';
+import { useSerialBarcodeScanner } from '../hooks/useSerialBarcodeScanner';
 
 interface DraftItem {
   id: string;
@@ -87,6 +88,7 @@ export function PurchasesPage() {
   const storeName = useStoreProfileStore((state) => state.name);
 
   const [barcode, setBarcode] = useState('');
+  const [serialStatusMessage, setSerialStatusMessage] = useState<string | null>(null);
   const [supplierName, setSupplierName] = useState('');
   const [reference, setReference] = useState('');
   const [exchangeRate, setExchangeRate] = useState('90000');
@@ -587,7 +589,48 @@ export function PurchasesPage() {
     [addBarcode]
   );
 
+  const handleSerialScan = useCallback(
+    (code: string) => {
+      const trimmed = code.trim();
+      if (!trimmed) {
+        return;
+      }
+      focusBarcodeInput();
+      setBarcode(trimmed);
+      submitScannedBarcode(trimmed);
+    },
+    [focusBarcodeInput, submitScannedBarcode]
+  );
+
+  const {
+    isSupported: isSerialSupported,
+    isConnecting: isSerialConnecting,
+    isConnected: isSerialConnected,
+    error: serialError,
+    requestPort: requestSerialPort,
+    disconnect: disconnectSerial
+  } = useSerialBarcodeScanner({
+    onScan: handleSerialScan,
+    onConnect: () => {
+      setSerialStatusMessage(null);
+      focusBarcodeInput();
+    },
+    onDisconnect: () => {
+      setSerialStatusMessage(null);
+    }
+  });
+
   useEffect(() => {
+    setSerialStatusMessage(serialError ?? null);
+  }, [serialError]);
+
+  useEffect(() => {
+    if (isSerialConnected) {
+      barcodeBufferRef.current = '';
+      lastScannerTimeRef.current = 0;
+      return;
+    }
+
     const scannerThresholdMs = 100;
 
     const clearPendingEditable = () => {
@@ -762,7 +805,7 @@ export function PurchasesPage() {
       window.removeEventListener('keydown', handleKeydown);
       clearBuffer();
     };
-  }, [focusBarcodeInput, submitScannedBarcode]);
+  }, [focusBarcodeInput, submitScannedBarcode, isSerialConnected]);
 
   const totals = useMemo(() => {
     const rate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1;
@@ -900,7 +943,7 @@ export function PurchasesPage() {
                 <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{t('purchasesNew')}</h2>
                 <p className="text-sm text-slate-500">{t('purchasesNewSubtitle', { storeName })}</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Input
                   id="purchases-barcode-input"
                   ref={barcodeInputRef}
@@ -918,6 +961,41 @@ export function PurchasesPage() {
                 <Button type="button" className="bg-emerald-500 hover:bg-emerald-400" onClick={() => void handleBarcodeAdd()}>
                   {t('purchasesScanAdd')}
                 </Button>
+                {isSerialSupported && (
+                  <Button
+                    type="button"
+                    className={
+                      isSerialConnected
+                        ? 'bg-red-500 hover:bg-red-400 focus:ring-red-500'
+                        : 'bg-slate-200 text-slate-900 hover:bg-slate-300 focus:ring-slate-400 dark:bg-slate-700 dark:text-slate-100'
+                    }
+                    onClick={() =>
+                      isSerialConnected ? void disconnectSerial() : void requestSerialPort()
+                    }
+                    disabled={isSerialConnecting}
+                  >
+                    {isSerialConnecting
+                      ? t('scannerConnecting')
+                      : isSerialConnected
+                        ? t('disconnectScanner')
+                        : t('connectScanner')}
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-1 text-xs">
+                {!isSerialSupported && (
+                  <p className="text-slate-500 dark:text-slate-400">{t('scannerNotSupported')}</p>
+                )}
+                {isSerialSupported && serialStatusMessage && (
+                  <p className="text-red-600 dark:text-red-400">
+                    {t('scannerError', { message: serialStatusMessage })}
+                  </p>
+                )}
+                {isSerialSupported && !serialStatusMessage && (
+                  <p className="text-slate-500 dark:text-slate-400">
+                    {isSerialConnected ? t('scannerConnectedStatus') : t('scannerDisconnectedStatus')}
+                  </p>
+                )}
               </div>
             </div>
             <div className="space-y-2">

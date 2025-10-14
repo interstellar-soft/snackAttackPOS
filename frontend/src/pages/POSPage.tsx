@@ -18,6 +18,7 @@ import { Input } from '../components/ui/input';
 import { useCartStore } from '../stores/cartStore';
 import { Button } from '../components/ui/button';
 import { useLanguageDirection } from '../hooks/useLanguageDirection';
+import { useSerialBarcodeScanner } from '../hooks/useSerialBarcodeScanner';
 import { TenderPanel } from '../components/pos/TenderPanel';
 import { CurrencyRateModal } from '../components/pos/CurrencyRateModal';
 import { OverrideModal } from '../components/pos/OverrideModal';
@@ -100,6 +101,7 @@ export function POSPage() {
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const [saveToMyCart, setSaveToMyCart] = useState(false);
   const [isRefund, setIsRefund] = useState(false);
+  const [serialStatusMessage, setSerialStatusMessage] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
   const barcodeTimeoutRef = useRef<number | null>(null);
@@ -561,7 +563,48 @@ export function POSPage() {
     [mutateScan]
   );
 
+  const handleSerialScan = useCallback(
+    (code: string) => {
+      const trimmed = code.trim();
+      if (!trimmed) {
+        return;
+      }
+      focusBarcodeInput();
+      setBarcode(trimmed);
+      submitScan(trimmed);
+    },
+    [focusBarcodeInput, submitScan]
+  );
+
+  const {
+    isSupported: isSerialSupported,
+    isConnecting: isSerialConnecting,
+    isConnected: isSerialConnected,
+    error: serialError,
+    requestPort: requestSerialPort,
+    disconnect: disconnectSerial
+  } = useSerialBarcodeScanner({
+    onScan: handleSerialScan,
+    onConnect: () => {
+      setSerialStatusMessage(null);
+      focusBarcodeInput();
+    },
+    onDisconnect: () => {
+      setSerialStatusMessage(null);
+    }
+  });
+
   useEffect(() => {
+    setSerialStatusMessage(serialError ?? null);
+  }, [serialError]);
+
+  useEffect(() => {
+    if (isSerialConnected) {
+      barcodeBufferRef.current = '';
+      lastScannerTimeRef.current = 0;
+      return;
+    }
+
     const scannerThresholdMs = 100;
 
     const clearPendingEditable = () => {
@@ -744,7 +787,7 @@ export function POSPage() {
       window.removeEventListener('keydown', handleKeydown);
       clearBuffer();
     };
-  }, [focusBarcodeInput, submitScan]);
+  }, [focusBarcodeInput, submitScan, isSerialConnected]);
 
   const handleScanSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -956,7 +999,7 @@ export function POSPage() {
       <div className="row-start-2 h-full min-h-0">
         <div className="grid h-full min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.55fr)] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.65fr)]">
           <div className="flex h-full min-h-0 flex-col gap-3 lg:pr-2">
-            <form onSubmit={handleScanSubmit} className="flex items-center gap-2.5">
+            <form onSubmit={handleScanSubmit} className="flex flex-wrap items-center gap-2.5">
               <Input
                 id="barcode-input"
                 ref={barcodeInputRef}
@@ -968,7 +1011,42 @@ export function POSPage() {
               <Button type="submit" size="sm">
                 Scan
               </Button>
+              {isSerialSupported && (
+                <Button
+                  type="button"
+                  className={
+                    isSerialConnected
+                      ? 'bg-red-500 hover:bg-red-400 focus:ring-red-500'
+                      : 'bg-slate-200 text-slate-900 hover:bg-slate-300 focus:ring-slate-400 dark:bg-slate-700 dark:text-slate-100'
+                  }
+                  onClick={() =>
+                    isSerialConnected ? void disconnectSerial() : void requestSerialPort()
+                  }
+                  disabled={isSerialConnecting}
+                >
+                  {isSerialConnecting
+                    ? t('scannerConnecting')
+                    : isSerialConnected
+                      ? t('disconnectScanner')
+                      : t('connectScanner')}
+                </Button>
+              )}
             </form>
+            <div className="space-y-1 text-xs">
+              {!isSerialSupported && (
+                <p className="text-slate-500 dark:text-slate-400">{t('scannerNotSupported')}</p>
+              )}
+              {isSerialSupported && serialStatusMessage && (
+                <p className="text-red-600 dark:text-red-400">
+                  {t('scannerError', { message: serialStatusMessage })}
+                </p>
+              )}
+              {isSerialSupported && !serialStatusMessage && (
+                <p className="text-slate-500 dark:text-slate-400">
+                  {isSerialConnected ? t('scannerConnectedStatus') : t('scannerDisconnectedStatus')}
+                </p>
+              )}
+            </div>
             <div className="flex-1 min-h-0 overflow-hidden">
               <ProductGrid
                 onScan={(product) => {
