@@ -66,10 +66,6 @@ export function CartPanel({
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [draftValues, setDraftValues] = useState<Record<string, DraftLineValues>>({});
-  const highlightedDraftQuantity = highlightedItemId
-    ? draftValues[highlightedItemId]?.quantity
-    : undefined;
-
   useEffect(() => {
     const nextDrafts = items.reduce<Record<string, DraftLineValues>>((acc, item) => {
       acc[item.lineId] = {
@@ -93,7 +89,7 @@ export function CartPanel({
         select();
       }
     }
-  }, [highlightedItemId, highlightedDraftQuantity]);
+  }, [highlightedItemId]);
 
   const commitQuantity = (lineId: string, rawValue: string) => {
     const item = items.find((cartItem) => cartItem.lineId === lineId);
