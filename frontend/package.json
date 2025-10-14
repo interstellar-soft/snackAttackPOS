@@ -12,7 +12,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "cross-env ROLLUP_SKIP_NODEJS_NATIVE=1 vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "postinstall": "node ../scripts/ensure-rollup-native.js && node scripts/postinstall-rebuild.mjs",
