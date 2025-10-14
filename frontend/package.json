@@ -12,7 +12,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "cross-env ROLLUP_SKIP_NODEJS_NATIVE=1 vite build",
+    "build": "node scripts/run-vite-with-rollup-shim.mjs build",
     "preview": "vite preview",
     "lint": "eslint .",
     "postinstall": "node ../scripts/ensure-rollup-native.js && node scripts/postinstall-rebuild.mjs",
@@ -49,6 +49,7 @@
     "@typescript-eslint/parser": "^6.20.0",
     "@electron/rebuild": "^3.5.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "@rollup/wasm-node": "^4.0.0",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
