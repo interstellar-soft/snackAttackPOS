@@ -1050,7 +1050,6 @@ export function PurchasesPage() {
                 <thead className="bg-slate-50 dark:bg-slate-800/50">
                   <tr className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     <th className="px-4 py-3">{t('product')}</th>
-                    <th className="px-4 py-3">{t('inventorySku')}</th>
                     <th className="px-4 py-3">{t('inventoryCategoryName')}</th>
                     <th className="px-4 py-3">{t('quantity')}</th>
                     <th className="px-4 py-3">{t('purchasesUnitCost')}</th>
@@ -1063,7 +1062,7 @@ export function PurchasesPage() {
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {items.length === 0 && (
                     <tr>
-                      <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={9}>
+                      <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={8}>
                         {t('purchasesEmpty')}
                       </td>
                     </tr>
@@ -1078,18 +1077,13 @@ export function PurchasesPage() {
                       <tr key={item.id} className={rowClasses}>
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                              <Input
-                                value={item.name}
-                                onChange={(event) => handleItemChange(item.id, 'name', event.target.value)}
-                                placeholder={t('inventoryNamePlaceholder', { storeName })}
-                                disabled={item.isExisting}
-                                required={!item.isExisting}
-                              />
-                              <Badge className={item.isExisting ? 'bg-emerald-500' : 'bg-blue-500'}>
-                                {item.isExisting ? t('purchasesExistingBadge') : t('purchasesNewBadge')}
-                              </Badge>
-                            </div>
+                            <Input
+                              value={item.name}
+                              onChange={(event) => handleItemChange(item.id, 'name', event.target.value)}
+                              placeholder={t('inventoryNamePlaceholder', { storeName })}
+                              disabled={item.isExisting}
+                              required={!item.isExisting}
+                            />
                             <span className="text-xs text-slate-500">
                               {t('inventoryBarcode')}: {item.barcode}
                             </span>
@@ -1097,14 +1091,6 @@ export function PurchasesPage() {
                               {t('purchasesOnHand', { count: item.quantityOnHand.toLocaleString() })}
                             </span>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Input
-                            value={item.isExisting && !item.sku.trim() ? '—' : item.sku}
-                            onChange={(event) => handleItemChange(item.id, 'sku', event.target.value)}
-                            placeholder={t('inventorySkuPlaceholder')}
-                            disabled={item.isExisting}
-                          />
                         </td>
                         <td className="px-4 py-3">
                           <CategorySelect
