@@ -16,11 +16,28 @@ type SerialPortRequestOptions = {
   filters?: SerialPortFilter[];
 };
 
+interface SerialPortInfo {
+  usbVendorId?: number;
+  usbProductId?: number;
+  bluetoothServiceClassId?: number;
+  bluetoothVendorId?: number;
+  bluetoothProductId?: number;
+  bluetoothVendorIdSource?: number;
+  serialNumber?: string;
+  manufacturer?: string;
+  productName?: string;
+  portId?: string;
+  path?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
 declare interface SerialPort {
   readonly readable: ReadableStream<Uint8Array> | null;
   readonly writable: WritableStream<Uint8Array> | null;
   open(options: SerialPortOpenOptions): Promise<void>;
   close(): Promise<void>;
+  getInfo?(): SerialPortInfo | undefined;
 }
 
 declare interface Serial {
