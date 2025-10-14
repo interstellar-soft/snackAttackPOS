@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SVGProps } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -66,6 +66,43 @@ export function CartPanel({
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [draftValues, setDraftValues] = useState<Record<string, DraftLineValues>>({});
+
+  const focusAndSelectQuantityInput = useCallback((input: HTMLInputElement) => {
+    const focusInput = () => {
+      if (typeof input.focus === 'function') {
+        input.focus({ preventScroll: true });
+      }
+    };
+
+    const selectInput = () => {
+      try {
+        if (typeof input.select === 'function') {
+          input.select();
+        } else if (typeof input.setSelectionRange === 'function') {
+          input.setSelectionRange(0, input.value.length);
+        }
+      } catch {
+        // Some browsers throw when selecting number inputs; ignore and retry.
+      }
+    };
+
+    const run = () => {
+      focusInput();
+      selectInput();
+    };
+
+    run();
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(run);
+      requestAnimationFrame(run);
+    }
+
+    const retryDelays = [0, 24, 64, 120, 240];
+    for (const delay of retryDelays) {
+      window.setTimeout(run, delay);
+    }
+  }, []);
   useEffect(() => {
     const nextDrafts = items.reduce<Record<string, DraftLineValues>>((acc, item) => {
       acc[item.lineId] = {
@@ -77,19 +114,17 @@ export function CartPanel({
     setDraftValues(nextDrafts);
   }, [items]);
 
+  const highlightedQuantity = highlightedItemId
+    ? draftValues[highlightedItemId]?.quantity
+    : undefined;
+
   useEffect(() => {
     if (!highlightedItemId) return;
     const input = quantityInputRefs.current[highlightedItemId];
     if (input) {
-      input.focus();
-      const select = () => input.select();
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(select);
-      } else {
-        select();
-      }
+      focusAndSelectQuantityInput(input);
     }
-  }, [highlightedItemId]);
+  }, [focusAndSelectQuantityInput, highlightedItemId, highlightedQuantity]);
 
   const commitQuantity = (lineId: string, rawValue: string) => {
     const item = items.find((cartItem) => cartItem.lineId === lineId);
@@ -315,11 +350,18 @@ export function CartPanel({
                 <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                   <label className="space-y-1">
                     <span>{t('quantity')}</span>
+                    {/**
+                     * Use a text input when highlighted to allow selecting the full value reliably.
+                     */}
                     <Input
-                      type="number"
+                      type={isHighlighted ? 'text' : 'number'}
                       min={1}
                       ref={(element) => {
-                        quantityInputRefs.current[item.lineId] = element;
+                        if (element) {
+                          quantityInputRefs.current[item.lineId] = element;
+                        } else {
+                          delete quantityInputRefs.current[item.lineId];
+                        }
                       }}
                       value={draftValues[item.lineId]?.quantity ?? ''}
                       onChange={(event) => {
