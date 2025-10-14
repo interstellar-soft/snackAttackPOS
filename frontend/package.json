@@ -110,5 +110,8 @@
         "url": "https://updates.example.com/aurora-pos/"
       }
     ]
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.52.4"
   }
 }
