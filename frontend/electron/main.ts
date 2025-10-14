@@ -123,9 +123,11 @@ app.whenReady().then(async () => {
   if (defaultSession) {
     type PermissionRequestHandler = Exclude<Parameters<typeof defaultSession.setPermissionRequestHandler>[0], null>;
     type PermissionArgument = Parameters<PermissionRequestHandler>[1];
+    type PermissionCheckHandler = Exclude<Parameters<typeof defaultSession.setPermissionCheckHandler>[0], null>;
+    type PermissionCheckArgument = Parameters<PermissionCheckHandler>[1];
 
-    const isSerialPermission = (permission: PermissionArgument) => {
-      return (permission as unknown as string) === 'serial';
+    const isSerialPermission = (permission: PermissionArgument | PermissionCheckArgument) => {
+      return permission === 'serial';
     };
 
     defaultSession.setPermissionCheckHandler((_, permission) => {
