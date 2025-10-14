@@ -991,7 +991,7 @@ export function PurchasesPage() {
                               onClick={() => handleSelectSearchProduct(product)}
                               className="flex w-full flex-col gap-1 px-3 py-2 text-left text-sm hover:bg-emerald-50 focus:bg-emerald-100 focus:outline-none dark:hover:bg-emerald-500/10 dark:focus:bg-emerald-500/20"
                             >
-                              <span className="font-medium text-slate-900 dark:text-slate-100">{product.name}</span>
+                              <span className="text-[0.8rem] font-medium text-slate-900 dark:text-slate-100">{product.name}</span>
                               <span className="text-xs text-slate-500 dark:text-slate-400">
                                 {product.categoryName ?? product.category}
                               </span>
@@ -1078,6 +1078,7 @@ export function PurchasesPage() {
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-2">
                             <Input
+                              className="text-[0.8rem]"
                               value={item.name}
                               onChange={(event) => handleItemChange(item.id, 'name', event.target.value)}
                               placeholder={t('inventoryNamePlaceholder', { storeName })}
