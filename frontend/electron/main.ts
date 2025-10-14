@@ -128,6 +128,13 @@ app.whenReady().then(async () => {
       return (permission as unknown as string) === 'serial';
     };
 
+    defaultSession.setPermissionCheckHandler((_, permission) => {
+      if (isSerialPermission(permission)) {
+        return true;
+      }
+      return false;
+    });
+
     defaultSession.setPermissionRequestHandler((_, permission, callback) => {
       if (isSerialPermission(permission)) {
         callback(true);
