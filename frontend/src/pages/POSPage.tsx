@@ -19,6 +19,7 @@ import { useCartStore } from '../stores/cartStore';
 import { Button } from '../components/ui/button';
 import { useLanguageDirection } from '../hooks/useLanguageDirection';
 import { useSerialBarcodeScanner } from '../hooks/useSerialBarcodeScanner';
+import { SERIAL_PORT_HINT } from '../lib/serialConfig';
 import { TenderPanel } from '../components/pos/TenderPanel';
 import { CurrencyRateModal } from '../components/pos/CurrencyRateModal';
 import { OverrideModal } from '../components/pos/OverrideModal';
@@ -431,23 +432,18 @@ export function POSPage() {
     [focusBarcodeInput, submitScan]
   );
 
-  const {
-    isSupported: isSerialSupported,
-    isConnecting: isSerialConnecting,
-    isConnected: isSerialConnected,
-    error: serialError,
-    requestPort: requestSerialPort,
-    disconnect: disconnectSerial
-  } = useSerialBarcodeScanner({
-    onScan: handleSerialScan,
-    onConnect: () => {
-      setSerialStatusMessage(null);
-      focusBarcodeInput();
-    },
-    onDisconnect: () => {
-      setSerialStatusMessage(null);
-    }
-  });
+  const { isSupported: isSerialSupported, isConnecting: isSerialConnecting, isConnected: isSerialConnected, error: serialError } =
+    useSerialBarcodeScanner({
+      onScan: handleSerialScan,
+      onConnect: () => {
+        setSerialStatusMessage(null);
+        focusBarcodeInput();
+      },
+      onDisconnect: () => {
+        setSerialStatusMessage(null);
+      },
+      preferredPortHint: SERIAL_PORT_HINT
+    });
 
   useEffect(() => {
     setSerialStatusMessage(serialError ?? null);
@@ -835,26 +831,6 @@ export function POSPage() {
               <Button type="submit" size="sm">
                 Scan
               </Button>
-              {isSerialSupported && (
-                <Button
-                  type="button"
-                  className={
-                    isSerialConnected
-                      ? 'bg-red-500 hover:bg-red-400 focus:ring-red-500'
-                      : 'bg-slate-200 text-slate-900 hover:bg-slate-300 focus:ring-slate-400 dark:bg-slate-700 dark:text-slate-100'
-                  }
-                  onClick={() =>
-                    isSerialConnected ? void disconnectSerial() : void requestSerialPort()
-                  }
-                  disabled={isSerialConnecting}
-                >
-                  {isSerialConnecting
-                    ? t('scannerConnecting')
-                    : isSerialConnected
-                      ? t('disconnectScanner')
-                      : t('connectScanner')}
-                </Button>
-              )}
             </form>
             <div className="space-y-1 text-xs">
               {!isSerialSupported && (
@@ -867,7 +843,11 @@ export function POSPage() {
               )}
               {isSerialSupported && !serialStatusMessage && (
                 <p className="text-slate-500 dark:text-slate-400">
-                  {isSerialConnected ? t('scannerConnectedStatus') : t('scannerDisconnectedStatus')}
+                  {isSerialConnected
+                    ? t('scannerConnectedStatus')
+                    : isSerialConnecting
+                      ? t('scannerConnecting')
+                      : t('scannerDisconnectedStatus')}
                 </p>
               )}
             </div>

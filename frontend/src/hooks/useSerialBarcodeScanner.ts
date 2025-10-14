@@ -4,6 +4,7 @@ type UseSerialBarcodeScannerOptions = {
   onScan: (barcode: string) => void;
   baudRate?: number;
   autoConnect?: boolean;
+  preferredPortHint?: string | null;
   onConnect?: () => void;
   onDisconnect?: () => void;
 };
@@ -28,6 +29,7 @@ export function useSerialBarcodeScanner({
   onScan,
   baudRate = 9600,
   autoConnect = true,
+  preferredPortHint = null,
   onConnect,
   onDisconnect
 }: UseSerialBarcodeScannerOptions): UseSerialBarcodeScannerResult {
@@ -42,6 +44,16 @@ export function useSerialBarcodeScanner({
   const onScanRef = useRef(onScan);
   const onConnectRef = useRef(onConnect);
   const onDisconnectRef = useRef(onDisconnect);
+  const preferredPortHintRef = useRef<string | null>(
+    typeof preferredPortHint === 'string' && preferredPortHint.trim() !== ''
+      ? preferredPortHint.trim().toLowerCase()
+      : null
+  );
+  const preferredPortLabelRef = useRef<string | null>(
+    typeof preferredPortHint === 'string' && preferredPortHint.trim() !== ''
+      ? preferredPortHint.trim()
+      : null
+  );
 
   useEffect(() => {
     onScanRef.current = onScan;
@@ -54,6 +66,17 @@ export function useSerialBarcodeScanner({
   useEffect(() => {
     onDisconnectRef.current = onDisconnect;
   }, [onDisconnect]);
+
+  useEffect(() => {
+    preferredPortHintRef.current =
+      typeof preferredPortHint === 'string' && preferredPortHint.trim() !== ''
+        ? preferredPortHint.trim().toLowerCase()
+        : null;
+    preferredPortLabelRef.current =
+      typeof preferredPortHint === 'string' && preferredPortHint.trim() !== ''
+        ? preferredPortHint.trim()
+        : null;
+  }, [preferredPortHint]);
 
   const isSupported = typeof navigator !== 'undefined' && 'serial' in navigator;
 
@@ -190,6 +213,65 @@ export function useSerialBarcodeScanner({
     [baudRate, startReading]
   );
 
+  const matchesPreferredPort = useCallback(
+    (port: SerialPort) => {
+      const hint = preferredPortHintRef.current;
+      if (!hint) {
+        return false;
+      }
+
+      const lowerHint = hint.toLowerCase();
+      const portWithMetadata = port as SerialPort & {
+        getInfo?: () => Record<string, unknown> | undefined;
+        [key: string]: unknown;
+      };
+
+      const candidateValues: string[] = [];
+
+      if (typeof portWithMetadata.getInfo === 'function') {
+        try {
+          const info = portWithMetadata.getInfo() ?? {};
+          for (const value of Object.values(info)) {
+            if (typeof value === 'string' || typeof value === 'number') {
+              candidateValues.push(String(value));
+            } else if (Array.isArray(value)) {
+              for (const item of value) {
+                if (typeof item === 'string' || typeof item === 'number') {
+                  candidateValues.push(String(item));
+                }
+              }
+            }
+          }
+        } catch (infoError) {
+          console.error('Failed to read serial port info', infoError);
+        }
+      }
+
+      const metadataKeys = [
+        'port',
+        'path',
+        'portId',
+        'usbProductName',
+        'productName',
+        'manufacturer',
+        'serialNumber',
+        'name',
+        'friendlyName',
+        'displayName'
+      ];
+
+      for (const key of metadataKeys) {
+        const value = portWithMetadata[key];
+        if (typeof value === 'string' || typeof value === 'number') {
+          candidateValues.push(String(value));
+        }
+      }
+
+      return candidateValues.some((value) => value.toLowerCase().includes(lowerHint));
+    },
+    []
+  );
+
   const requestPort = useCallback(async () => {
     if (!isSupported || !navigator.serial) {
       setError('Web Serial API is not available in this browser.');
@@ -232,14 +314,21 @@ export function useSerialBarcodeScanner({
         if (cancelled || isConnectedRef.current) {
           return;
         }
-        const [port] = ports;
-        if (port) {
-          try {
-            await connectToPort(port);
-          } catch (connectError) {
-            const message = getErrorMessage(connectError);
-            setError(message);
+        const hint = preferredPortHintRef.current;
+        const port = hint ? ports.find((candidate) => matchesPreferredPort(candidate)) ?? null : ports[0];
+
+        if (!port) {
+          if (hint) {
+            setError(`Preferred serial port "${preferredPortLabelRef.current ?? hint}" not found.`);
           }
+          return;
+        }
+
+        try {
+          await connectToPort(port);
+        } catch (connectError) {
+          const message = getErrorMessage(connectError);
+          setError(message);
         }
       })
       .catch((enumerationError) => {
@@ -255,7 +344,41 @@ export function useSerialBarcodeScanner({
     return () => {
       cancelled = true;
     };
-  }, [autoConnect, connectToPort, isSupported]);
+  }, [autoConnect, connectToPort, isSupported, matchesPreferredPort]);
+
+  useEffect(() => {
+    if (!isSupported || !navigator.serial) {
+      return;
+    }
+
+    const handleConnect = (event: SerialConnectionEvent) => {
+      if (isConnectedRef.current) {
+        return;
+      }
+
+      const hint = preferredPortHintRef.current;
+      if (hint && !matchesPreferredPort(event.port)) {
+        return;
+      }
+
+      setIsConnecting(true);
+      void (async () => {
+        try {
+          await connectToPort(event.port);
+        } catch (connectError) {
+          const message = getErrorMessage(connectError);
+          setError(message);
+        } finally {
+          setIsConnecting(false);
+        }
+      })();
+    };
+
+    navigator.serial.addEventListener('connect', handleConnect);
+    return () => {
+      navigator.serial?.removeEventListener('connect', handleConnect);
+    };
+  }, [connectToPort, isSupported, matchesPreferredPort]);
 
   useEffect(() => {
     if (!isSupported || !navigator.serial) {
