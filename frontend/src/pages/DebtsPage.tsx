@@ -36,6 +36,7 @@ export function DebtsPage() {
   const [settleUsd, setSettleUsd] = useState('');
   const [settleLbp, setSettleLbp] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [markingCardId, setMarkingCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!feedback) {
@@ -106,6 +107,42 @@ export function DebtsPage() {
   const handleSelectTransaction = (transaction: DebtCardTransaction) => {
     setSelectedTransactionId(transaction.id);
     setFeedback(null);
+  };
+
+  const handleMarkCardPaid = async (card: DebtCard) => {
+    if (settleDebt.isPending) {
+      return;
+    }
+
+    const outstandingTransactions = card.transactions.filter(
+      (transaction) => transaction.balanceUsd > 0 || transaction.balanceLbp > 0
+    );
+
+    if (outstandingTransactions.length === 0) {
+      setFeedback({
+        type: 'success',
+        message: t('debtsMarkCardSuccess', { name: card.name || t('debtsUnknownClient') })
+      });
+      return;
+    }
+
+    setMarkingCardId(card.id);
+    setFeedback(null);
+
+    try {
+      for (const transaction of outstandingTransactions) {
+        await settleDebt.mutateAsync({ id: transaction.id, paidUsd: 0, paidLbp: 0 });
+      }
+      setFeedback({
+        type: 'success',
+        message: t('debtsMarkCardSuccess', { name: card.name || t('debtsUnknownClient') })
+      });
+    } catch (error) {
+      console.error(error);
+      setFeedback({ type: 'error', message: t('debtsMarkCardError') });
+    } finally {
+      setMarkingCardId(null);
+    }
   };
 
   const parseAmount = (value: string) => {
@@ -198,6 +235,8 @@ export function DebtsPage() {
                       const paidText = `${formatCurrency(debt.paidUsd, 'USD', locale)} • ${formatCurrency(debt.paidLbp, 'LBP', locale)}`;
                       const balanceText = formatBalanceText(debt.balanceUsd, debt.balanceLbp, locale);
                       const lastSaleAt = new Date(debt.lastTransactionAt).toLocaleString(locale);
+                      const hasOutstandingBalance = debt.balanceUsd > 0 || debt.balanceLbp > 0;
+                      const isMarkingCard = markingCardId === debt.id && settleDebt.isPending;
                       return (
                         <tr
                           key={debt.id}
@@ -209,10 +248,24 @@ export function DebtsPage() {
                           <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-200">{paidText}</td>
                           <td className="px-3 py-2 text-right text-red-600 dark:text-red-400">{balanceText}</td>
                           <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{lastSaleAt}</td>
-                          <td className="px-3 py-2 text-right">
-                            <Button type="button" variant={selectedCardId === debt.id ? 'default' : 'secondary'} onClick={() => handleSelectCard(debt)}>
-                              {t('debtsViewDetails')}
-                            </Button>
+                          <td className="px-3 py-2">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant={selectedCardId === debt.id ? 'default' : 'secondary'}
+                                onClick={() => handleSelectCard(debt)}
+                              >
+                                {t('debtsViewDetails')}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void handleMarkCardPaid(debt)}
+                                disabled={!hasOutstandingBalance || settleDebt.isPending}
+                              >
+                                {isMarkingCard ? t('debtsMarkCardPending') : t('debtsMarkCardPaid')}
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );
