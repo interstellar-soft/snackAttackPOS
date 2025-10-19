@@ -10,8 +10,7 @@ import {
   TransactionsService,
   type PriceCartItemInput,
   type PriceCartResponse,
-  type CheckoutResponse,
-  type TransactionLineLookup
+  type CheckoutResponse
 } from '../lib/TransactionsService';
 import { useAuthStore } from '../stores/authStore';
 import { Input } from '../components/ui/input';
@@ -86,7 +85,6 @@ export function POSPage() {
   const canSaveToMyCart = normalizedRole === 'admin';
   const canEditCartTotals = normalizedRole === 'admin';
   const { mutate: priceCartMutate } = TransactionsService.usePriceCart();
-  const returnTransaction = TransactionsService.useReturnTransaction();
   const [priceQuote, setPriceQuote] = useState<PriceCartResponse | null>(null);
   const [barcode, setBarcode] = useState('');
   const [lastScan, setLastScan] = useState<string | undefined>();
@@ -219,83 +217,6 @@ export function POSPage() {
       );
     },
     onSuccess: async (product) => {
-      let handled = false;
-
-      if (token && product.barcode) {
-        try {
-          const query = new URLSearchParams({ barcode: product.barcode });
-          const candidates = await apiFetch<TransactionLineLookup[]>(
-            `/api/transactions/lookup-by-barcode?${query.toString()}`,
-            {},
-            token
-          );
-
-          const eligibleSales = candidates
-            .filter((candidate) => candidate.transactionType === 'Sale' && candidate.quantity > 0 && !candidate.isWaste)
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-          const latest = eligibleSales.find((candidate) => {
-            const saleDate = candidate.createdAt ? new Date(candidate.createdAt).getTime() : null;
-            if (!saleDate) {
-              return true;
-            }
-
-            return !candidates.some((other) => {
-              if (other.transactionType !== 'Return' || !other.createdAt) {
-                return false;
-              }
-
-              const returnDate = new Date(other.createdAt).getTime();
-              return returnDate >= saleDate;
-            });
-          });
-
-          if (latest) {
-            const saleDate = latest.createdAt ? new Date(latest.createdAt) : null;
-            const formattedDate = saleDate ? saleDate.toLocaleString() : '';
-            const totalUsd = Math.abs(latest.totalUsd);
-            const promptLines = [
-              `${product.name} was last sold in transaction ${latest.transactionNumber}.`,
-              totalUsd > 0 ? `Amount: $${totalUsd.toFixed(2)}.` : undefined,
-              formattedDate ? `Date: ${formattedDate}.` : undefined,
-              '',
-              'Would you like to refund this item instead of selling it?'
-            ].filter(Boolean);
-
-            const shouldRefund = window.confirm(promptLines.join('\n'));
-            if (shouldRefund) {
-              try {
-                await returnTransaction.mutateAsync({
-                  transactionId: latest.transactionId,
-                  lineIds: [latest.lineId]
-                });
-                setLastScan(`${product.name} refunded from transaction ${latest.transactionNumber}.`);
-                setBarcode('');
-                setOverrideRequired(false);
-                setOverrideReason(null);
-                focusBarcodeInput();
-                handled = true;
-              } catch (error) {
-                const message =
-                  error instanceof Error && error.message
-                    ? error.message
-                    : 'Unable to process refund.';
-                window.alert(message);
-                setBarcode('');
-                focusBarcodeInput();
-                handled = true;
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Failed to lookup previous sales for refund', error);
-        }
-      }
-
-      if (handled) {
-        return;
-      }
-
       const scannedQuantity = Math.max(1, product.scannedQuantity ?? 1);
       const baseTotalUsd = product.priceUsd * scannedQuantity;
       const baseTotalLbp = product.priceLbp * scannedQuantity;
