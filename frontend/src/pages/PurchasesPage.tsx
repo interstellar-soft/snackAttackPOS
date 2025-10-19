@@ -109,6 +109,7 @@ export function PurchasesPage() {
   const purchasesQuery = PurchasesService.usePurchases();
   const categoriesQuery = CategoriesService.useCategories();
   const createCategory = CategoriesService.useCreateCategory();
+  const deleteCategory = CategoriesService.useDeleteCategory();
   const createPurchase = PurchasesService.useCreatePurchase();
   const updatePurchase = PurchasesService.useUpdatePurchase();
   const deletePurchase = PurchasesService.useDeletePurchase();
@@ -252,6 +253,29 @@ export function PurchasesPage() {
         error instanceof Error && error.message
           ? error.message
           : t('purchasesCategoriesError');
+      setCategoryBanner({ type: 'error', message });
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string, name: string) => {
+    if (!canManageInventory) {
+      return;
+    }
+    const confirmation = t('purchasesCategoriesDeleteConfirm', { name });
+    const confirmed = window.confirm(confirmation);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setCategoryBanner(null);
+      await deleteCategory.mutateAsync(categoryId);
+      setCategoryBanner({ type: 'success', message: t('purchasesCategoriesDeleteSuccess') });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : t('purchasesCategoriesDeleteError');
       setCategoryBanner({ type: 'error', message });
     }
   };
@@ -1284,9 +1308,19 @@ export function PurchasesPage() {
                   {categoriesQuery.data.map((category) => (
                     <li
                       key={category.id}
-                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                      className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-200"
                     >
-                      {category.name}
+                      <span>{category.name}</span>
+                      <button
+                        type="button"
+                        className="rounded bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600 transition hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:bg-red-500/20 dark:text-red-200 dark:hover:bg-red-500/30 dark:focus:ring-offset-slate-900"
+                        onClick={() => void handleDeleteCategory(category.id, category.name)}
+                        disabled={!canManageInventory || deleteCategory.isPending}
+                      >
+                        {deleteCategory.isPending
+                          ? t('purchasesCategoriesDeletePending')
+                          : t('purchasesCategoriesDeleteButton')}
+                      </button>
                     </li>
                   ))}
                 </ul>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,8 @@ import { useAuthStore } from '../stores/authStore';
 
 type InventoryViewMode = 'categories' | 'items';
 
+const UNCATEGORIZED_KEY = '__uncategorized__';
+
 export function InventoryPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ export function InventoryPage() {
 
   const inventorySummary = useInventorySummary();
   const [viewMode, setViewMode] = useState<InventoryViewMode>('categories');
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
   const currencyLocale = useMemo(
     () => (i18n.language === 'ar' ? 'ar-LB' : 'en-US'),
@@ -34,8 +37,38 @@ export function InventoryPage() {
   );
 
   const summaryData = inventorySummary.data;
-  const categories = summaryData?.categories ?? [];
-  const items = summaryData?.items ?? [];
+  const categories = useMemo(() => summaryData?.categories ?? [], [summaryData]);
+  const items = useMemo(() => summaryData?.items ?? [], [summaryData]);
+
+  const itemsByCategory = useMemo(() => {
+    const map = new Map<string, typeof items>();
+    for (const item of items) {
+      const key = item.categoryId ?? UNCATEGORIZED_KEY;
+      const existing = map.get(key);
+      if (existing) {
+        existing.push(item);
+      } else {
+        map.set(key, [item]);
+      }
+    }
+    return map;
+  }, [items]);
+
+  useEffect(() => {
+    if (viewMode !== 'categories') {
+      setExpandedCategoryId(null);
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'categories' || !expandedCategoryId) {
+      return;
+    }
+    const availableKeys = categories.map((category) => category.categoryId || UNCATEGORIZED_KEY);
+    if (!availableKeys.includes(expandedCategoryId)) {
+      setExpandedCategoryId(null);
+    }
+  }, [categories, expandedCategoryId, viewMode]);
 
   const handleViewChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value === 'items' ? 'items' : 'categories';
@@ -143,39 +176,102 @@ export function InventoryPage() {
             {viewMode === 'categories' ? (
               categories.length > 0 ? (
                 <ul className="space-y-3">
-                  {categories.map((category) => (
-                    <li
-                      key={category.categoryId}
-                      className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-slate-100">
-                            {category.categoryName || t('inventoryCategoryUnknown')}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {t('inventorySummaryQuantityLabel', {
-                              count: numberFormatter.format(category.quantityOnHand ?? 0)
+                  {categories.map((category) => {
+                    const categoryKey = category.categoryId || UNCATEGORIZED_KEY;
+                    const categoryItems = itemsByCategory.get(categoryKey) ?? [];
+                    const isExpanded = expandedCategoryId === categoryKey;
+
+                    return (
+                      <li
+                        key={categoryKey}
+                        className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-slate-100">
+                              {category.categoryName || t('inventoryCategoryUnknown')}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {t('inventorySummaryQuantityLabel', {
+                                count: numberFormatter.format(category.quantityOnHand ?? 0)
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 space-y-1 text-sm">
+                          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                            <span>{t('inventorySummaryTotalUsd')}</span>
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">
+                              {formatCurrency(category.totalCostUsd ?? 0, 'USD', currencyLocale)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                            <span>{t('inventorySummaryTotalLbp')}</span>
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">
+                              {formatCurrency(category.totalCostLbp ?? 0, 'LBP', currencyLocale)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                          <span>
+                            {t('inventorySummaryCategoryProductCount', {
+                              count: numberFormatter.format(categoryItems.length)
                             })}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3 space-y-1 text-sm">
-                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                          <span>{t('inventorySummaryTotalUsd')}</span>
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            {formatCurrency(category.totalCostUsd ?? 0, 'USD', currencyLocale)}
                           </span>
+                          {categoryItems.length > 0 && (
+                            <button
+                              type="button"
+                              className="font-semibold text-emerald-600 transition hover:text-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:text-emerald-300 dark:hover:text-emerald-200 dark:focus:ring-offset-slate-900"
+                              onClick={() =>
+                                setExpandedCategoryId((current) => (current === categoryKey ? null : categoryKey))
+                              }
+                            >
+                              {isExpanded
+                                ? t('inventorySummaryCategoryHideItems')
+                                : t('inventorySummaryCategoryShowItems')}
+                            </button>
+                          )}
                         </div>
-                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                          <span>{t('inventorySummaryTotalLbp')}</span>
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            {formatCurrency(category.totalCostLbp ?? 0, 'LBP', currencyLocale)}
-                          </span>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
+                        {isExpanded && (
+                          <div className="mt-3 space-y-2">
+                            {categoryItems.map((item) => (
+                              <div
+                                key={item.productId}
+                                className="rounded-md border border-slate-200 bg-white p-3 text-xs dark:border-slate-700 dark:bg-slate-900/40"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="font-medium text-slate-900 dark:text-slate-100">{item.productName}</span>
+                                  {item.needsReorder && (
+                                    <Badge className="bg-red-600 text-white hover:bg-red-500 dark:bg-red-500 dark:text-white">
+                                      {t('inventoryReorderAlarmBadge')}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="mt-2 grid gap-1 text-slate-500 dark:text-slate-400">
+                                  <div className="flex items-center justify-between">
+                                    <span>
+                                      {t('inventorySummaryQuantityLabel', {
+                                        count: numberFormatter.format(item.quantityOnHand ?? 0)
+                                      })}
+                                    </span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                      {formatCurrency(item.totalCostUsd ?? 0, 'USD', currencyLocale)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span>{t('inventorySummaryTotalLbp')}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                      {formatCurrency(item.totalCostLbp ?? 0, 'LBP', currencyLocale)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-sm text-slate-500 dark:text-slate-400">

@@ -337,6 +337,11 @@ const resources = {
       purchasesCategoriesSuccess: 'Category created successfully.',
       purchasesCategoriesError: 'Unable to create category.',
       purchasesCategoriesEmpty: 'No categories yet. Create one above to get started.',
+      purchasesCategoriesDeleteButton: 'Delete',
+      purchasesCategoriesDeletePending: 'Deleting…',
+      purchasesCategoriesDeleteConfirm: 'Delete category {{name}}? This action cannot be undone.',
+      purchasesCategoriesDeleteSuccess: 'Category deleted successfully.',
+      purchasesCategoriesDeleteError: 'Unable to delete category.',
       purchasesAddManual: 'Add manual item',
       purchasesSubmit: 'Receive inventory',
       purchasesEmpty: 'Scan a barcode to start building your purchase.',
@@ -382,7 +387,16 @@ const resources = {
       invoicesScanPlaceholder: 'Scan or enter barcode',
       invoicesAddItem: 'Add item',
       invoicesNoSelection: 'Select an invoice to get started.',
-      invoicesValidationError: 'Please complete required fields before saving.'
+      invoicesValidationError: 'Please complete required fields before saving.',
+      invoicesDeleteButton: 'Delete invoice',
+      invoicesDeletePending: 'Deleting…',
+      invoicesDeleteConfirm: 'Delete invoice {{number}}? This action cannot be undone.',
+      invoicesDeleteConfirmGeneric: 'Delete this invoice? This action cannot be undone.',
+      invoicesDeleteSuccess: 'Invoice deleted successfully.',
+      invoicesDeleteError: 'Unable to delete invoice.',
+      inventorySummaryCategoryProductCount: '{{count}} products',
+      inventorySummaryCategoryShowItems: 'Show products',
+      inventorySummaryCategoryHideItems: 'Hide products'
     }
   },
   ar: {
@@ -720,6 +734,11 @@ const resources = {
       purchasesCategoriesSuccess: 'تم إنشاء الفئة بنجاح.',
       purchasesCategoriesError: 'تعذّر إنشاء الفئة.',
       purchasesCategoriesEmpty: 'لا توجد فئات حتى الآن. أنشئ فئة جديدة للبدء.',
+      purchasesCategoriesDeleteButton: 'حذف',
+      purchasesCategoriesDeletePending: 'جارٍ الحذف…',
+      purchasesCategoriesDeleteConfirm: 'هل تريد حذف الفئة {{name}}؟ لا يمكن التراجع عن هذا الإجراء.',
+      purchasesCategoriesDeleteSuccess: 'تم حذف الفئة بنجاح.',
+      purchasesCategoriesDeleteError: 'تعذّر حذف الفئة.',
       purchasesAddManual: 'إضافة عنصر يدوي',
       purchasesSubmit: 'تأكيد الاستلام',
       purchasesEmpty: 'امسح باركود لبدء عملية الشراء.',
@@ -765,7 +784,16 @@ const resources = {
       invoicesScanPlaceholder: 'امسح أو أدخل الباركود',
       invoicesAddItem: 'إضافة عنصر',
       invoicesNoSelection: 'اختر فاتورة للبدء.',
-      invoicesValidationError: 'يرجى إكمال الحقول المطلوبة قبل الحفظ.'
+      invoicesValidationError: 'يرجى إكمال الحقول المطلوبة قبل الحفظ.',
+      invoicesDeleteButton: 'حذف الفاتورة',
+      invoicesDeletePending: 'جارٍ الحذف…',
+      invoicesDeleteConfirm: 'هل تريد حذف الفاتورة {{number}}؟ لا يمكن التراجع عن هذا الإجراء.',
+      invoicesDeleteConfirmGeneric: 'هل تريد حذف هذه الفاتورة؟ لا يمكن التراجع عن هذا الإجراء.',
+      invoicesDeleteSuccess: 'تم حذف الفاتورة بنجاح.',
+      invoicesDeleteError: 'تعذّر حذف الفاتورة.',
+      inventorySummaryCategoryProductCount: '{{count}} منتج',
+      inventorySummaryCategoryShowItems: 'عرض المنتجات',
+      inventorySummaryCategoryHideItems: 'إخفاء المنتجات'
     }
   }
 };

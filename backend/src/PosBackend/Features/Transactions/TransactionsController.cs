@@ -295,6 +295,65 @@ public class TransactionsController : ControllerBase
         return ToResponse(transaction);
     }
 
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        var transaction = await _db.Transactions
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (transaction is null)
+        {
+            return NotFound();
+        }
+
+        foreach (var line in transaction.Lines)
+        {
+            var inventory = line.Product?.Inventory
+                ?? await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == line.ProductId, cancellationToken);
+
+            if (inventory is not null)
+            {
+                inventory.QuantityOnHand = Math.Max(0m, inventory.QuantityOnHand + line.Quantity);
+            }
+        }
+
+        var personalPurchase = await _db.PersonalPurchases
+            .FirstOrDefaultAsync(p => p.TransactionId == transaction.Id, cancellationToken);
+
+        if (personalPurchase is not null)
+        {
+            _db.PersonalPurchases.Remove(personalPurchase);
+        }
+
+        _db.TransactionLines.RemoveRange(transaction.Lines);
+        _db.Transactions.Remove(transaction);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var currentUserId = User.GetCurrentUserId();
+        if (currentUserId.HasValue)
+        {
+            await _auditLogger.LogAsync(currentUserId.Value, "DeleteTransaction", nameof(PosTransaction), transaction.Id, new
+            {
+                transaction.TransactionNumber,
+                transaction.TotalUsd,
+                transaction.TotalLbp
+            }, cancellationToken);
+        }
+
+        await _eventHub.PublishAsync(new PosEvent("transaction.deleted", new
+        {
+            transaction.Id,
+            transaction.TransactionNumber
+        }));
+
+        return NoContent();
+    }
+
     [HttpPost("checkout")]
     public async Task<ActionResult<CheckoutResponse>> Checkout([FromBody] CheckoutRequest request, CancellationToken cancellationToken)
     {

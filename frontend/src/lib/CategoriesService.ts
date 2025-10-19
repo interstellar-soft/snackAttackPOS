@@ -50,6 +50,20 @@ export const CategoriesService = {
         ),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: categoriesKeys.all });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      }
+    });
+  },
+  useDeleteCategory() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+
+    return useMutation<void, Error, string>({
+      mutationFn: async (id) =>
+        await apiFetch(`/api/categories/${id}`, { method: 'DELETE' }, token ?? undefined),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: categoriesKeys.all });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
       }
     });
   },

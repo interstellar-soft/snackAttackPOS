@@ -81,6 +81,47 @@ public class CategoriesControllerTests
         Assert.True(list.SequenceEqual(list.OrderBy(c => c.Name)));
     }
 
+    [Fact]
+    public async Task DeleteCategory_RemovesCategory_WhenNoProducts()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        context.Categories.Add(category);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        var result = await controller.DeleteCategory(category.Id, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Empty(context.Categories);
+    }
+
+    [Fact]
+    public async Task DeleteCategory_ReturnsBadRequest_WhenProductsExist()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        context.Categories.Add(category);
+        context.Products.Add(new Product
+        {
+            Name = "Chips",
+            Barcode = "123",
+            CategoryId = category.Id,
+            PriceUsd = 2m,
+            PriceLbp = 180000m
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        var result = await controller.DeleteCategory(category.Id, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Single(context.Categories);
+        Assert.Single(context.Products);
+    }
+
     private static CategoriesController CreateController(ApplicationDbContext context)
     {
         return new CategoriesController(context)
