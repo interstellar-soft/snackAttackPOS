@@ -74,6 +74,18 @@ export type CartItemInput = Omit<CartItem, 'lineId' | 'isWaste'> & {
   isWaste?: boolean;
 };
 
+export interface HeldCart {
+  id: string;
+  name: string;
+  createdAt: number;
+  items: CartItem[];
+  manualCartTotalUsd: number | null;
+  manualCartTotalLbp: number | null;
+  rate: number;
+  totalUsd: number;
+  totalLbp: number;
+}
+
 interface CartState {
   items: CartItem[];
   rate: number;
@@ -97,6 +109,10 @@ interface CartState {
   setLastAddedItemId: (lineId: string | null) => void;
   manualCartTotalUsd: number | null;
   manualCartTotalLbp: number | null;
+  heldCarts: HeldCart[];
+  holdCart: (name: string) => HeldCart | null;
+  resumeHeldCart: (id: string) => boolean;
+  removeHeldCart: (id: string) => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -107,6 +123,7 @@ export const useCartStore = create<CartState>()(
       lastAddedItemId: null,
       manualCartTotalUsd: null,
       manualCartTotalLbp: null,
+      heldCarts: [],
       addItem: (item) => {
         const normalizedBasePriceUsd = normalizeUnitUsd(
           typeof item.basePriceUsd === 'number' ? item.basePriceUsd : item.priceUsd
@@ -308,16 +325,63 @@ export const useCartStore = create<CartState>()(
           }
           if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
             return total + Math.round(item.manualTotalUsd * rate);
-          }
-          const discountedPriceLbp = item.priceLbp * (1 - item.discountPercent / 100);
-          return total + discountedPriceLbp * item.quantity;
-        }, 0);
+        }
+        const discountedPriceLbp = item.priceLbp * (1 - item.discountPercent / 100);
+        return total + discountedPriceLbp * item.quantity;
+      }, 0);
       },
-      setLastAddedItemId: (lineId) => set({ lastAddedItemId: lineId })
+      setLastAddedItemId: (lineId) => set({ lastAddedItemId: lineId }),
+      holdCart: (name) => {
+        const trimmedName = name.trim();
+        const state = get();
+        if (!trimmedName || state.items.length === 0) {
+          return null;
+        }
+        const snapshotItems = state.items.map((item) => ({ ...item }));
+        const heldCart: HeldCart = {
+          id: generateLineId(),
+          name: trimmedName,
+          createdAt: Date.now(),
+          items: snapshotItems,
+          manualCartTotalUsd: state.manualCartTotalUsd,
+          manualCartTotalLbp: state.manualCartTotalLbp,
+          rate: state.rate,
+          totalUsd: state.subtotalUsd(),
+          totalLbp: state.subtotalLbp()
+        };
+        set({
+          items: [],
+          lastAddedItemId: null,
+          manualCartTotalUsd: null,
+          manualCartTotalLbp: null,
+          heldCarts: [heldCart, ...state.heldCarts]
+        });
+        return heldCart;
+      },
+      resumeHeldCart: (id) => {
+        const state = get();
+        const target = state.heldCarts.find((cart) => cart.id === id);
+        if (!target) {
+          return false;
+        }
+        set({
+          items: target.items.map((item) => ({ ...item })),
+          lastAddedItemId: null,
+          manualCartTotalUsd: target.manualCartTotalUsd,
+          manualCartTotalLbp: target.manualCartTotalLbp,
+          rate: target.rate,
+          heldCarts: state.heldCarts.filter((cart) => cart.id !== id)
+        });
+        return true;
+      },
+      removeHeldCart: (id) =>
+        set((state) => ({
+          heldCarts: state.heldCarts.filter((cart) => cart.id !== id)
+        }))
     }),
     {
       name: 'aurora-cart',
-      version: 4,
+      version: 5,
       migrate: (persistedState) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState;
@@ -363,7 +427,60 @@ export const useCartStore = create<CartState>()(
           manualCartTotalLbp:
             state.manualCartTotalLbp !== undefined && state.manualCartTotalLbp !== null
               ? clampLbp(Number(state.manualCartTotalLbp))
-              : null
+              : null,
+          heldCarts: Array.isArray((state as Partial<CartState> & { heldCarts?: unknown }).heldCarts)
+            ? ((state as Partial<CartState> & { heldCarts?: unknown }).heldCarts as HeldCart[])
+                .map((cart) => ({
+                  ...cart,
+                  id: cart.id ?? generateLineId(),
+                  name: String(cart.name ?? '').trim(),
+                  createdAt:
+                    typeof cart.createdAt === 'number' && Number.isFinite(cart.createdAt)
+                      ? cart.createdAt
+                      : Date.now(),
+                  items: Array.isArray(cart.items)
+                    ? cart.items.map((item) => ({
+                        ...item,
+                        lineId: item.lineId ?? generateLineId(),
+                        isWaste: Boolean(item.isWaste),
+                        costUsd: normalizeCostUsd(item.costUsd),
+                        costLbp: normalizeCostLbp(item.costLbp),
+                        basePriceUsd: normalizeUnitUsd(item.basePriceUsd),
+                        basePriceLbp: normalizeUnitLbp(item.basePriceLbp),
+                        hasConfiguredPriceOverride: Boolean(item.hasConfiguredPriceOverride),
+                        manualTotalUsd:
+                          item.manualTotalUsd !== undefined && item.manualTotalUsd !== null
+                            ? clampUsd(Number(item.manualTotalUsd))
+                            : null,
+                        manualTotalLbp:
+                          item.manualTotalLbp !== undefined && item.manualTotalLbp !== null
+                            ? clampLbp(Number(item.manualTotalLbp))
+                            : null
+                      }))
+                    : [],
+                  manualCartTotalUsd:
+                    cart.manualCartTotalUsd !== undefined && cart.manualCartTotalUsd !== null
+                      ? clampUsd(Number(cart.manualCartTotalUsd))
+                      : null,
+                  manualCartTotalLbp:
+                    cart.manualCartTotalLbp !== undefined && cart.manualCartTotalLbp !== null
+                      ? clampLbp(Number(cart.manualCartTotalLbp))
+                      : null,
+                  rate:
+                    typeof cart.rate === 'number' && Number.isFinite(cart.rate) && cart.rate > 0
+                      ? cart.rate
+                      : 90000,
+                  totalUsd:
+                    cart.totalUsd !== undefined && cart.totalUsd !== null
+                      ? clampUsd(Number(cart.totalUsd)) ?? 0
+                      : 0,
+                  totalLbp:
+                    cart.totalLbp !== undefined && cart.totalLbp !== null
+                      ? clampLbp(Number(cart.totalLbp)) ?? 0
+                      : 0
+                }))
+                .filter((cart) => cart.name)
+            : []
         } satisfies CartState;
       }
     }

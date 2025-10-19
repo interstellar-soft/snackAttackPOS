@@ -835,6 +835,7 @@ export function POSPage() {
     setIsRefund(false);
     setSaveToMyCart(false);
     alert(`Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`);
+    focusBarcodeInput();
   };
 
   const handleSaveRate = async (nextRate: number, notes?: string) => {
@@ -968,6 +969,8 @@ export function POSPage() {
                   canEditTotals={canEditCartTotals}
                   totalUsdOverride={totalUsd}
                   totalLbpOverride={totalLbpDisplay}
+                  onHoldComplete={focusBarcodeInput}
+                  onResumeHeldCart={focusBarcodeInput}
                 />
               </div>
               <div className="flex h-full min-h-0 w-full overflow-hidden">
