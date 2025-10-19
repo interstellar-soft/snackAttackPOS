@@ -46,6 +46,33 @@ export interface Transaction {
   lines: TransactionLine[];
 }
 
+export interface DebtCardTransaction {
+  id: string;
+  transactionNumber: string;
+  createdAt: string;
+  totalUsd: number;
+  totalLbp: number;
+  paidUsd: number;
+  paidLbp: number;
+  balanceUsd: number;
+  balanceLbp: number;
+  lines: TransactionLine[];
+}
+
+export interface DebtCard {
+  id: string;
+  name: string;
+  totalUsd: number;
+  totalLbp: number;
+  paidUsd: number;
+  paidLbp: number;
+  balanceUsd: number;
+  balanceLbp: number;
+  createdAt: string;
+  lastTransactionAt: string;
+  transactions: DebtCardTransaction[];
+}
+
 export interface TransactionItemInput {
   productId: string;
   quantity: number;
@@ -183,11 +210,11 @@ export const TransactionsService = {
   },
   useDebts() {
     const token = useAuthToken();
-    return useQuery<Transaction[]>({
+    return useQuery<DebtCard[]>({
       queryKey: [...transactionsKeys.debts(), token],
       enabled: !!token,
       queryFn: async () => {
-        return await apiFetch<Transaction[]>('/api/transactions/debts', {}, token ?? undefined);
+        return await apiFetch<DebtCard[]>('/api/transactions/debts', {}, token ?? undefined);
       }
     });
   },
