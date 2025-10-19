@@ -110,16 +110,16 @@ function createDemoProfitSummary(): ProfitSummaryResponse {
   };
 }
 
-function toUtcStartOfDay(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+function toLocalStartOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function toUtcStartOfMonth(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+function toLocalStartOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function toUtcStartOfYear(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+function toLocalStartOfYear(date: Date) {
+  return new Date(date.getFullYear(), 0, 1);
 }
 
 function formatSelectionLabel(scope: ProfitScope, isoDate: string, locale: string) {
@@ -250,9 +250,9 @@ export function ProfitsPage() {
       };
 
       return {
-        daily: groupPoints(sortedPoints.daily, toUtcStartOfDay),
-        monthly: groupPoints(sortedPoints.monthly, toUtcStartOfMonth),
-        yearly: groupPoints(sortedPoints.yearly, toUtcStartOfYear)
+        daily: groupPoints(sortedPoints.daily, toLocalStartOfDay),
+        monthly: groupPoints(sortedPoints.monthly, toLocalStartOfMonth),
+        yearly: groupPoints(sortedPoints.yearly, toLocalStartOfYear)
       } satisfies Record<ProfitScope, PeriodGroup[]>;
     },
     [sortedPoints]

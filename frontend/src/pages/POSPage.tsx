@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ProductGrid } from '../components/pos/ProductGrid';
@@ -84,7 +84,9 @@ export function POSPage() {
   const canEditRate = canManageInventory;
   const canSaveToMyCart = normalizedRole === 'admin';
   const canEditCartTotals = normalizedRole === 'admin';
+  const queryClient = useQueryClient();
   const { mutate: priceCartMutate } = TransactionsService.usePriceCart();
+  const debtCardNamesQuery = TransactionsService.useDebtCardNames();
   const [priceQuote, setPriceQuote] = useState<PriceCartResponse | null>(null);
   const [barcode, setBarcode] = useState('');
   const [lastScan, setLastScan] = useState<string | undefined>();
@@ -101,6 +103,15 @@ export function POSPage() {
   const [isRefund, setIsRefund] = useState(false);
   const [isDebtCheckout, setIsDebtCheckout] = useState(false);
   const [debtCardName, setDebtCardName] = useState('');
+  const debtCardOptions = useMemo(() => {
+    const names = debtCardNamesQuery.data ?? [];
+    const trimmed = debtCardName.trim();
+    if (!trimmed) {
+      return names;
+    }
+    const hasName = names.some((name) => name.toLocaleLowerCase() === trimmed.toLocaleLowerCase());
+    return hasName ? names : [trimmed, ...names];
+  }, [debtCardNamesQuery.data, debtCardName]);
   const [serialStatusMessage, setSerialStatusMessage] = useState<string | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
@@ -880,6 +891,9 @@ export function POSPage() {
     setOverrideRequired(false);
     setOverrideReason(null);
     setBalance(response);
+    if (isDebtCheckout && trimmedDebtCardName) {
+      queryClient.invalidateQueries({ queryKey: TransactionsService.keys.debtCardNames() });
+    }
     clear();
     setPaidUsdText('');
     setPaidUsdAmount(0);
@@ -1021,6 +1035,8 @@ export function POSPage() {
                 onToggleDebtCheckout={handleToggleDebtCheckout}
                 debtCardName={debtCardName}
                 onChangeDebtCardName={setDebtCardName}
+                debtCardOptions={debtCardOptions}
+                debtCardOptionsLoading={debtCardNamesQuery.isLoading}
                 onResumeHeldCart={focusBarcodeInput}
               />
             </div>

@@ -92,6 +92,31 @@ public class TransactionsController : ControllerBase
         return Ok(responses);
     }
 
+    [HttpGet("debt-card-names")]
+    public async Task<ActionResult<IEnumerable<string>>> GetDebtCardNames(CancellationToken cancellationToken)
+    {
+        var names = await _db.Transactions
+            .Where(t => t.DebtCardName != null && t.DebtCardName != "")
+            .Select(t => new
+            {
+                Name = t.DebtCardName!.Trim(),
+                t.CreatedAt
+            })
+            .Where(t => t.Name != "")
+            .GroupBy(t => t.Name)
+            .Select(group => new
+            {
+                Name = group.Key,
+                LastUsed = group.Max(t => t.CreatedAt)
+            })
+            .OrderByDescending(t => t.LastUsed)
+            .Take(100)
+            .Select(t => t.Name)
+            .ToListAsync(cancellationToken);
+
+        return Ok(names);
+    }
+
     [HttpGet("{id:guid}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<TransactionResponse>> GetById(Guid id, CancellationToken cancellationToken)
