@@ -100,9 +100,31 @@ export function POSPage() {
   const [saveToMyCart, setSaveToMyCart] = useState(false);
   const [isRefund, setIsRefund] = useState(false);
   const [serialStatusMessage, setSerialStatusMessage] = useState<string | null>(null);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
   const pricingRequestIdRef = useRef(0);
+  const checkoutMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCheckoutMessage = useCallback(() => {
+    if (checkoutMessageTimeoutRef.current !== null) {
+      clearTimeout(checkoutMessageTimeoutRef.current);
+      checkoutMessageTimeoutRef.current = null;
+    }
+    setCheckoutMessage(null);
+  }, []);
+
+  const showCheckoutMessage = useCallback(
+    (message: string) => {
+      clearCheckoutMessage();
+      setCheckoutMessage(message);
+      checkoutMessageTimeoutRef.current = setTimeout(() => {
+        setCheckoutMessage(null);
+        checkoutMessageTimeoutRef.current = null;
+      }, 5000);
+    },
+    [clearCheckoutMessage]
+  );
 
   const focusBarcodeInput = useCallback(() => {
     const element = barcodeInputRef.current;
@@ -131,6 +153,13 @@ export function POSPage() {
   useEffect(() => {
     focusBarcodeInput();
   }, [focusBarcodeInput]);
+
+  useEffect(
+    () => () => {
+      clearCheckoutMessage();
+    },
+    [clearCheckoutMessage]
+  );
 
   useEffect(() => {
     pricingRequestIdRef.current += 1;
@@ -834,7 +863,9 @@ export function POSPage() {
     setPaidLbpAmount(0);
     setIsRefund(false);
     setSaveToMyCart(false);
-    alert(`Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`);
+    showCheckoutMessage(
+      `Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`
+    );
     focusBarcodeInput();
   };
 
@@ -935,6 +966,11 @@ export function POSPage() {
           </div>
           <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
             <div className="min-h-0 overflow-hidden rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
+              {checkoutMessage && (
+                <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100">
+                  {checkoutMessage}
+                </div>
+              )}
               <TenderPanel
                 paidUsdText={paidUsdText}
                 paidLbpText={paidLbpText}
