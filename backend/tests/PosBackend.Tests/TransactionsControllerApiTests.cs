@@ -199,6 +199,65 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
     }
 
     [Fact]
+    public async Task GetDebtCardNames_ReturnsDistinctNamesOrderedByRecency()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+
+        var cashier = await context.Users.FirstAsync(u => u.Username == "cashier");
+        var product = await context.Products.AsNoTracking().FirstAsync();
+
+        var token = tokenService.CreateToken(cashier);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var alphaRequest = new CheckoutRequest
+        {
+            ExchangeRate = 90000m,
+            PaidUsd = 0m,
+            PaidLbp = 0m,
+            DebtCardName = "Debt Alpha",
+            Items = new[]
+            {
+                new CartItemRequest(product.Id, 1, null, null)
+            }
+        };
+
+        var bravoRequest = new CheckoutRequest
+        {
+            ExchangeRate = 90000m,
+            PaidUsd = 0m,
+            PaidLbp = 0m,
+            DebtCardName = "Debt Bravo",
+            Items = new[]
+            {
+                new CartItemRequest(product.Id, 1, null, null)
+            }
+        };
+
+        var alphaResponse = await client.PostAsJsonAsync("/api/transactions/checkout", alphaRequest);
+        alphaResponse.EnsureSuccessStatusCode();
+
+        var bravoResponse = await client.PostAsJsonAsync("/api/transactions/checkout", bravoRequest);
+        bravoResponse.EnsureSuccessStatusCode();
+
+        var names = await client.GetFromJsonAsync<List<string>>("/api/transactions/debt-card-names");
+
+        Assert.NotNull(names);
+        Assert.Contains("Debt Alpha", names!);
+        Assert.Contains("Debt Bravo", names!);
+
+        var alphaIndex = names!.IndexOf("Debt Alpha");
+        var bravoIndex = names.IndexOf("Debt Bravo");
+
+        Assert.NotEqual(-1, alphaIndex);
+        Assert.NotEqual(-1, bravoIndex);
+        Assert.True(bravoIndex < alphaIndex, "Most recent debt card name should be listed first.");
+    }
+
+    [Fact]
     public async Task Delete_RemovesTransactionAndRestoresInventory()
     {
         var client = _factory.CreateClient();

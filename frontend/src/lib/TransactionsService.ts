@@ -143,7 +143,8 @@ const transactionsKeys = {
   all: ['transactions'] as const,
   list: () => ['transactions', 'list'] as const,
   detail: (id: string) => ['transactions', 'detail', id] as const,
-  debts: () => ['transactions', 'debts'] as const
+  debts: () => ['transactions', 'debts'] as const,
+  debtCardNames: () => ['transactions', 'debt-card-names'] as const
 };
 
 export interface DebtSettlementInput {
@@ -187,6 +188,16 @@ export const TransactionsService = {
       enabled: !!token,
       queryFn: async () => {
         return await apiFetch<Transaction[]>('/api/transactions/debts', {}, token ?? undefined);
+      }
+    });
+  },
+  useDebtCardNames() {
+    const token = useAuthToken();
+    return useQuery<string[]>({
+      queryKey: [...transactionsKeys.debtCardNames(), token],
+      enabled: !!token,
+      queryFn: async () => {
+        return await apiFetch<string[]>('/api/transactions/debt-card-names', {}, token ?? undefined);
       }
     });
   },

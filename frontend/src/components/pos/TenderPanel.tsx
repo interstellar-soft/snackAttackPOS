@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { DebtCardSelect } from './DebtCardSelect';
 import { formatCurrency } from '../../lib/utils';
 import { useCartStore } from '../../stores/cartStore';
 
@@ -31,6 +32,8 @@ interface TenderPanelProps {
   onToggleDebtCheckout?: (next: boolean) => void;
   debtCardName?: string;
   onChangeDebtCardName?: (next: string) => void;
+  debtCardOptions?: string[];
+  debtCardOptionsLoading?: boolean;
 }
 
 export function TenderPanel({
@@ -56,7 +59,9 @@ export function TenderPanel({
   isDebtCheckout = false,
   onToggleDebtCheckout,
   debtCardName = '',
-  onChangeDebtCardName
+  onChangeDebtCardName,
+  debtCardOptions = [],
+  debtCardOptionsLoading = false
 }: TenderPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
@@ -205,10 +210,13 @@ export function TenderPanel({
             <label className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
               {t('tenderDebtCardName')}
             </label>
-            <Input
+            <DebtCardSelect
               value={debtCardName}
-              onChange={(event) => onChangeDebtCardName?.(event.target.value)}
+              onChange={(next) => onChangeDebtCardName?.(next)}
+              options={debtCardOptions}
               placeholder={t('tenderDebtCardPlaceholder')}
+              disabled={disabled}
+              isLoading={debtCardOptionsLoading}
             />
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {t('tenderDebtCheckoutHelp')}
