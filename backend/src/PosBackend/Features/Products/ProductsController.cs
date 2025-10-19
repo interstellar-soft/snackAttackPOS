@@ -868,11 +868,15 @@ public class ProductsController : ControllerBase
                 entity.PriceUsdOverride = barcode.PriceUsd;
                 entity.PriceLbpOverride = barcode.PriceLbp;
                 entity.UpdatedAt = DateTime.UtcNow;
+                entity.ProductId = product.Id;
+                entity.Product = product;
             }
             else
             {
                 product.AdditionalBarcodes.Add(new ProductBarcode
                 {
+                    Product = product,
+                    ProductId = product.Id,
                     Code = barcode.Code,
                     QuantityPerScan = barcode.Quantity,
                     PriceUsdOverride = barcode.PriceUsd,
