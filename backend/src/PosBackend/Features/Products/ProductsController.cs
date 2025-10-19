@@ -550,6 +550,15 @@ public class ProductsController : ControllerBase
             {
                 AddError(errors, nameof(request.Barcode), "Barcode must be unique.");
             }
+            else
+            {
+                var barcodeConflictsWithAdditional = await _db.ProductBarcodes
+                    .AnyAsync(b => b.Code == request.Barcode && (!existingProductId.HasValue || b.ProductId != existingProductId.Value), cancellationToken);
+                if (barcodeConflictsWithAdditional)
+                {
+                    AddError(errors, nameof(request.Barcode), "Barcode must be unique.");
+                }
+            }
         }
 
         await NormalizeAdditionalBarcodesAsync(request, existingProductId, errors, cancellationToken);

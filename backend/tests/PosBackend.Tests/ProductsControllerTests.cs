@@ -359,6 +359,57 @@ public class ProductsControllerTests
     }
 
     [Fact]
+    public async Task UpdateProduct_ReturnsValidationProblem_WhenBarcodeMatchesAdditionalBarcode()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Target",
+            Barcode = "555000111222",
+            PriceUsd = 2m,
+            PriceLbp = 180000m
+        };
+
+        var otherProduct = new Product
+        {
+            Category = category,
+            Name = "Existing",
+            Barcode = "999888777666",
+            PriceUsd = 3m,
+            PriceLbp = 270000m
+        };
+
+        otherProduct.AdditionalBarcodes.Add(new ProductBarcode
+        {
+            Code = "321321321321",
+            QuantityPerScan = 1
+        });
+
+        context.Categories.Add(category);
+        context.Products.AddRange(product, otherProduct);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+        var request = new UpdateProductRequest
+        {
+            Name = product.Name,
+            Barcode = "321321321321",
+            Price = product.PriceUsd,
+            Currency = "USD",
+            CategoryName = category.Name
+        };
+
+        var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
+
+        var validation = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Contains(nameof(request.Barcode), problem.Errors.Keys);
+    }
+
+    [Fact]
     public async Task GetProducts_ReturnsAllProducts()
     {
         await using var context = CreateContext();
