@@ -334,7 +334,8 @@ export function ProfitsPage() {
     [chartData]
   );
 
-  const averageNet = chartData.length > 0 ? totals.netProfit / chartData.length : 0;
+  const averageProfit = chartData.length > 0 ? totals.netProfit / chartData.length : 0;
+  const averageSale = chartData.length > 0 ? totals.revenue / chartData.length : 0;
   const periodLabel =
     scope === 'daily'
       ? t('profitPeriodDay')
@@ -432,15 +433,6 @@ export function ProfitsPage() {
             <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
               {formatCurrency(totals.netProfit, 'USD', locale)}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t('profitAveragePerPeriod', { period: periodLabel })}: {formatCurrency(averageNet, 'USD', locale)}
-            </p>
-          </Card>
-          <Card className="space-y-2 p-4">
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalGross')}</p>
-            <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-              {formatCurrency(totals.grossProfit, 'USD', locale)}
-            </p>
           </Card>
           <Card className="space-y-2 p-4">
             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalRevenue')}</p>
@@ -449,9 +441,21 @@ export function ProfitsPage() {
             </p>
           </Card>
           <Card className="space-y-2 p-4">
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalCost')}</p>
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitAverageSale')}</p>
             <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-              {formatCurrency(totals.cost, 'USD', locale)}
+              {formatCurrency(averageSale, 'USD', locale)}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('profitAveragePerPeriod', { period: periodLabel })}
+            </p>
+          </Card>
+          <Card className="space-y-2 p-4">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitAverageProfit')}</p>
+            <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
+              {formatCurrency(averageProfit, 'USD', locale)}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('profitAveragePerPeriod', { period: periodLabel })}
             </p>
           </Card>
         </div>
@@ -462,36 +466,15 @@ export function ProfitsPage() {
         </div>
         {hasData ? (
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={chartData} barCategoryGap="18%">
+            <BarChart data={chartData} barSize={28} maxBarSize={36}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" />
               <YAxis />
               <Tooltip
-                formatter={(value: number, name: string) => {
-                  const labelKey =
-                    name === 'netProfit'
-                      ? 'profitTableNet'
-                      : name === 'grossProfit'
-                        ? 'profitTableGross'
-                        : name === 'revenue'
-                          ? 'profitTableRevenue'
-                          : 'profitTableCost';
-                  return [formatCurrency(Number(value), 'USD', locale), t(labelKey)];
-                }}
+                formatter={(value: number) => [formatCurrency(Number(value), 'USD', locale), t('profitTableNet')]}
               />
-              <Legend
-                formatter={(value: string) =>
-                  value === 'netProfit'
-                    ? t('profitTableNet')
-                    : value === 'grossProfit'
-                      ? t('profitTableGross')
-                      : value === 'revenue'
-                        ? t('profitTableRevenue')
-                        : t('profitTableCost')
-                }
-              />
-              <Bar dataKey="grossProfit" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="netProfit" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Legend formatter={() => t('profitTableNet')} />
+              <Bar dataKey="netProfit" name={t('profitTableNet')} fill="#10b981" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

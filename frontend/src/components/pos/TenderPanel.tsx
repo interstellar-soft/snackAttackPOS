@@ -1,10 +1,11 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { formatCurrency } from '../../lib/utils';
+import { useCartStore } from '../../stores/cartStore';
 
 interface TenderPanelProps {
   paidUsdText: string;
@@ -25,6 +26,7 @@ interface TenderPanelProps {
   onToggleSaveToMyCart?: (next: boolean) => void;
   isRefund?: boolean;
   onToggleRefund?: (next: boolean) => void;
+  onResumeHeldCart?: () => void;
 }
 
 export function TenderPanel({
@@ -45,12 +47,54 @@ export function TenderPanel({
   saveToMyCart = false,
   onToggleSaveToMyCart,
   isRefund = false,
-  onToggleRefund
+  onToggleRefund,
+  onResumeHeldCart
 }: TenderPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const balanceUsdText = formatCurrency(balanceUsd, 'USD', locale);
   const balanceLbpText = formatCurrency(balanceLbp, 'LBP', locale);
+  const [heldCartSearch, setHeldCartSearch] = useState('');
+  const { heldCarts, resumeHeldCart, removeHeldCart } = useCartStore((state) => ({
+    heldCarts: state.heldCarts,
+    resumeHeldCart: state.resumeHeldCart,
+    removeHeldCart: state.removeHeldCart
+  }));
+
+  const heldCartDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        dateStyle: 'short',
+        timeStyle: 'short'
+      }),
+    [locale]
+  );
+
+  const filteredHeldCarts = useMemo(() => {
+    const search = heldCartSearch.trim().toLowerCase();
+    if (!search) {
+      return heldCarts;
+    }
+    return heldCarts.filter((cart) => cart.name.toLowerCase().includes(search));
+  }, [heldCartSearch, heldCarts]);
+
+  const focusCurrencyClass = (balance: number) => {
+    if (balance > 0) {
+      return 'text-red-500 text-lg font-extrabold';
+    }
+    if (balance < 0) {
+      return 'text-emerald-500 font-semibold';
+    }
+    return 'font-semibold';
+  };
+
+  const handleResumeHeldCart = (id: string) => {
+    const success = resumeHeldCart(id);
+    if (success) {
+      setHeldCartSearch('');
+      onResumeHeldCart?.();
+    }
+  };
 
   const parseAmount = (value: string) => {
     const trimmed = value.trim();
@@ -125,11 +169,11 @@ export function TenderPanel({
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex justify-between">
             <span>Balance USD</span>
-            <span className={balanceUsd > 0 ? 'text-red-500' : balanceUsd < 0 ? 'text-emerald-500' : ''}>{balanceUsdText}</span>
+            <span className={focusCurrencyClass(balanceUsd)}>{balanceUsdText}</span>
           </div>
           <div className="flex justify-between">
             <span>Balance LBP</span>
-            <span className={balanceLbp > 0 ? 'text-red-500' : balanceLbp < 0 ? 'text-emerald-500' : ''}>{balanceLbpText}</span>
+            <span className={focusCurrencyClass(balanceLbp)}>{balanceLbpText}</span>
           </div>
         </div>
         <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
@@ -150,6 +194,64 @@ export function TenderPanel({
         <Button type="button" className="w-full" onClick={onCheckout} disabled={disabled}>
           {t('checkout')}
         </Button>
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-900/40">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold text-slate-700 dark:text-slate-200">{t('heldCarts')}</p>
+            {heldCarts.length > 0 && (
+              <Input
+                value={heldCartSearch}
+                onChange={(event) => setHeldCartSearch(event.target.value)}
+                placeholder={t('heldCartSearchPlaceholder')}
+                className="h-8 w-full max-w-xs text-sm"
+              />
+            )}
+          </div>
+          {heldCarts.length === 0 ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t('heldCartsEmpty')}</p>
+          ) : filteredHeldCarts.length === 0 ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t('heldCartsEmptySearch')}</p>
+          ) : (
+            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+              {filteredHeldCarts.map((cart) => {
+                const totalUsdText = formatCurrency(cart.totalUsd, 'USD', locale);
+                const totalLbpText = formatCurrency(cart.totalLbp, 'LBP', locale);
+                const timestamp = heldCartDateFormatter.format(cart.createdAt);
+                return (
+                  <div
+                    key={cart.id}
+                    className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-slate-800 dark:text-slate-100">{cart.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {t('heldCartCreatedAt', { time: timestamp })}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs text-slate-500 dark:text-slate-400">
+                        <p>{t('heldCartTotals', { usd: totalUsdText, lbp: totalLbpText })}</p>
+                        <p>{t('heldCartItemCount', { count: cart.items.length })}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button type="button" className="bg-indigo-600 hover:bg-indigo-500" onClick={() => handleResumeHeldCart(cart.id)}>
+                        {t('resumeCart')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-600/40 dark:text-red-300 dark:hover:bg-red-900/30"
+                        onClick={() => removeHeldCart(cart.id)}
+                      >
+                        {t('removeCart')}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

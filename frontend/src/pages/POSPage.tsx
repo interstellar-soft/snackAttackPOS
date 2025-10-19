@@ -990,6 +990,7 @@ export function POSPage() {
                 onToggleSaveToMyCart={setSaveToMyCart}
                 isRefund={isRefund}
                 onToggleRefund={handleToggleRefund}
+                onResumeHeldCart={focusBarcodeInput}
               />
             </div>
             <div className="grid h-full min-h-0 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -1003,11 +1004,10 @@ export function POSPage() {
                   }}
                   canMarkWaste={normalizedRole === 'admin'}
                   canEditTotals={canEditCartTotals}
-                  totalUsdOverride={totalUsd}
-                  totalLbpOverride={totalLbpDisplay}
-                  onHoldComplete={focusBarcodeInput}
-                  onResumeHeldCart={focusBarcodeInput}
-                />
+                totalUsdOverride={totalUsd}
+                totalLbpOverride={totalLbpDisplay}
+                onHoldComplete={focusBarcodeInput}
+              />
               </div>
               <div className="flex h-full min-h-0 w-full overflow-hidden">
                 <ReceiptPreview
