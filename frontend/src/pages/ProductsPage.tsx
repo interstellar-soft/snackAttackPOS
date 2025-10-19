@@ -382,14 +382,40 @@ export function ProductsPage() {
       return;
     }
 
+    const payload = result.payload;
+
+    console.groupCollapsed('[ProductsPage] Submitting product update');
+    console.info('[ProductsPage] Existing product snapshot', {
+      productId: product.id,
+      name: product.name,
+      barcode: product.barcode,
+      sku: product.sku,
+      additionalBarcodes: mapProductBarcodesToApi(product)
+    });
+    console.info('[ProductsPage] Form submission values', values);
+    console.info('[ProductsPage] Derived product payload', payload);
+
     try {
-      await updateProduct.mutateAsync({ id: product.id, ...result.payload });
+      const response = await updateProduct.mutateAsync({ id: product.id, ...payload });
+      console.info('[ProductsPage] Product update succeeded', {
+        productId: product.id,
+        response
+      });
       setBanner({ type: 'success', message: t('inventoryUpdateSuccess') });
       closeDialog();
     } catch (error) {
+      console.error('[ProductsPage] Product update failed', {
+        productId: product.id,
+        payload,
+        error,
+        errorMessage: error instanceof Error ? error.message : undefined,
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
       const message = error instanceof Error ? error.message : t('inventoryUpdateError');
       setDialogError(message);
     }
+
+    console.groupEnd();
   };
 
   const handleTogglePinned = async (product: Product) => {
