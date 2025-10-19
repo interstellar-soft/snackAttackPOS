@@ -287,6 +287,114 @@ public class ProductsControllerTests
     }
 
     [Fact]
+    public async Task UpdateProduct_ReturnsValidationProblem_ForDuplicateAdditionalBarcodesIgnoringCase()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Crunchy Chips",
+            Barcode = "1234567890123",
+            PriceUsd = 2m,
+            PriceLbp = 180000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.Add(product);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var request = new UpdateProductRequest
+        {
+            Name = product.Name,
+            Barcode = product.Barcode,
+            Price = product.PriceUsd,
+            Currency = "USD",
+            CategoryName = category.Name,
+            AdditionalBarcodes = new List<ProductBarcodeInput>
+            {
+                new()
+                {
+                    Code = "ABC123",
+                    Quantity = 1
+                },
+                new()
+                {
+                    Code = "abc123",
+                    Quantity = 1
+                }
+            }
+        };
+
+        var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
+
+        var validation = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Contains(nameof(request.AdditionalBarcodes), problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_ReturnsValidationProblem_WhenAdditionalBarcodeConflictsIgnoringCase()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Crunchy Chips",
+            Barcode = "1234567890123",
+            PriceUsd = 2m,
+            PriceLbp = 180000m
+        };
+
+        var otherProduct = new Product
+        {
+            Category = category,
+            Name = "Existing",
+            Barcode = "9876543210987",
+            PriceUsd = 3m,
+            PriceLbp = 270000m
+        };
+
+        otherProduct.AdditionalBarcodes.Add(new ProductBarcode
+        {
+            Code = "XYZ789",
+            QuantityPerScan = 1
+        });
+
+        context.Categories.Add(category);
+        context.Products.AddRange(product, otherProduct);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var request = new UpdateProductRequest
+        {
+            Name = product.Name,
+            Barcode = product.Barcode,
+            Price = product.PriceUsd,
+            Currency = "USD",
+            CategoryName = category.Name,
+            AdditionalBarcodes = new List<ProductBarcodeInput>
+            {
+                new()
+                {
+                    Code = "xyz789",
+                    Quantity = 1
+                }
+            }
+        };
+
+        var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
+
+        var validation = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Contains(nameof(request.AdditionalBarcodes), problem.Errors.Keys);
+    }
+
+    [Fact]
     public async Task UpdateProduct_ReturnsNotFound_ForMissingProduct()
     {
         await using var context = CreateContext();
