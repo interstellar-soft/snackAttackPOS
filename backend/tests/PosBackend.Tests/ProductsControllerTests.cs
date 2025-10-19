@@ -233,6 +233,60 @@ public class ProductsControllerTests
     }
 
     [Fact]
+    public async Task UpdateProduct_AddsAdditionalBarcodes()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Snacks" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Crunchy Chips",
+            Barcode = "1234567890123",
+            PriceUsd = 2m,
+            PriceLbp = 180000m
+        };
+
+        context.Categories.Add(category);
+        context.Products.Add(product);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var request = new UpdateProductRequest
+        {
+            Name = product.Name,
+            Barcode = product.Barcode,
+            Price = product.PriceUsd,
+            Currency = "USD",
+            CategoryName = category.Name,
+            ReorderPoint = 5m,
+            AdditionalBarcodes = new List<ProductBarcodeInput>
+            {
+                new()
+                {
+                    Code = "9876543210987",
+                    Quantity = 1
+                }
+            }
+        };
+
+        var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ProductResponse>(ok.Value);
+        var responseBarcodes = Assert.NotNull(response.AdditionalBarcodes);
+        var additional = Assert.Single(responseBarcodes);
+        Assert.Equal("9876543210987", additional.Code);
+        Assert.Equal(1, additional.QuantityPerScan);
+
+        var stored = await context.ProductBarcodes
+            .Where(b => b.ProductId == product.Id)
+            .ToListAsync();
+
+        Assert.Single(stored);
+        Assert.Equal("9876543210987", stored[0].Code);
+    }
+
+    [Fact]
     public async Task UpdateProduct_ReturnsNotFound_ForMissingProduct()
     {
         await using var context = CreateContext();

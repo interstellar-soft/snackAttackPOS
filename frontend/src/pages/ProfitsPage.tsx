@@ -23,8 +23,8 @@ interface ProfitPoint {
   periodStart: string;
   grossProfitUsd: number;
   netProfitUsd: number;
-  revenueUsd: number;
-  costUsd: number;
+  revenueUsd?: number;
+  costUsd?: number;
 }
 
 interface ProfitSeries {
@@ -41,6 +41,11 @@ interface ProfitSummaryResponse {
 type ProfitScope = 'daily' | 'monthly' | 'yearly';
 
 type SelectedPeriods = Partial<Record<ProfitScope, string | undefined>>;
+
+interface PeriodGroup {
+  key: string;
+  points: ProfitPoint[];
+}
 
 const scopes: ProfitScope[] = ['daily', 'monthly', 'yearly'];
 
@@ -104,7 +109,19 @@ function createDemoProfitSummary(): ProfitSummaryResponse {
   };
 }
 
-function formatPeriodLabel(scope: ProfitScope, isoDate: string, locale: string) {
+function toUtcStartOfDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function toUtcStartOfMonth(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+function toUtcStartOfYear(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+}
+
+function formatSelectionLabel(scope: ProfitScope, isoDate: string, locale: string) {
   const date = new Date(isoDate);
   if (Number.isNaN(date.valueOf())) {
     return isoDate;
@@ -117,12 +134,37 @@ function formatPeriodLabel(scope: ProfitScope, isoDate: string, locale: string) 
       }).format(date);
     case 'monthly':
       return new Intl.DateTimeFormat(locale, {
-        month: 'short',
+        month: 'long',
         year: 'numeric'
       }).format(date);
     case 'yearly':
       return new Intl.DateTimeFormat(locale, {
         year: 'numeric'
+      }).format(date);
+    default:
+      return date.toLocaleDateString(locale);
+  }
+}
+
+function formatPointLabel(scope: ProfitScope, isoDate: string, locale: string) {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.valueOf())) {
+    return isoDate;
+  }
+  switch (scope) {
+    case 'daily':
+      return new Intl.DateTimeFormat(locale, {
+        hour: 'numeric',
+        minute: '2-digit'
+      }).format(date);
+    case 'monthly':
+      return new Intl.DateTimeFormat(locale, {
+        month: 'short',
+        day: 'numeric'
+      }).format(date);
+    case 'yearly':
+      return new Intl.DateTimeFormat(locale, {
+        month: 'short'
       }).format(date);
     default:
       return date.toLocaleDateString(locale);
@@ -171,14 +213,57 @@ export function ProfitsPage() {
     [profitSummary]
   );
 
+  const periodGroups = useMemo(
+    () => {
+      const groupPoints = (
+        points: ProfitPoint[],
+        resolver: (date: Date) => Date
+      ): PeriodGroup[] => {
+        const buckets = new Map<string, ProfitPoint[]>();
+
+        for (const point of points) {
+          const parsed = new Date(point.periodStart);
+          if (Number.isNaN(parsed.valueOf())) {
+            continue;
+          }
+
+          const bucketDate = resolver(parsed);
+          const key = bucketDate.toISOString();
+          const existing = buckets.get(key);
+          if (existing) {
+            existing.push(point);
+          } else {
+            buckets.set(key, [point]);
+          }
+        }
+
+        return Array.from(buckets.entries())
+          .map(([key, bucketPoints]) => ({
+            key,
+            points: bucketPoints.sort(
+              (a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime()
+            )
+          }))
+          .sort((a, b) => new Date(b.key).getTime() - new Date(a.key).getTime());
+      };
+
+      return {
+        daily: groupPoints(sortedPoints.daily, toUtcStartOfDay),
+        monthly: groupPoints(sortedPoints.monthly, toUtcStartOfMonth),
+        yearly: groupPoints(sortedPoints.yearly, toUtcStartOfYear)
+      } satisfies Record<ProfitScope, PeriodGroup[]>;
+    },
+    [sortedPoints]
+  );
+
   useEffect(() => {
     setSelectedPeriods((prev) => {
       const next: SelectedPeriods = { ...prev };
       let updated = false;
 
       scopes.forEach((key) => {
-        const points = sortedPoints[key];
-        if (points.length === 0) {
+        const groups = periodGroups[key];
+        if (groups.length === 0) {
           if (next[key] !== undefined) {
             next[key] = undefined;
             updated = true;
@@ -187,8 +272,8 @@ export function ProfitsPage() {
         }
 
         const current = next[key];
-        const hasCurrent = typeof current === 'string' && points.some((point) => point.periodStart === current);
-        const fallback = points[0]?.periodStart;
+        const hasCurrent = typeof current === 'string' && groups.some((group) => group.key === current);
+        const fallback = groups[0]?.key;
 
         if (!hasCurrent && fallback !== undefined && current !== fallback) {
           next[key] = fallback;
@@ -198,40 +283,41 @@ export function ProfitsPage() {
 
       return updated ? next : prev;
     });
-  }, [sortedPoints]);
+  }, [periodGroups]);
 
   const periodOptions = useMemo(
     () =>
-      sortedPoints[scope].map((point) => ({
-        value: point.periodStart,
-        label: formatPeriodLabel(scope, point.periodStart, locale)
+      periodGroups[scope].map((group) => ({
+        value: group.key,
+        label: formatSelectionLabel(scope, group.key, locale)
       })),
-    [locale, scope, sortedPoints]
+    [locale, scope, periodGroups]
   );
 
-  const filteredPoints = useMemo(() => {
+  const selectedPoints = useMemo(() => {
+    const groups = periodGroups[scope];
     const selected = selectedPeriods[scope];
-    const points = sortedPoints[scope];
 
-    if (!selected) {
-      return points;
+    if (selected) {
+      const match = groups.find((group) => group.key === selected);
+      if (match) {
+        return match.points;
+      }
     }
 
-    return points.filter((point) => point.periodStart === selected);
-  }, [scope, selectedPeriods, sortedPoints]);
+    return groups[0]?.points ?? [];
+  }, [periodGroups, scope, selectedPeriods]);
 
   const chartData = useMemo(
     () =>
-      [...filteredPoints]
-        .sort((a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime())
-        .map((point) => ({
-          label: formatPeriodLabel(scope, point.periodStart, locale),
-          grossProfit: Number(point.grossProfitUsd ?? 0),
-          netProfit: Number(point.netProfitUsd ?? 0),
-          revenue: Number(point.revenueUsd ?? 0),
-          cost: Number(point.costUsd ?? 0)
-        })),
-    [filteredPoints, locale, scope]
+      selectedPoints.map((point) => ({
+        label: formatPointLabel(scope, point.periodStart, locale),
+        grossProfit: Number(point.grossProfitUsd ?? 0),
+        netProfit: Number(point.netProfitUsd ?? 0),
+        revenue: Number(point.revenueUsd ?? 0),
+        cost: Number(point.costUsd ?? 0)
+      })),
+    [selectedPoints, locale, scope]
   );
 
   const totals = useMemo(
@@ -256,7 +342,7 @@ export function ProfitsPage() {
         ? t('profitPeriodMonth')
         : t('profitPeriodYear');
   const hasData = chartData.length > 0;
-  const selectedPeriodValue = selectedPeriods[scope] ?? '';
+  const selectedPeriodValue = selectedPeriods[scope] ?? periodOptions[0]?.value ?? '';
   const periodPickerLabel =
     scope === 'daily'
       ? t('profitPeriodPickerDaily')
