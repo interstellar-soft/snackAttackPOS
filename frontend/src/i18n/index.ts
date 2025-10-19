@@ -414,6 +414,10 @@ const resources = {
       debtsEmpty: 'No outstanding debts right now.',
       debtsUnknownClient: 'Unnamed debt',
       debtsViewDetails: 'View details',
+      debtsMarkCardPaid: 'Mark as paid',
+      debtsMarkCardPending: 'Marking…',
+      debtsMarkCardSuccess: 'All outstanding debt for {{name}} marked as paid.',
+      debtsMarkCardError: 'Unable to mark this debt as paid.',
       debtsSettleAction: 'Mark as paid',
       debtsDetailsTitle: 'Outstanding items for {{name}}',
       debtsDetailsDescription:
@@ -886,6 +890,10 @@ const resources = {
       debtsEmpty: 'لا توجد ديون معلقة حالياً.',
       debtsUnknownClient: 'بدون اسم',
       debtsViewDetails: 'عرض التفاصيل',
+      debtsMarkCardPaid: 'تحديد كمدفوع',
+      debtsMarkCardPending: 'جاري التحديد…',
+      debtsMarkCardSuccess: 'تم تحديد كل ديون {{name}} كمدفوعة.',
+      debtsMarkCardError: 'تعذر تحديد هذا الدين كمدفوع.',
       debtsSettleAction: 'تحديد كمدفوع',
       debtsDetailsTitle: 'العناصر المعلقة لـ {{name}}',
       debtsDetailsDescription:
