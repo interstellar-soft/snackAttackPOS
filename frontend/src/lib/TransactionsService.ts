@@ -190,6 +190,21 @@ export const TransactionsService = {
       }
     });
   },
+  useDeleteTransaction() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+    return useMutation<void, Error, string>({
+      mutationFn: async (id) => {
+        await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' }, token ?? undefined);
+      },
+      onSuccess: (_, id) => {
+        queryClient.invalidateQueries({ queryKey: transactionsKeys.all });
+        queryClient.removeQueries({ queryKey: transactionsKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      }
+    });
+  },
   usePriceCart() {
     const token = useAuthToken();
     return useMutation<PriceCartResponse, Error, PriceCartRequest>({

@@ -98,6 +98,28 @@ public class CategoriesController : ControllerBase
         return CreatedAtAction(nameof(GetCategoryById), new { id = response.Id }, response);
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteCategory(Guid id, CancellationToken cancellationToken)
+    {
+        var category = await _db.Categories.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+
+        if (category is null)
+        {
+            return NotFound();
+        }
+
+        var hasProducts = await _db.Products.AnyAsync(p => p.CategoryId == id, cancellationToken);
+        if (hasProducts)
+        {
+            return BadRequest(new { message = "Cannot delete a category that still has products." });
+        }
+
+        _db.Categories.Remove(category);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
     private ActionResult CreateValidationProblem(IDictionary<string, List<string>> errors)
     {
         ModelState.Clear();

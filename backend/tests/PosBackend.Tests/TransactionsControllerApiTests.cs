@@ -199,6 +199,53 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
     }
 
     [Fact]
+    public async Task Delete_RemovesTransactionAndRestoresInventory()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+
+        var admin = await context.Users.FirstAsync(u => u.Username == "admin");
+        var product = await context.Products.AsNoTracking().FirstAsync();
+        var inventory = await context.Inventories.AsNoTracking().FirstAsync(i => i.ProductId == product.Id);
+        var originalQuantity = inventory.QuantityOnHand;
+
+        var token = tokenService.CreateToken(admin);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var checkoutRequest = new CheckoutRequest
+        {
+            ExchangeRate = 90000m,
+            PaidUsd = product.PriceUsd * 2,
+            PaidLbp = 0m,
+            SaveToMyCart = true,
+            Items = new[]
+            {
+                new CartItemRequest(product.Id, 2, null, null)
+            }
+        };
+
+        var checkoutResponse = await client.PostAsJsonAsync("/api/transactions/checkout", checkoutRequest);
+        checkoutResponse.EnsureSuccessStatusCode();
+        var checkoutBody = await checkoutResponse.Content.ReadFromJsonAsync<CheckoutResponse>();
+        Assert.NotNull(checkoutBody);
+
+        var deleteResponse = await client.DeleteAsync($"/api/transactions/{checkoutBody!.TransactionId}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        using var verificationScope = _factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var deleted = await verificationContext.Transactions.FindAsync(checkoutBody.TransactionId);
+        Assert.Null(deleted);
+        var inventoryAfter = await verificationContext.Inventories.AsNoTracking().FirstAsync(i => i.ProductId == product.Id);
+        Assert.Equal(originalQuantity, inventoryAfter.QuantityOnHand);
+        var personalPurchase = await verificationContext.PersonalPurchases.FirstOrDefaultAsync(p => p.TransactionId == checkoutBody.TransactionId);
+        Assert.Null(personalPurchase);
+    }
+
+    [Fact]
     public async Task Checkout_WithManualOverrides_RecordsOverrides()
     {
         var client = _factory.CreateClient();

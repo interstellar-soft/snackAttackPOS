@@ -65,6 +65,7 @@ export function CartPanel({
   } = useCartStore();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
   const [draftValues, setDraftValues] = useState<Record<string, DraftLineValues>>({});
 
   const focusAndSelectQuantityInput = useCallback((input: HTMLInputElement) => {
@@ -113,6 +114,22 @@ export function CartPanel({
     }, {});
     setDraftValues(nextDrafts);
   }, [items]);
+
+  useEffect(() => {
+    const container = listContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const scrollToBottom = () => {
+      container.scrollTop = container.scrollHeight;
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(scrollToBottom);
+    }
+    scrollToBottom();
+  }, [items.length]);
 
   const highlightedQuantity = highlightedItemId
     ? draftValues[highlightedItemId]?.quantity
@@ -276,7 +293,7 @@ export function CartPanel({
         </Button>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+        <div ref={listContainerRef} className="flex-1 space-y-3 overflow-y-auto pr-1">
           {items.map((item) => {
             const isHighlighted = highlightedItemId === item.lineId;
             const containerClasses = `rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-shadow dark:border-slate-700 dark:bg-slate-800 ${

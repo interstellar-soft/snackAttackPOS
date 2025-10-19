@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -22,6 +23,23 @@ export function ReceiptPreview({
   const fallbackTotalLbp = subtotalLbp();
   const displayTotalUsd = totalUsdOverride ?? fallbackTotalUsd;
   const displayTotalLbp = totalLbpOverride ?? fallbackTotalLbp;
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = listContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const scrollToBottom = () => {
+      container.scrollTop = container.scrollHeight;
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(scrollToBottom);
+    }
+    scrollToBottom();
+  }, [items.length]);
 
   return (
     <Card className="flex h-full w-full flex-col bg-slate-50 text-sm dark:bg-slate-900">
@@ -34,7 +52,7 @@ export function ReceiptPreview({
         <div className="text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           {storeName}
         </div>
-        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+        <div ref={listContainerRef} className="flex-1 space-y-2 overflow-y-auto pr-1">
           {items.length > 0 ? (
             items.map((item) => (
               <div key={item.lineId} className="flex items-start justify-between gap-2">

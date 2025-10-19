@@ -67,6 +67,7 @@ export function InvoicesPage() {
   const transactionsQuery = TransactionsService.useTransactions();
   const transactionQuery = TransactionsService.useTransaction(selectedId ?? undefined);
   const updateTransaction = TransactionsService.useUpdateTransaction();
+  const deleteTransaction = TransactionsService.useDeleteTransaction();
 
   useEffect(() => {
     if (!banner) {
@@ -314,6 +315,34 @@ export function InvoicesPage() {
     }
   };
 
+  const handleDeleteTransaction = async () => {
+    if (!selectedId) {
+      return;
+    }
+    const invoiceNumber = transactionQuery.data?.transactionNumber?.trim();
+    const confirmation = invoiceNumber
+      ? t('invoicesDeleteConfirm', { number: invoiceNumber })
+      : t('invoicesDeleteConfirmGeneric');
+    const confirmed = window.confirm(confirmation);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteTransaction.mutateAsync(selectedId);
+      setSelectedId(null);
+      setItems([]);
+      setExchangeRate('');
+      setPaidUsd('');
+      setPaidLbp('');
+      setBarcode('');
+      setBanner({ type: 'success', message: t('invoicesDeleteSuccess') });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('invoicesDeleteError');
+      setBanner({ type: 'error', message });
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col gap-4 bg-slate-100 p-4 dark:bg-slate-950">
       <TopBar
@@ -424,9 +453,23 @@ export function InvoicesPage() {
                       {t('invoicesAddItem')}
                     </Button>
                   </div>
-                  <Button type="button" className="bg-slate-200 text-slate-800 hover:bg-slate-300" onClick={handleClearSelection}>
-                    {t('invoicesCancelEdit')}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      className="border-transparent bg-red-600 hover:bg-red-500 focus:ring-red-500"
+                      onClick={() => void handleDeleteTransaction()}
+                      disabled={deleteTransaction.isPending}
+                    >
+                      {deleteTransaction.isPending ? t('invoicesDeletePending') : t('invoicesDeleteButton')}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="bg-slate-200 text-slate-800 hover:bg-slate-300"
+                      onClick={handleClearSelection}
+                    >
+                      {t('invoicesCancelEdit')}
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-1">
