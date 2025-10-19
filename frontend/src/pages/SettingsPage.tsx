@@ -72,6 +72,7 @@ export function SettingsPage() {
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canManageInventory ? () => navigate('/debts') : undefined}
         isSettings
       />
       <Card className="max-w-2xl space-y-4 p-6">

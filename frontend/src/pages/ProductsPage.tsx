@@ -468,6 +468,7 @@ export function ProductsPage() {
         onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
         onNavigateInventory={canSeeAnalytics ? () => navigate('/inventory') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canSeeAnalytics ? () => navigate('/debts') : undefined}
         isProducts
       />
       {banner && (

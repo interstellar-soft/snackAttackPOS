@@ -99,6 +99,8 @@ export function POSPage() {
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const [saveToMyCart, setSaveToMyCart] = useState(false);
   const [isRefund, setIsRefund] = useState(false);
+  const [isDebtCheckout, setIsDebtCheckout] = useState(false);
+  const [debtCardName, setDebtCardName] = useState('');
   const [serialStatusMessage, setSerialStatusMessage] = useState<string | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
@@ -764,6 +766,8 @@ export function POSPage() {
       setSaveToMyCart(false);
       setIsRefund(false);
       setBalance(null);
+      setIsDebtCheckout(false);
+      setDebtCardName('');
     }
   }, [items.length]);
 
@@ -773,14 +777,30 @@ export function POSPage() {
       setSaveToMyCart(false);
       setOverrideRequired(false);
       setOverrideReason(null);
+      setIsDebtCheckout(false);
+      setDebtCardName('');
     }
     setBalance(null);
+  };
+
+  const handleToggleDebtCheckout = (next: boolean) => {
+    setIsDebtCheckout(next);
+    if (next) {
+      setSaveToMyCart(false);
+    } else {
+      setDebtCardName('');
+    }
   };
 
   const handleCheckout = async () => {
     if (!token || items.length === 0) return;
     if (overrideRequired) {
       setOverrideReason((reason) => reason ?? 'Override pending');
+      return;
+    }
+    const trimmedDebtCardName = debtCardName.trim();
+    if (isDebtCheckout && trimmedDebtCardName.length === 0) {
+      setCheckoutMessage(t('tenderDebtNameRequired'));
       return;
     }
     const parsedUsd = parseTenderAmount(paidUsdText);
@@ -838,6 +858,10 @@ export function POSPage() {
       checkoutPayload.saveToMyCart = saveToMyCart;
     }
 
+    if (isDebtCheckout && trimmedDebtCardName) {
+      checkoutPayload.debtCardName = trimmedDebtCardName;
+    }
+
     const response = await apiFetch<CheckoutResponse>(
       '/api/transactions/checkout',
       {
@@ -863,6 +887,8 @@ export function POSPage() {
     setPaidLbpAmount(0);
     setIsRefund(false);
     setSaveToMyCart(false);
+    setIsDebtCheckout(false);
+    setDebtCardName('');
     showCheckoutMessage(
       `Transaction ${response.transactionNumber} complete. Balance USD: ${response.balanceUsd}, LBP: ${response.balanceLbp}`
     );
@@ -897,6 +923,7 @@ export function POSPage() {
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigateMyCart={canSaveToMyCart ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canManageInventory ? () => navigate('/debts') : undefined}
       />
       <div className="row-start-2 h-full min-h-0">
         <div className="grid h-full min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.55fr)] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.65fr)]">
@@ -990,6 +1017,10 @@ export function POSPage() {
                 onToggleSaveToMyCart={setSaveToMyCart}
                 isRefund={isRefund}
                 onToggleRefund={handleToggleRefund}
+                isDebtCheckout={isDebtCheckout}
+                onToggleDebtCheckout={handleToggleDebtCheckout}
+                debtCardName={debtCardName}
+                onChangeDebtCardName={setDebtCardName}
                 onResumeHeldCart={focusBarcodeInput}
               />
             </div>

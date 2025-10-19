@@ -367,6 +367,7 @@ export function ProfitsPage() {
         onNavigateInvoices={canManageInventory ? () => navigate('/invoices') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canManageInventory ? () => navigate('/debts') : undefined}
       />
 
       {isLoading && <Card className="p-6 text-sm text-slate-500">{t('profitLoading')}</Card>}
@@ -466,7 +467,7 @@ export function ProfitsPage() {
         </div>
         {hasData ? (
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={chartData} barSize={28} maxBarSize={36}>
+            <BarChart data={chartData} barSize={28} maxBarSize={36} barCategoryGap="10%" barGap={4}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" />
               <YAxis />

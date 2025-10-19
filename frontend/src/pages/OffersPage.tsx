@@ -292,6 +292,7 @@ export function OffersPage() {
         onNavigateInventory={canSeeAnalytics ? () => navigate('/inventory') : undefined}
         onNavigateOffers={isAdmin ? () => navigate('/offers') : undefined}
         onNavigateMyCart={isAdmin ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canSeeAnalytics ? () => navigate('/debts') : undefined}
         isOffers
       />
 

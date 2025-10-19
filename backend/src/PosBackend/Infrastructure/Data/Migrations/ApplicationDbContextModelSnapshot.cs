@@ -263,6 +263,8 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<Guid>("Id").HasColumnType("uuid");
                 b.Property<decimal>("BalanceLbp").HasColumnType("numeric(18,2)");
                 b.Property<decimal>("BalanceUsd").HasColumnType("numeric(14,2)");
+                b.Property<string>("DebtCardName").HasColumnType("character varying(120)").HasMaxLength(120);
+                b.Property<DateTime?>("DebtSettledAt").HasColumnType("timestamp with time zone");
                 b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
                 b.Property<decimal>("ExchangeRateUsed").HasColumnType("numeric(18,6)");
                 b.Property<decimal>("PaidLbp").HasColumnType("numeric(18,2)");

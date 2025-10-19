@@ -45,6 +45,7 @@ export function AlarmsPage() {
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigateAlarms={canManageInventory ? () => navigate('/alarms') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canManageInventory ? () => navigate('/debts') : undefined}
         isAlarms
       />
       <Card className="space-y-4 p-6">

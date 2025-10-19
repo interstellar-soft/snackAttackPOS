@@ -297,6 +297,99 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
 
         Assert.Null(personalPurchase);
     }
+
+    [Fact]
+    public async Task Checkout_WithOutstandingBalanceRequiresDebtCardName()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+
+        var user = await context.Users.FirstAsync(u => u.Username == "cashier");
+        var product = await context.Products.AsNoTracking().FirstAsync();
+        var token = tokenService.CreateToken(user);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var insufficientRequest = new CheckoutRequest
+        {
+            ExchangeRate = 90000m,
+            PaidUsd = 0m,
+            PaidLbp = 0m,
+            Items = new[]
+            {
+                new CartItemRequest(product.Id, 1, null, null)
+            }
+        };
+
+        var insufficientResponse = await client.PostAsJsonAsync("/api/transactions/checkout", insufficientRequest);
+
+        Assert.Equal(HttpStatusCode.BadRequest, insufficientResponse.StatusCode);
+
+        var debtRequest = insufficientRequest;
+        debtRequest.DebtCardName = "Test Client";
+
+        var debtResponse = await client.PostAsJsonAsync("/api/transactions/checkout", debtRequest);
+
+        debtResponse.EnsureSuccessStatusCode();
+
+        var debtBody = await debtResponse.Content.ReadFromJsonAsync<CheckoutResponse>();
+        Assert.NotNull(debtBody);
+        Assert.Equal("Test Client", debtBody!.DebtCardName);
+        Assert.True(debtBody.BalanceUsd > 0 || debtBody.BalanceLbp > 0);
+    }
+
+    [Fact]
+    public async Task SettleDebt_MarksOutstandingBalanceAsPaid()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+
+        var user = await context.Users.FirstAsync(u => u.Username == "manager");
+        var product = await context.Products.AsNoTracking().FirstAsync();
+        var token = tokenService.CreateToken(user);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var debtCheckout = new CheckoutRequest
+        {
+            ExchangeRate = 90000m,
+            PaidUsd = 0m,
+            PaidLbp = 0m,
+            DebtCardName = "Client Debt",
+            Items = new[]
+            {
+                new CartItemRequest(product.Id, 1, null, null)
+            }
+        };
+
+        var checkoutResponse = await client.PostAsJsonAsync("/api/transactions/checkout", debtCheckout);
+        checkoutResponse.EnsureSuccessStatusCode();
+
+        var checkoutBody = await checkoutResponse.Content.ReadFromJsonAsync<CheckoutResponse>();
+        Assert.NotNull(checkoutBody);
+        var transactionId = checkoutBody!.TransactionId;
+
+        var settleRequest = new SettleDebtRequest
+        {
+            PaidUsd = checkoutBody.BalanceUsd,
+            PaidLbp = checkoutBody.BalanceLbp
+        };
+
+        var settleResponse = await client.PostAsJsonAsync($"/api/transactions/{transactionId}/settle-debt", settleRequest);
+        settleResponse.EnsureSuccessStatusCode();
+
+        var settleBody = await settleResponse.Content.ReadFromJsonAsync<TransactionResponse>();
+        Assert.NotNull(settleBody);
+        Assert.Equal(0m, settleBody!.BalanceUsd);
+        Assert.Equal(0m, settleBody.BalanceLbp);
+        Assert.NotNull(settleBody.DebtSettledAt);
+    }
 }
 
 public class TransactionsApiFactory : WebApplicationFactory<Program>

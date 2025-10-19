@@ -18,5 +18,7 @@ public class TransactionResponse
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public bool HasManualTotalOverride { get; set; }
+    public string? DebtCardName { get; set; }
+    public DateTime? DebtSettledAt { get; set; }
     public List<CheckoutLineResponse> Lines { get; set; } = new();
 }
