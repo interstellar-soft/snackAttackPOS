@@ -859,7 +859,7 @@ public class ProductsController : ControllerBase
         return BarcodeResolutionResult.Success(resolved);
     }
 
-    private static void ApplyAdditionalBarcodes(Product product, IReadOnlyList<ResolvedProductBarcode> barcodes)
+    private void ApplyAdditionalBarcodes(Product product, IReadOnlyList<ResolvedProductBarcode> barcodes)
     {
         var existing = product.AdditionalBarcodes.ToDictionary(b => b.Code, StringComparer.Ordinal);
         var targetCodes = new HashSet<string>(barcodes.Select(b => b.Code), StringComparer.Ordinal);
@@ -869,6 +869,7 @@ public class ProductsController : ControllerBase
             if (!targetCodes.Contains(barcode.Code))
             {
                 product.AdditionalBarcodes.Remove(barcode);
+                _db.ProductBarcodes.Remove(barcode);
             }
         }
 
@@ -885,7 +886,7 @@ public class ProductsController : ControllerBase
             }
             else
             {
-                product.AdditionalBarcodes.Add(new ProductBarcode
+                var newBarcode = new ProductBarcode
                 {
                     Product = product,
                     ProductId = product.Id,
@@ -893,7 +894,10 @@ public class ProductsController : ControllerBase
                     QuantityPerScan = barcode.Quantity,
                     PriceUsdOverride = barcode.PriceUsd,
                     PriceLbpOverride = barcode.PriceLbp
-                });
+                };
+
+                product.AdditionalBarcodes.Add(newBarcode);
+                _db.ProductBarcodes.Add(newBarcode);
             }
         }
     }

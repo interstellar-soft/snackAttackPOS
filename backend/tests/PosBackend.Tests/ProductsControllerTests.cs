@@ -287,6 +287,77 @@ public class ProductsControllerTests
     }
 
     [Fact]
+    public async Task UpdateProduct_AllowsUpdatingInventoryAndBarcodesTogether()
+    {
+        await using var context = CreateContext();
+        var category = new Category { Name = "Personal Care" };
+        var product = new Product
+        {
+            Category = category,
+            Name = "Test Product",
+            Barcode = "5280350016332",
+            PriceUsd = 2.5m,
+            PriceLbp = 225000m,
+            Inventory = new Inventory
+            {
+                QuantityOnHand = 1m,
+                ReorderPoint = 2m,
+                AverageCostUsd = 1.5m,
+                AverageCostLbp = 135000m,
+                IsReorderAlarmEnabled = true
+            }
+        };
+
+        var rate = new CurrencyRate
+        {
+            BaseCurrency = "USD",
+            QuoteCurrency = "LBP",
+            Rate = 90000m
+        };
+
+        context.Categories.Add(category);
+        context.CurrencyRates.Add(rate);
+        context.Products.Add(product);
+        context.SaveChanges();
+
+        var controller = CreateController(context);
+        var request = new UpdateProductRequest
+        {
+            Name = "Test Product",
+            Barcode = "5280350016332",
+            Price = 2.5m,
+            Currency = "USD",
+            CategoryName = category.Name,
+            ReorderPoint = 3m,
+            QuantityOnHand = 2m,
+            Cost = 1.95m,
+            CostCurrency = "USD",
+            AdditionalBarcodes = new List<ProductBarcodeInput>
+            {
+                new()
+                {
+                    Code = "5280350016333",
+                    Quantity = 1,
+                    Price = 2.5m,
+                    Currency = "USD"
+                }
+            }
+        };
+
+        var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ProductResponse>(ok.Value);
+        Assert.Equal(2m, response.QuantityOnHand);
+        var additional = Assert.Single(response.AdditionalBarcodes);
+        Assert.Equal("5280350016333", additional.Code);
+
+        var storedInventory = await context.Inventories.AsNoTracking().FirstAsync(i => i.ProductId == product.Id);
+        Assert.Equal(2m, storedInventory.QuantityOnHand);
+        Assert.Equal(3m, storedInventory.ReorderPoint);
+    }
+
+    [Fact]
     public async Task UpdateProduct_ReturnsValidationProblem_ForDuplicateAdditionalBarcodesIgnoringCase()
     {
         await using var context = CreateContext();
