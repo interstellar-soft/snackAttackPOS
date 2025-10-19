@@ -16,6 +16,7 @@ import { TopBar } from '../components/pos/TopBar';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuthStore } from '../stores/authStore';
 import { apiFetch } from '../lib/api';
+import { TransactionsService } from '../lib/TransactionsService';
 import { formatCurrency } from '../lib/utils';
 import { useLanguageDirection } from '../hooks/useLanguageDirection';
 
@@ -179,6 +180,7 @@ export function ProfitsPage() {
   const token = useAuthStore((state) => state.token);
   const logout = useAuthStore((state) => state.logout);
   const role = useAuthStore((state) => state.role);
+  const debtsQuery = TransactionsService.useDebts();
 
   const [scope, setScope] = useState<ProfitScope>('daily');
   const [selectedPeriods, setSelectedPeriods] = useState<SelectedPeriods>({});
@@ -320,6 +322,20 @@ export function ProfitsPage() {
     [selectedPoints, locale, scope]
   );
 
+  const outstandingDebt = useMemo(
+    () => {
+      const debts = debtsQuery.data ?? [];
+      return debts.reduce(
+        (acc, debt) => ({
+          usd: acc.usd + Math.max(0, Number(debt.balanceUsd ?? 0)),
+          lbp: acc.lbp + Math.max(0, Number(debt.balanceLbp ?? 0))
+        }),
+        { usd: 0, lbp: 0 }
+      );
+    },
+    [debtsQuery.data]
+  );
+
   const totals = useMemo(
     () =>
       chartData.reduce(
@@ -459,6 +475,20 @@ export function ProfitsPage() {
               {t('profitAveragePerPeriod', { period: periodLabel })}
             </p>
           </Card>
+          <Card className="space-y-2 p-4">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalDebt')}</p>
+            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {formatCurrency(outstandingDebt.usd, 'USD', locale)} •{' '}
+              {formatCurrency(outstandingDebt.lbp, 'LBP', locale)}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {debtsQuery.isLoading
+                ? t('profitDebtLoading')
+                : debtsQuery.isError
+                  ? t('profitDebtError')
+                  : t('profitTotalDebtDescription')}
+            </p>
+          </Card>
         </div>
 
       <Card className="p-6">
@@ -467,7 +497,7 @@ export function ProfitsPage() {
         </div>
         {hasData ? (
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={chartData} barSize={28} maxBarSize={36} barCategoryGap="10%" barGap={4}>
+            <BarChart data={chartData} barSize={28} maxBarSize={36} barCategoryGap="2%" barGap={2}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" />
               <YAxis />
