@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SVGProps } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -35,7 +35,6 @@ interface CartPanelProps {
   totalUsdOverride?: number | null;
   totalLbpOverride?: number | null;
   onHoldComplete?: () => void;
-  onResumeHeldCart?: () => void;
 }
 
 const clampQuantity = (value: number) => {
@@ -53,8 +52,7 @@ export function CartPanel({
   canEditTotals = false,
   totalUsdOverride = null,
   totalLbpOverride = null,
-  onHoldComplete,
-  onResumeHeldCart
+  onHoldComplete
 }: CartPanelProps) {
   const { t, i18n } = useTranslation();
   const {
@@ -66,10 +64,7 @@ export function CartPanel({
     subtotalLbp,
     setItemWaste,
     rate,
-    heldCarts,
     holdCart,
-    resumeHeldCart,
-    removeHeldCart
   } = useCartStore();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -78,17 +73,7 @@ export function CartPanel({
   const [isHoldFormVisible, setIsHoldFormVisible] = useState(false);
   const [holdClientName, setHoldClientName] = useState('');
   const [holdError, setHoldError] = useState<string | null>(null);
-  const [heldCartSearch, setHeldCartSearch] = useState('');
   const holdNameInputRef = useRef<HTMLInputElement | null>(null);
-
-  const heldCartDateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        dateStyle: 'short',
-        timeStyle: 'short'
-      }),
-    [locale]
-  );
 
   useEffect(() => {
     if (!isHoldFormVisible) {
@@ -110,17 +95,6 @@ export function CartPanel({
     }
   }, [isHoldFormVisible]);
 
-  const sortedHeldCarts = useMemo(
-    () => [...heldCarts].sort((a, b) => b.createdAt - a.createdAt),
-    [heldCarts]
-  );
-  const filteredHeldCarts = useMemo(() => {
-    const search = heldCartSearch.trim().toLowerCase();
-    if (!search) {
-      return sortedHeldCarts;
-    }
-    return sortedHeldCarts.filter((cart) => cart.name.toLowerCase().includes(search));
-  }, [heldCartSearch, sortedHeldCarts]);
 
   const focusAndSelectQuantityInput = useCallback((input: HTMLInputElement) => {
     const focusInput = () => {
@@ -366,17 +340,6 @@ export function CartPanel({
     onHoldComplete?.();
   };
 
-  const handleResumeHeldCart = (id: string) => {
-    const success = resumeHeldCart(id);
-    if (!success) {
-      return;
-    }
-    setHoldError(null);
-    setIsHoldFormVisible(false);
-    setHoldClientName('');
-    onResumeHeldCart?.();
-  };
-
   return (
     <Card className="flex h-full w-full flex-col bg-slate-50 dark:bg-slate-900">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -434,71 +397,6 @@ export function CartPanel({
               {holdError && <p className="text-sm text-red-600 dark:text-red-400">{holdError}</p>}
             </form>
           )}
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-              {t('heldCarts')}
-            </p>
-            {heldCarts.length > 0 ? (
-              <>
-                <Input
-                  value={heldCartSearch}
-                  onChange={(event) => setHeldCartSearch(event.target.value)}
-                  placeholder={t('heldCartSearchPlaceholder')}
-                />
-                <div className="max-h-40 space-y-2 overflow-y-auto pr-1">
-                  {filteredHeldCarts.length === 0 ? (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {t('heldCartsEmptySearch')}
-                    </p>
-                  ) : (
-                    filteredHeldCarts.map((cart) => {
-                      const totalUsdText = formatCurrency(cart.totalUsd, 'USD', locale);
-                      const totalLbpText = formatCurrency(cart.totalLbp, 'LBP', locale);
-                      const timestamp = heldCartDateFormatter.format(cart.createdAt);
-                      return (
-                        <div
-                          key={cart.id}
-                          className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                              <p className="font-semibold">{cart.name}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                {t('heldCartCreatedAt', { time: timestamp })}
-                              </p>
-                            </div>
-                            <div className="text-right text-xs text-slate-500 dark:text-slate-400">
-                              <p>{t('heldCartTotals', { usd: totalUsdText, lbp: totalLbpText })}</p>
-                              <p>{t('heldCartItemCount', { count: cart.items.length })}</p>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                              type="button"
-                              className="bg-indigo-600 hover:bg-indigo-500"
-                              onClick={() => handleResumeHeldCart(cart.id)}
-                            >
-                              {t('resumeCart')}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-600/40 dark:text-red-300 dark:hover:bg-red-900/30"
-                              onClick={() => removeHeldCart(cart.id)}
-                            >
-                              {t('removeCart')}
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">{t('heldCartsEmpty')}</p>
-            )}
-          </div>
         </div>
         <div ref={listContainerRef} className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
           {items.map((item) => {

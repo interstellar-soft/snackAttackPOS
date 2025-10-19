@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '../components/pos/TopBar';
@@ -63,6 +63,43 @@ export function InvoicesPage() {
   const [lastFocusedId, setLastFocusedId] = useState<string | null>(null);
 
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const barcodeInputRef = useRef<HTMLInputElement | null>(null);
+
+  const focusBarcodeInput = useCallback(() => {
+    const input = barcodeInputRef.current;
+    if (!input) {
+      return;
+    }
+    input.focus();
+    if (typeof input.select === 'function') {
+      input.select();
+    }
+    const retries = [16, 48, 96, 160];
+    for (const delay of retries) {
+      window.setTimeout(() => {
+        const element = barcodeInputRef.current;
+        if (!element) {
+          return;
+        }
+        element.focus();
+        if (typeof element.select === 'function') {
+          element.select();
+        }
+      }, delay);
+    }
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        const element = barcodeInputRef.current;
+        if (!element) {
+          return;
+        }
+        element.focus();
+        if (typeof element.select === 'function') {
+          element.select();
+        }
+      });
+    }
+  }, []);
 
   const transactionsQuery = TransactionsService.useTransactions();
   const transactionQuery = TransactionsService.useTransaction(selectedId ?? undefined);
@@ -87,7 +124,8 @@ export function InvoicesPage() {
     setPaidLbp(invoice.paidLbp.toString());
     setItems(invoice.lines.map(createDraftFromLine));
     setLastFocusedId(null);
-  }, [transactionQuery.data]);
+    focusBarcodeInput();
+  }, [transactionQuery.data, focusBarcodeInput]);
 
   useEffect(() => {
     if (!lastFocusedId) {
@@ -128,6 +166,7 @@ export function InvoicesPage() {
   const handleSelect = (transaction: Transaction) => {
     setSelectedId(transaction.id);
     setBanner(null);
+    focusBarcodeInput();
   };
 
   const handleFetchProduct = async (code: string): Promise<Product | null> => {
@@ -210,6 +249,7 @@ export function InvoicesPage() {
       });
       setBarcode('');
       setBanner(null);
+      focusBarcodeInput();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('invoicesUpdateError');
       setBanner({ type: 'error', message });
@@ -251,6 +291,7 @@ export function InvoicesPage() {
     setPaidLbp('');
     setBarcode('');
     setBanner(null);
+    focusBarcodeInput();
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -337,6 +378,7 @@ export function InvoicesPage() {
       setPaidLbp('');
       setBarcode('');
       setBanner({ type: 'success', message: t('invoicesDeleteSuccess') });
+      focusBarcodeInput();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('invoicesDeleteError');
       setBanner({ type: 'error', message });
@@ -360,24 +402,25 @@ export function InvoicesPage() {
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
         isInvoices
       />
-      <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
-        <Card className="space-y-4 p-6">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
+        <Card className="flex flex-col gap-4 p-6 lg:h-[calc(100vh-12rem)]">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('invoicesHistoryTitle')}</h2>
           {transactionsQuery.isLoading && <p className="text-sm text-slate-500">{t('inventoryLoading')}</p>}
           {transactionsQuery.isError && <p className="text-sm text-red-600">{t('invoicesUpdateError')}</p>}
           {transactionsQuery.data && transactionsQuery.data.length === 0 && !transactionsQuery.isLoading && (
             <p className="text-sm text-slate-500">{t('invoicesHistoryEmpty')}</p>
           )}
-          <div className="space-y-3">
-            {transactionsQuery.data?.map((transaction) => {
-              const isSelected = selectedId === transaction.id;
-              const cardClasses = `rounded-lg border p-4 text-sm transition-colors ${
-                isSelected
-                  ? 'border-emerald-400 bg-emerald-50 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-900/20'
-                  : 'border-slate-200 dark:border-slate-700'
-              }`;
-              return (
-                <div key={transaction.id} className={cardClasses}>
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full space-y-3 overflow-y-auto pr-2">
+              {transactionsQuery.data?.map((transaction) => {
+                const isSelected = selectedId === transaction.id;
+                const cardClasses = `rounded-lg border p-4 text-sm transition-colors ${
+                  isSelected
+                    ? 'border-emerald-400 bg-emerald-50 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-900/20'
+                    : 'border-slate-200 dark:border-slate-700'
+                }`;
+                return (
+                  <div key={transaction.id} className={cardClasses}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-800 dark:text-slate-200">{transaction.transactionNumber}</p>
@@ -403,12 +446,13 @@ export function InvoicesPage() {
                       {isSelected ? t('purchasesEditing') : t('purchasesEditAction')}
                     </Button>
                   </div>
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </Card>
-        <Card className="space-y-4 p-6">
+        <Card className="flex flex-col space-y-4 p-6 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-8rem)]">
           <CardHeader className="space-y-1 px-0">
             <CardTitle>
               {selectedId && transactionQuery.data
@@ -417,7 +461,7 @@ export function InvoicesPage() {
             </CardTitle>
             <p className="text-sm text-slate-500">{t('invoicesSelectPrompt')}</p>
           </CardHeader>
-          <CardContent className="space-y-4 px-0">
+          <CardContent className="space-y-4 px-0 lg:flex-1 lg:overflow-y-auto">
             {banner && (
               <div
                 className={`rounded-lg border p-3 text-sm ${
@@ -439,6 +483,7 @@ export function InvoicesPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div className="flex flex-1 gap-2">
                     <Input
+                      ref={barcodeInputRef}
                       value={barcode}
                       onChange={(event) => setBarcode(event.target.value)}
                       onKeyDown={(event) => {
