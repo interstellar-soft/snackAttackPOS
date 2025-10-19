@@ -711,7 +711,7 @@ public class ProductsController : ControllerBase
         }
 
         var normalized = new List<ProductBarcodeInput>(barcodes.Count);
-        var seenCodes = new HashSet<string>(StringComparer.Ordinal);
+        var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (!string.IsNullOrWhiteSpace(request.Barcode))
         {
@@ -781,10 +781,13 @@ public class ProductsController : ControllerBase
         }
 
         var codes = normalized.Select(b => b.Code).ToList();
+        var normalizedCodes = codes
+            .Select(code => code.ToUpperInvariant())
+            .ToList();
 
         var conflictingPrimary = await _db.Products
             .AsNoTracking()
-            .Where(p => codes.Contains(p.Barcode))
+            .Where(p => normalizedCodes.Contains(p.Barcode.ToUpper()))
             .Where(p => !existingProductId.HasValue || p.Id != existingProductId.Value)
             .Select(p => p.Barcode)
             .ToListAsync(cancellationToken);
@@ -796,7 +799,7 @@ public class ProductsController : ControllerBase
 
         var conflictingSecondary = await _db.ProductBarcodes
             .AsNoTracking()
-            .Where(b => codes.Contains(b.Code))
+            .Where(b => normalizedCodes.Contains(b.Code.ToUpper()))
             .Where(b => !existingProductId.HasValue || b.ProductId != existingProductId.Value)
             .Select(b => b.Code)
             .ToListAsync(cancellationToken);
