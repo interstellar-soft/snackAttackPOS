@@ -444,7 +444,7 @@ export function ProfitsPage() {
           </div>
         </Card>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
           <Card className="space-y-2 p-4">
             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalNet')}</p>
             <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
@@ -477,7 +477,7 @@ export function ProfitsPage() {
           </Card>
           <Card className="space-y-2 p-4">
             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalDebt')}</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <p className="text-lg font-semibold text-red-600 dark:text-red-400">
               {formatCurrency(outstandingDebt.usd, 'USD', locale)} •{' '}
               {formatCurrency(outstandingDebt.lbp, 'LBP', locale)}
             </p>
