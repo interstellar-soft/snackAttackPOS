@@ -67,6 +67,31 @@ public class TransactionsController : ControllerBase
         return Ok(responses);
     }
 
+    [HttpGet("debts")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<ActionResult<IEnumerable<TransactionResponse>>> GetDebts(CancellationToken cancellationToken)
+    {
+        var debts = await _db.Transactions
+            .Include(t => t.User)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Category)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Product)
+                    .ThenInclude(p => p.Inventory)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.PriceRule)
+            .Include(t => t.Lines)
+                .ThenInclude(l => l.Offer)
+            .Where(t => t.DebtCardName != null && t.DebtSettledAt == null)
+            .Where(t => t.BalanceUsd > 0 || t.BalanceLbp > 0)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var responses = debts.Select(ToResponse).ToList();
+        return Ok(responses);
+    }
+
     [HttpGet("{id:guid}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<TransactionResponse>> GetById(Guid id, CancellationToken cancellationToken)
@@ -397,6 +422,20 @@ public class TransactionsController : ControllerBase
 
         var balance = _currencyService.ComputeBalance(effectiveTotalUsd, request.PaidUsd, request.PaidLbp, currentRate, totalLbpOverride);
 
+        var trimmedDebtName = string.IsNullOrWhiteSpace(request.DebtCardName)
+            ? null
+            : request.DebtCardName.Trim();
+
+        if ((balance.balanceUsd > 0 || balance.balanceLbp > 0) && string.IsNullOrWhiteSpace(trimmedDebtName))
+        {
+            return BadRequest(new { message = "Debt card name is required when a balance remains." });
+        }
+
+        if (balance.balanceUsd <= 0 && balance.balanceLbp <= 0)
+        {
+            trimmedDebtName = null;
+        }
+
         var transaction = new PosTransaction
         {
             TransactionNumber = request.IsRefund
@@ -411,7 +450,8 @@ public class TransactionsController : ControllerBase
             ExchangeRateUsed = currentRate,
             BalanceUsd = balance.balanceUsd,
             BalanceLbp = balance.balanceLbp,
-            HasManualTotalOverride = hasManualTotalOverride
+            HasManualTotalOverride = hasManualTotalOverride,
+            DebtCardName = trimmedDebtName
         };
 
         foreach (var line in lines)
@@ -502,7 +542,9 @@ public class TransactionsController : ControllerBase
             ReceiptPdfBase64 = receiptBase64,
             RequiresOverride = visionFlags.Any(),
             OverrideReason = visionFlags.Any() ? string.Join(";", visionFlags) : null,
-            HasManualTotalOverride = transaction.HasManualTotalOverride
+            HasManualTotalOverride = transaction.HasManualTotalOverride,
+            DebtCardName = transaction.DebtCardName,
+            DebtSettledAt = transaction.DebtSettledAt
         };
     }
 
@@ -602,8 +644,91 @@ public class TransactionsController : ControllerBase
             BalanceLbp = 0,
             ExchangeRate = transaction.ExchangeRateUsed,
             Lines = responseLines,
-            ReceiptPdfBase64 = Convert.ToBase64String(receiptBytes)
+            ReceiptPdfBase64 = Convert.ToBase64String(receiptBytes),
+            DebtCardName = transaction.DebtCardName,
+            DebtSettledAt = transaction.DebtSettledAt
         };
+    }
+
+    [HttpPost("{id:guid}/settle-debt")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<ActionResult<TransactionResponse>> SettleDebt(Guid id, [FromBody] SettleDebtRequest request, CancellationToken cancellationToken)
+    {
+        var transaction = await _db.Transactions
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (transaction is null)
+        {
+            return NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(transaction.DebtCardName) || transaction.DebtSettledAt != null)
+        {
+            return BadRequest(new { message = "Transaction is not an outstanding debt." });
+        }
+
+        if (transaction.BalanceUsd <= 0 && transaction.BalanceLbp <= 0)
+        {
+            transaction.DebtSettledAt = transaction.DebtSettledAt ?? DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+            return ToResponse(transaction);
+        }
+
+        var additionalUsd = request.PaidUsd > 0 ? request.PaidUsd : 0m;
+        var additionalLbp = request.PaidLbp > 0 ? request.PaidLbp : 0m;
+
+        if (additionalUsd == 0m && additionalLbp == 0m)
+        {
+            additionalUsd = transaction.BalanceUsd > 0 ? transaction.BalanceUsd : 0m;
+            additionalLbp = transaction.BalanceLbp > 0 ? transaction.BalanceLbp : 0m;
+        }
+
+        transaction.PaidUsd = _currencyService.RoundUsd(transaction.PaidUsd + additionalUsd);
+        transaction.PaidLbp = _currencyService.RoundLbp(transaction.PaidLbp + additionalLbp);
+
+        var manualTotalLbp = transaction.HasManualTotalOverride ? transaction.TotalLbp : (decimal?)null;
+        var balance = _currencyService.ComputeBalance(transaction.TotalUsd, transaction.PaidUsd, transaction.PaidLbp, transaction.ExchangeRateUsed, manualTotalLbp);
+        transaction.BalanceUsd = balance.balanceUsd;
+        transaction.BalanceLbp = balance.balanceLbp;
+        transaction.UpdatedAt = DateTime.UtcNow;
+
+        var isSettled = transaction.BalanceUsd <= 0.01m && transaction.BalanceLbp <= 100m;
+
+        if (isSettled)
+        {
+            transaction.BalanceUsd = 0;
+            transaction.BalanceLbp = 0;
+            transaction.DebtSettledAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var currentUserId = User.GetCurrentUserId();
+        if (currentUserId.HasValue)
+        {
+            await _auditLogger.LogAsync(currentUserId.Value, "SettleDebt", nameof(PosTransaction), transaction.Id, new
+            {
+                transaction.TransactionNumber,
+                transaction.DebtCardName,
+                transaction.PaidUsd,
+                transaction.PaidLbp,
+                transaction.BalanceUsd,
+                transaction.BalanceLbp
+            }, cancellationToken);
+        }
+
+        if (isSettled)
+        {
+            await _eventHub.PublishAsync(new PosEvent("transaction.debt.settled", new
+            {
+                transaction.Id,
+                transaction.TransactionNumber,
+                transaction.DebtCardName
+            }));
+        }
+
+        return ToResponse(transaction);
     }
 
     [HttpPost("compute-balance")]
@@ -719,6 +844,8 @@ public class TransactionsController : ControllerBase
             CreatedAt = transaction.CreatedAt,
             UpdatedAt = transaction.UpdatedAt,
             HasManualTotalOverride = transaction.HasManualTotalOverride,
+            DebtCardName = transaction.DebtCardName,
+            DebtSettledAt = transaction.DebtSettledAt,
             Lines = transaction.Lines.Select(CheckoutLineResponse.FromEntity).ToList()
         };
     }

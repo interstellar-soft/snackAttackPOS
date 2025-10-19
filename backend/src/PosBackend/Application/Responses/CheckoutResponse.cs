@@ -16,4 +16,6 @@ public class CheckoutResponse
     public bool RequiresOverride { get; set; }
     public string? OverrideReason { get; set; }
     public bool HasManualTotalOverride { get; set; }
+    public string? DebtCardName { get; set; }
+    public DateTime? DebtSettledAt { get; set; }
 }

@@ -90,6 +90,7 @@ export function InventoryPage() {
         onNavigateOffers={role?.toLowerCase() === 'admin' ? () => navigate('/offers') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canManageInventory ? () => navigate('/debts') : undefined}
         isInventory
       />
       {inventorySummary.isLoading ? (

@@ -27,6 +27,10 @@ interface TenderPanelProps {
   isRefund?: boolean;
   onToggleRefund?: (next: boolean) => void;
   onResumeHeldCart?: () => void;
+  isDebtCheckout?: boolean;
+  onToggleDebtCheckout?: (next: boolean) => void;
+  debtCardName?: string;
+  onChangeDebtCardName?: (next: string) => void;
 }
 
 export function TenderPanel({
@@ -48,7 +52,11 @@ export function TenderPanel({
   onToggleSaveToMyCart,
   isRefund = false,
   onToggleRefund,
-  onResumeHeldCart
+  onResumeHeldCart,
+  isDebtCheckout = false,
+  onToggleDebtCheckout,
+  debtCardName = '',
+  onChangeDebtCardName
 }: TenderPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
@@ -83,9 +91,9 @@ export function TenderPanel({
       return 'text-red-500 text-lg font-extrabold';
     }
     if (balance < 0) {
-      return 'text-emerald-500 font-semibold';
+      return 'text-emerald-500 text-lg font-extrabold';
     }
-    return 'font-semibold';
+    return 'text-lg font-extrabold text-slate-900 dark:text-slate-100';
   };
 
   const handleResumeHeldCart = (id: string) => {
@@ -120,6 +128,9 @@ export function TenderPanel({
       onChangePaidLbpText(parsed.toString());
     }
   };
+
+  const checkoutDisabled =
+    Boolean(disabled) || (isDebtCheckout && debtCardName.trim().length === 0);
 
   return (
     <Card className="bg-white dark:bg-slate-900">
@@ -180,18 +191,42 @@ export function TenderPanel({
           <input type="checkbox" checked={isRefund} onChange={(event) => onToggleRefund?.(event.target.checked)} />
           <span>{t('tenderRefundMode')}</span>
         </label>
+        <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={isDebtCheckout}
+            onChange={(event) => onToggleDebtCheckout?.(event.target.checked)}
+            disabled={disabled || isRefund}
+          />
+          <span>{t('tenderDebtCheckout')}</span>
+        </label>
+        {isDebtCheckout && (
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
+              {t('tenderDebtCardName')}
+            </label>
+            <Input
+              value={debtCardName}
+              onChange={(event) => onChangeDebtCardName?.(event.target.value)}
+              placeholder={t('tenderDebtCardPlaceholder')}
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {t('tenderDebtCheckoutHelp')}
+            </p>
+          </div>
+        )}
         {canSaveToMyCart && (
           <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
             <input
               type="checkbox"
               checked={saveToMyCart}
               onChange={(event) => onToggleSaveToMyCart?.(event.target.checked)}
-              disabled={isRefund}
+              disabled={isRefund || isDebtCheckout}
             />
             <span>{t('tenderSaveToMyCart')}</span>
           </label>
         )}
-        <Button type="button" className="w-full" onClick={onCheckout} disabled={disabled}>
+        <Button type="button" className="w-full" onClick={onCheckout} disabled={checkoutDisabled}>
           {t('checkout')}
         </Button>
         <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-900/40">

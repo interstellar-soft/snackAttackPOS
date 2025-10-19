@@ -31,6 +31,8 @@ interface TopBarProps {
   isInvoices?: boolean;
   onNavigateSettings?: () => void;
   isSettings?: boolean;
+  onNavigateDebts?: () => void;
+  isDebts?: boolean;
 }
 
 export function TopBar({
@@ -56,7 +58,9 @@ export function TopBar({
   onNavigateInvoices,
   isInvoices,
   onNavigateSettings,
-  isSettings
+  isSettings,
+  onNavigateDebts,
+  isDebts
 }: TopBarProps) {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -77,6 +81,7 @@ export function TopBar({
     !isPurchases &&
     !isInvoices &&
     !isSettings &&
+    !isDebts &&
     !isProducts;
 
   const navItems = [
@@ -91,6 +96,12 @@ export function TopBar({
       label: t('myCart'),
       onClick: onNavigateMyCart,
       isActive: Boolean(isMyCart)
+    },
+    {
+      key: 'debts',
+      label: t('debts'),
+      onClick: onNavigateDebts,
+      isActive: Boolean(isDebts)
     },
     {
       key: 'analytics',

@@ -920,6 +920,7 @@ export function PurchasesPage() {
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigatePurchases={canManageInventory ? () => navigate('/purchases') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canManageInventory ? () => navigate('/debts') : undefined}
         isPurchases
       />
       {editingPurchaseId && (

@@ -593,11 +593,15 @@ export function CartPanel({
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex justify-between">
             <span>{t('total')} USD</span>
-            <span className="font-semibold">{formatCurrency(displayTotalUsd, 'USD', locale)}</span>
+            <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              {formatCurrency(displayTotalUsd, 'USD', locale)}
+            </span>
           </div>
           <div className="flex justify-between">
             <span>{t('total')} LBP</span>
-            <span className="font-semibold">{formatCurrency(displayTotalLbp, 'LBP', locale)}</span>
+            <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              {formatCurrency(displayTotalLbp, 'LBP', locale)}
+            </span>
           </div>
         </div>
       </CardContent>

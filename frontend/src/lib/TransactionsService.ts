@@ -41,6 +41,8 @@ export interface Transaction {
   balanceLbp: number;
   createdAt: string;
   updatedAt?: string | null;
+  debtCardName?: string | null;
+  debtSettledAt?: string | null;
   lines: TransactionLine[];
 }
 
@@ -98,6 +100,8 @@ export interface CheckoutResponse {
   requiresOverride: boolean;
   overrideReason?: string | null;
   hasManualTotalOverride: boolean;
+  debtCardName?: string | null;
+  debtSettledAt?: string | null;
 }
 
 export interface UpdateTransactionInput {
@@ -138,8 +142,15 @@ export interface TransactionLineLookup {
 const transactionsKeys = {
   all: ['transactions'] as const,
   list: () => ['transactions', 'list'] as const,
-  detail: (id: string) => ['transactions', 'detail', id] as const
+  detail: (id: string) => ['transactions', 'detail', id] as const,
+  debts: () => ['transactions', 'debts'] as const
 };
+
+export interface DebtSettlementInput {
+  id: string;
+  paidUsd?: number;
+  paidLbp?: number;
+}
 
 function useAuthToken() {
   return useAuthStore((state) => state.token);
@@ -169,6 +180,16 @@ export const TransactionsService = {
       }
     });
   },
+  useDebts() {
+    const token = useAuthToken();
+    return useQuery<Transaction[]>({
+      queryKey: [...transactionsKeys.debts(), token],
+      enabled: !!token,
+      queryFn: async () => {
+        return await apiFetch<Transaction[]>('/api/transactions/debts', {}, token ?? undefined);
+      }
+    });
+  },
   useUpdateTransaction() {
     const token = useAuthToken();
     const queryClient = useQueryClient();
@@ -187,6 +208,28 @@ export const TransactionsService = {
         queryClient.invalidateQueries({ queryKey: transactionsKeys.all });
         queryClient.invalidateQueries({ queryKey: transactionsKeys.detail(variables.id) });
         queryClient.invalidateQueries({ queryKey: ['products'] });
+        queryClient.invalidateQueries({ queryKey: transactionsKeys.debts() });
+      }
+    });
+  },
+  useSettleDebt() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+    return useMutation<Transaction, Error, DebtSettlementInput>({
+      mutationFn: async ({ id, paidUsd = 0, paidLbp = 0 }) => {
+        return await apiFetch<Transaction>(
+          `/api/transactions/${id}/settle-debt`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ paidUsd, paidLbp })
+          },
+          token ?? undefined
+        );
+      },
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: transactionsKeys.debts() });
+        queryClient.invalidateQueries({ queryKey: transactionsKeys.detail(variables.id) });
+        queryClient.invalidateQueries({ queryKey: transactionsKeys.list() });
       }
     });
   },

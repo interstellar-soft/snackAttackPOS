@@ -208,6 +208,7 @@ export function AnalyticsPage() {
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
         onNavigateMyCart={role?.toLowerCase() === 'admin' ? () => navigate('/my-cart') : undefined}
+        onNavigateDebts={canManageInventory ? () => navigate('/debts') : undefined}
       />
       {isLoading && <Card className="p-6 text-sm text-slate-500">{t('loadingAnalytics')}</Card>}
       {isError && (

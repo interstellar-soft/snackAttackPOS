@@ -38,6 +38,7 @@ export function MyCartPage() {
         onNavigateProducts={canManageInventory ? () => navigate('/products') : undefined}
         onNavigateInventory={canManageInventory ? () => navigate('/inventory') : undefined}
         onNavigateSettings={canManageInventory ? () => navigate('/settings') : undefined}
+        onNavigateDebts={canManageInventory ? () => navigate('/debts') : undefined}
         onNavigateMyCart={() => navigate('/my-cart')}
         isMyCart
       />

@@ -18,5 +18,7 @@ public class TransactionConfiguration : IEntityTypeConfiguration<PosTransaction>
         builder.Property(t => t.BalanceLbp).HasColumnType("numeric(18,2)");
         builder.Property(t => t.ExchangeRateUsed).HasColumnType("numeric(18,6)");
         builder.Property(t => t.HasManualTotalOverride).HasColumnType("boolean").HasDefaultValue(false);
+        builder.Property(t => t.DebtCardName).HasMaxLength(120);
+        builder.Property(t => t.DebtSettledAt).HasColumnType("timestamp with time zone");
     }
 }
