@@ -410,32 +410,133 @@ export function POSPage() {
       }
     };
 
+    const elementAllowsTyping = (element: Element | null) => {
+      if (!element || element === barcodeInputRef.current) {
+        return false;
+      }
+
+      if (element instanceof HTMLInputElement) {
+        if (element.readOnly || element.disabled) {
+          return false;
+        }
+
+        const type = element.getAttribute('type');
+        if (type) {
+          const lowered = type.toLowerCase();
+          if (
+            [
+              'button',
+              'checkbox',
+              'radio',
+              'submit',
+              'reset',
+              'file',
+              'image'
+            ].includes(lowered)
+          ) {
+            return false;
+          }
+        }
+
+        return true;
+      }
+
+      if (element instanceof HTMLTextAreaElement) {
+        return !(element.readOnly || element.disabled);
+      }
+
+      if (element instanceof HTMLElement) {
+        if (element.isContentEditable) {
+          return element.getAttribute('contenteditable') !== 'false';
+        }
+
+        const role = element.getAttribute('role');
+        if (role) {
+          const loweredRole = role.toLowerCase();
+          if (['textbox', 'searchbox', 'combobox', 'spinbutton'].includes(loweredRole)) {
+            if (element.getAttribute('aria-readonly') === 'true') {
+              return false;
+            }
+            if (element.getAttribute('aria-disabled') === 'true') {
+              return false;
+            }
+            return true;
+          }
+        }
+
+        if (element.matches('[data-allow-text-input="true"]')) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
     const isEditableTarget = (
       target: EventTarget | null
     ): target is HTMLInputElement | HTMLTextAreaElement | (HTMLElement & { isContentEditable: true }) => {
-      return (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        (target instanceof HTMLElement && target.isContentEditable)
-      );
-    };
-
-    const isActiveEditableInput = (target: EventTarget | null) => {
       if (target instanceof HTMLInputElement) {
         if (target === barcodeInputRef.current) {
           return false;
         }
         return !target.readOnly && !target.disabled;
       }
+
       if (target instanceof HTMLTextAreaElement) {
         if (target === barcodeInputRef.current) {
           return false;
         }
         return !target.readOnly && !target.disabled;
       }
+
       if (target instanceof HTMLElement && target.isContentEditable) {
         return target !== barcodeInputRef.current;
       }
+
+      return false;
+    };
+
+    const closestEditable = (element: Element | null) => {
+      if (!element) {
+        return null;
+      }
+
+      if (elementAllowsTyping(element)) {
+        return element;
+      }
+
+      if (element instanceof HTMLElement && typeof element.closest === 'function') {
+        const candidate = element.closest(
+          'input, textarea, [contenteditable=""], [contenteditable="true"], [role="textbox"], [role="searchbox"], [role="combobox"], [role="spinbutton"], [data-allow-text-input="true"]'
+        );
+        if (candidate && elementAllowsTyping(candidate)) {
+          return candidate;
+        }
+      }
+
+      return null;
+    };
+
+    const isActiveEditableInput = (target: EventTarget | null) => {
+      const activeElement = document.activeElement as Element | null;
+      if (closestEditable(activeElement)) {
+        return true;
+      }
+
+      if (target instanceof Element && closestEditable(target)) {
+        return true;
+      }
+
+      if (target instanceof Node && typeof target.getRootNode === 'function') {
+        const root = target.getRootNode();
+        if ('activeElement' in root) {
+          const active = (root as Document | ShadowRoot).activeElement;
+          if (closestEditable(active)) {
+            return true;
+          }
+        }
+      }
+
       return false;
     };
 
