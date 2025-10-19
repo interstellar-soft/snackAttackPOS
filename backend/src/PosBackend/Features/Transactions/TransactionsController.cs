@@ -69,9 +69,9 @@ public class TransactionsController : ControllerBase
 
     [HttpGet("debts")]
     [Authorize(Roles = "Admin,Manager")]
-    public async Task<ActionResult<IEnumerable<TransactionResponse>>> GetDebts(CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<DebtCardResponse>>> GetDebts(CancellationToken cancellationToken)
     {
-        var debts = await _db.Transactions
+        var transactions = await _db.Transactions
             .Include(t => t.User)
             .Include(t => t.Lines)
                 .ThenInclude(l => l.Product)
@@ -88,8 +88,68 @@ public class TransactionsController : ControllerBase
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var responses = debts.Select(ToResponse).ToList();
-        return Ok(responses);
+        var grouped = transactions
+            .Select(t => new
+            {
+                Transaction = t,
+                TrimmedName = t.DebtCardName!.Trim()
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x.TrimmedName))
+            .GroupBy(x => x.TrimmedName, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var orderedTransactions = group
+                    .Select(x => x.Transaction)
+                    .OrderByDescending(t => t.CreatedAt)
+                    .ToList();
+
+                var displayName = orderedTransactions
+                    .Select(t => t.DebtCardName?.Trim())
+                    .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+                    ?? group.Key;
+
+                var totalUsd = orderedTransactions.Sum(t => t.TotalUsd);
+                var totalLbp = orderedTransactions.Sum(t => t.TotalLbp);
+                var paidUsd = orderedTransactions.Sum(t => t.PaidUsd);
+                var paidLbp = orderedTransactions.Sum(t => t.PaidLbp);
+                var balanceUsd = orderedTransactions.Sum(t => t.BalanceUsd);
+                var balanceLbp = orderedTransactions.Sum(t => t.BalanceLbp);
+                var createdAt = orderedTransactions.Min(t => t.CreatedAt);
+                var lastTransactionAt = orderedTransactions.Max(t => t.CreatedAt);
+
+                return new DebtCardResponse
+                {
+                    Id = group.Key.ToLowerInvariant(),
+                    Name = displayName,
+                    TotalUsd = totalUsd,
+                    TotalLbp = totalLbp,
+                    PaidUsd = paidUsd,
+                    PaidLbp = paidLbp,
+                    BalanceUsd = balanceUsd,
+                    BalanceLbp = balanceLbp,
+                    CreatedAt = createdAt,
+                    LastTransactionAt = lastTransactionAt,
+                    Transactions = orderedTransactions
+                        .Select(t => new DebtCardTransactionResponse
+                        {
+                            Id = t.Id,
+                            TransactionNumber = t.TransactionNumber,
+                            CreatedAt = t.CreatedAt,
+                            TotalUsd = t.TotalUsd,
+                            TotalLbp = t.TotalLbp,
+                            PaidUsd = t.PaidUsd,
+                            PaidLbp = t.PaidLbp,
+                            BalanceUsd = t.BalanceUsd,
+                            BalanceLbp = t.BalanceLbp,
+                            Lines = t.Lines.Select(CheckoutLineResponse.FromEntity).ToList()
+                        })
+                        .ToList()
+                };
+            })
+            .OrderByDescending(card => card.LastTransactionAt)
+            .ToList();
+
+        return Ok(grouped);
     }
 
     [HttpGet("debt-card-names")]
