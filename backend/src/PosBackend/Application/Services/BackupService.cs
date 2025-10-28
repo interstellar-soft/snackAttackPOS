@@ -189,7 +189,8 @@ public class BackupService
                     UnitCostUsd = l.UnitCostUsd,
                     UnitCostLbp = l.UnitCostLbp,
                     TotalCostUsd = l.TotalCostUsd,
-                    TotalCostLbp = l.TotalCostLbp
+                    TotalCostLbp = l.TotalCostLbp,
+                    Currency = l.Currency
                 })
                 .ToListAsync(cancellationToken),
             Transactions = await _db.Transactions
@@ -503,7 +504,8 @@ public class BackupService
             UnitCostUsd = l.UnitCostUsd,
             UnitCostLbp = l.UnitCostLbp,
             TotalCostUsd = l.TotalCostUsd,
-            TotalCostLbp = l.TotalCostLbp
+            TotalCostLbp = l.TotalCostLbp,
+            Currency = string.IsNullOrWhiteSpace(l.Currency) ? "USD" : l.Currency.ToUpperInvariant() == "LBP" ? "LBP" : "USD"
         }).ToList();
         if (purchaseOrderLines.Count > 0)
         {

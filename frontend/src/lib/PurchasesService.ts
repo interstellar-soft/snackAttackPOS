@@ -16,6 +16,7 @@ export interface PurchaseLine {
   totalCostLbp: number;
   quantityOnHand: number;
   currentSalePriceUsd?: number | null;
+  currency: 'USD' | 'LBP';
 }
 
 export interface Purchase {

@@ -288,24 +288,29 @@ export function PurchasesPage() {
     setReference(purchase.reference ?? '');
     setExchangeRate(purchase.exchangeRateUsed.toString());
     setItems(
-      purchase.lines.map((line) => ({
-        id: line.id,
-        productId: line.productId,
-        barcode: line.barcode,
-        name: line.productName,
-        sku: line.productSku?.trim() ?? '',
-        categoryName: line.categoryName?.trim() ?? '',
-        quantity: line.quantity.toString(),
-        unitCost: line.unitCostUsd.toString(),
-        profitPercent: calculateProfitPercent(
-          line.unitCostUsd.toString(),
-          line.currentSalePriceUsd != null ? line.currentSalePriceUsd.toString() : ''
-        ),
-        currency: 'USD',
-        salePriceUsd: line.currentSalePriceUsd != null ? line.currentSalePriceUsd.toString() : '',
-        isExisting: true,
-        quantityOnHand: line.quantityOnHand ?? 0
-      }))
+      purchase.lines.map((line) => {
+        const lineCurrency = (line.currency ?? 'USD') as 'USD' | 'LBP';
+        const unitCostValue = lineCurrency === 'LBP' ? line.unitCostLbp : line.unitCostUsd;
+
+        return {
+          id: line.id,
+          productId: line.productId,
+          barcode: line.barcode,
+          name: line.productName,
+          sku: line.productSku?.trim() ?? '',
+          categoryName: line.categoryName?.trim() ?? '',
+          quantity: line.quantity.toString(),
+          unitCost: unitCostValue.toString(),
+          profitPercent: calculateProfitPercent(
+            line.unitCostUsd.toString(),
+            line.currentSalePriceUsd != null ? line.currentSalePriceUsd.toString() : ''
+          ),
+          currency: lineCurrency,
+          salePriceUsd: line.currentSalePriceUsd != null ? line.currentSalePriceUsd.toString() : '',
+          isExisting: true,
+          quantityOnHand: line.quantityOnHand ?? 0
+        };
+      })
     );
     setLastScannedItemId(null);
     setBarcode('');

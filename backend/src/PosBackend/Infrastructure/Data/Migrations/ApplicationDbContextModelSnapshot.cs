@@ -216,6 +216,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
                 b.Property<Guid>("PurchaseOrderId").HasColumnType("uuid");
                 b.Property<decimal>("Quantity").HasColumnType("numeric(14,2)");
+                b.Property<string>("Currency").HasMaxLength(3).HasColumnType("character varying(3)");
                 b.Property<decimal>("TotalCostLbp").HasColumnType("numeric(20,2)");
                 b.Property<decimal>("TotalCostUsd").HasColumnType("numeric(14,2)");
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
