@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type SVGProps, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -51,6 +51,21 @@ interface PeriodGroup {
 const scopes: ProfitScope[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
 const demoProfitSummary: ProfitSummaryResponse = createDemoProfitSummary();
+
+function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      aria-hidden="true"
+      {...props}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="m6 8 4 4 4-4" />
+    </svg>
+  );
+}
 
 function createDemoProfitSummary(): ProfitSummaryResponse {
   const today = new Date();
@@ -207,6 +222,27 @@ function fromMonthInputValue(value: string) {
   return date.toISOString();
 }
 
+function fromYearInputValue(value: string) {
+  if (!/^\d{4}$/.test(value)) {
+    return undefined;
+  }
+  const year = Number(value);
+  if (!Number.isFinite(year)) {
+    return undefined;
+  }
+  const date = new Date(year, 0, 1);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+}
+
+function toYearInputValue(key: string) {
+  const date = parseKeyToLocalDate(key);
+  if (!date) {
+    return '';
+  }
+  return String(date.getFullYear());
+}
+
 function formatPointLabel(scope: ProfitScope, isoDate: string, locale: string) {
   const date = new Date(isoDate);
   if (Number.isNaN(date.valueOf())) {
@@ -238,6 +274,43 @@ function formatPointLabel(scope: ProfitScope, isoDate: string, locale: string) {
   }
 }
 
+function formatPeriodSummaryLabel(scope: ProfitScope, isoDate: string, locale: string) {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.valueOf())) {
+    return isoDate;
+  }
+
+  switch (scope) {
+    case 'daily':
+      return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
+    case 'weekly': {
+      const start = toLocalStartOfWeek(date);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      const startLabel = new Intl.DateTimeFormat(locale, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }).format(start);
+      const endLabel = new Intl.DateTimeFormat(locale, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }).format(end);
+      return `${startLabel} – ${endLabel}`;
+    }
+    case 'monthly':
+      return new Intl.DateTimeFormat(locale, {
+        month: 'long',
+        year: 'numeric'
+      }).format(date);
+    case 'yearly':
+      return new Intl.DateTimeFormat(locale, { year: 'numeric' }).format(date);
+    default:
+      return date.toLocaleDateString(locale);
+  }
+}
+
 export function ProfitsPage() {
   const { t, i18n } = useTranslation();
   useLanguageDirection();
@@ -250,6 +323,7 @@ export function ProfitsPage() {
 
   const [scope, setScope] = useState<ProfitScope>('daily');
   const [selectedPeriods, setSelectedPeriods] = useState<SelectedPeriods>({});
+  const [yearInputValue, setYearInputValue] = useState('');
 
   const { data, isLoading, isError } = useQuery<ProfitSummaryResponse>({
     queryKey: ['profit-summary', token],
@@ -333,19 +407,15 @@ export function ProfitsPage() {
 
       scopes.forEach((key) => {
         const groups = periodGroups[key];
-        if (groups.length === 0) {
-          if (next[key] !== undefined) {
-            next[key] = undefined;
-            updated = true;
-          }
+        const current = next[key];
+
+        if (current !== undefined) {
           return;
         }
 
-        const current = next[key];
-        const hasCurrent = typeof current === 'string' && groups.some((group) => group.key === current);
         const fallback = groups[0]?.key;
 
-        if (!hasCurrent && fallback !== undefined && current !== fallback) {
+        if (fallback !== undefined && current !== fallback) {
           next[key] = fallback;
           updated = true;
         }
@@ -355,9 +425,32 @@ export function ProfitsPage() {
     });
   }, [periodGroups]);
 
+  useEffect(() => {
+    const selectedYear = selectedPeriods.yearly ?? periodGroups.yearly[0]?.key;
+    if (!selectedYear) {
+      setYearInputValue((prev) => (prev === '' ? prev : ''));
+      return;
+    }
+
+    const next = toYearInputValue(selectedYear);
+    setYearInputValue((prev) => {
+      if (prev === next) {
+        return prev;
+      }
+
+      if (prev && !/^\d{4}$/.test(prev)) {
+        return prev;
+      }
+
+      return next;
+    });
+  }, [selectedPeriods.yearly, periodGroups.yearly]);
+
   const periodGroupsForScope = periodGroups[scope];
   const fallbackPeriodKey = periodGroupsForScope[0]?.key;
-  const selectedPeriodKey = selectedPeriods[scope] ?? fallbackPeriodKey;
+  const explicitPeriodKey = selectedPeriods[scope];
+  const selectedPeriodKey = explicitPeriodKey ?? fallbackPeriodKey;
+  const isExplicitSelection = explicitPeriodKey !== undefined;
 
   const selectedPoints = useMemo(() => {
     const groups = periodGroups[scope];
@@ -418,7 +511,21 @@ export function ProfitsPage() {
         : scope === 'monthly'
           ? t('profitPeriodMonth')
           : t('profitPeriodYear');
-  const hasData = chartData.length > 0;
+  const selectedPeriodLabel = selectedPeriodKey
+    ? formatPeriodSummaryLabel(scope, selectedPeriodKey, locale)
+    : undefined;
+  const placeholderRow =
+    selectedPeriodLabel && isExplicitSelection && chartData.length === 0
+      ? {
+          label: selectedPeriodLabel,
+          grossProfit: 0,
+          netProfit: 0,
+          revenue: 0,
+          cost: 0
+        }
+      : undefined;
+  const displayRows = chartData.length > 0 ? chartData : placeholderRow ? [placeholderRow] : [];
+  const hasDisplayRows = displayRows.length > 0;
   const periodPickerLabel =
     scope === 'daily'
       ? t('profitPeriodPickerDaily')
@@ -427,102 +534,108 @@ export function ProfitsPage() {
         : scope === 'monthly'
           ? t('profitPeriodPickerMonthly')
           : t('profitPeriodPickerYearly');
-
-  const periodMinKey =
-    periodGroupsForScope.length > 0
-      ? periodGroupsForScope[periodGroupsForScope.length - 1]?.key
-      : undefined;
-  const periodMaxKey = periodGroupsForScope[0]?.key;
+  const pickerInputClass =
+    'h-10 min-w-[12rem] appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm font-medium text-slate-700 shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-emerald-400 dark:focus:ring-emerald-500/40';
+  const pickerIconClass =
+    'pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500';
 
   const renderPeriodPicker = () => {
     if (scope === 'yearly') {
       return (
-        <select
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          value={selectedPeriodKey ?? ''}
-          onChange={(event) => {
-            const value = event.target.value;
-            setSelectedPeriods((prev) => ({
-              ...prev,
-              [scope]: value || undefined
-            }));
-          }}
-          disabled={periodGroupsForScope.length === 0}
-        >
-          {periodGroupsForScope.length === 0 ? (
-            <option value="">{t('profitPeriodUnavailable')}</option>
-          ) : (
-            periodGroupsForScope.map((group) => {
-              const date = parseKeyToLocalDate(group.key);
-              const label =
-                date !== undefined
-                  ? new Intl.DateTimeFormat(locale, { year: 'numeric' }).format(date)
-                  : group.key;
-              return (
-                <option key={group.key} value={group.key}>
-                  {label}
-                </option>
-              );
-            })
-          )}
-        </select>
+        <div className="relative">
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="\d*"
+            maxLength={4}
+            className={pickerInputClass}
+            value={yearInputValue}
+            placeholder="YYYY"
+            onChange={(event) => {
+              let nextValue = event.target.value.replace(/[^\d]/g, '');
+              if (nextValue.length > 4) {
+                nextValue = nextValue.slice(0, 4);
+              }
+              setYearInputValue(nextValue);
+
+              if (nextValue.length === 0) {
+                setSelectedPeriods((prev) => ({ ...prev, yearly: undefined }));
+                return;
+              }
+
+              if (nextValue.length === 4) {
+                const iso = fromYearInputValue(nextValue);
+                if (iso) {
+                  setSelectedPeriods((prev) => ({
+                    ...prev,
+                    yearly: iso
+                  }));
+                }
+              }
+            }}
+            onBlur={() => {
+              if (yearInputValue && yearInputValue.length < 4) {
+                const fallback = selectedPeriods.yearly ?? periodGroups.yearly[0]?.key;
+                setYearInputValue(fallback ? toYearInputValue(fallback) : '');
+              }
+            }}
+            autoComplete="off"
+          />
+          <ChevronDownIcon className={pickerIconClass} />
+        </div>
       );
     }
 
     if (scope === 'monthly') {
       const value = selectedPeriodKey ? toMonthInputValue(selectedPeriodKey) : '';
-      const min = periodMinKey ? toMonthInputValue(periodMinKey) : undefined;
-      const max = periodMaxKey ? toMonthInputValue(periodMaxKey) : undefined;
       return (
+        <div className="relative">
+          <input
+            type="month"
+            className={pickerInputClass}
+            value={value}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (!next) {
+                setSelectedPeriods((prev) => ({ ...prev, [scope]: undefined }));
+                return;
+              }
+              const iso = fromMonthInputValue(next);
+              setSelectedPeriods((prev) => ({
+                ...prev,
+                [scope]: iso
+              }));
+            }}
+            autoComplete="off"
+          />
+          <ChevronDownIcon className={pickerIconClass} />
+        </div>
+      );
+    }
+
+    const value = selectedPeriodKey ? toDateInputValue(selectedPeriodKey) : '';
+    return (
+      <div className="relative">
         <input
-          type="month"
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          type="date"
+          className={pickerInputClass}
           value={value}
-          min={min}
-          max={max}
           onChange={(event) => {
             const next = event.target.value;
             if (!next) {
               setSelectedPeriods((prev) => ({ ...prev, [scope]: undefined }));
               return;
             }
-            const iso = fromMonthInputValue(next);
+            const iso = scope === 'weekly' ? fromWeekDateInputValue(next) : fromDateInputValue(next);
             setSelectedPeriods((prev) => ({
               ...prev,
               [scope]: iso
             }));
           }}
-          disabled={periodGroupsForScope.length === 0}
-          placeholder={periodGroupsForScope.length === 0 ? t('profitPeriodUnavailable') : undefined}
+          autoComplete="off"
         />
-      );
-    }
-
-    const value = selectedPeriodKey ? toDateInputValue(selectedPeriodKey) : '';
-    const min = periodMinKey ? toDateInputValue(periodMinKey) : undefined;
-    const max = periodMaxKey ? toDateInputValue(periodMaxKey) : undefined;
-    return (
-      <input
-        type="date"
-        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(event) => {
-          const next = event.target.value;
-          if (!next) {
-            setSelectedPeriods((prev) => ({ ...prev, [scope]: undefined }));
-            return;
-          }
-          const iso = scope === 'weekly' ? fromWeekDateInputValue(next) : fromDateInputValue(next);
-          setSelectedPeriods((prev) => ({
-            ...prev,
-            [scope]: iso
-          }));
-        }}
-        disabled={periodGroupsForScope.length === 0}
-        placeholder={periodGroupsForScope.length === 0 ? t('profitPeriodUnavailable') : undefined}
-      />
+        <ChevronDownIcon className={pickerIconClass} />
+      </div>
     );
   };
 
@@ -634,9 +747,9 @@ export function ProfitsPage() {
         <div className="mb-4 flex items-center justify-between">
           <CardTitle>{t('profitChartTitle')}</CardTitle>
         </div>
-        {hasData ? (
+        {hasDisplayRows ? (
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={chartData} barSize={28} maxBarSize={36} barCategoryGap="2%" barGap={2}>
+            <BarChart data={displayRows} barSize={28} maxBarSize={36} barCategoryGap="2%" barGap={2}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" />
               <YAxis />
@@ -668,8 +781,8 @@ export function ProfitsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {hasData ? (
-                chartData.map((point) => (
+              {hasDisplayRows ? (
+                displayRows.map((point) => (
                   <tr key={point.label}>
                     <td className="px-4 py-2 text-left font-medium text-slate-700 dark:text-slate-200">{point.label}</td>
                     <td className="px-4 py-2 text-right text-slate-700 dark:text-slate-200">
