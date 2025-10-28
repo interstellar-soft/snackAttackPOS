@@ -39,7 +39,7 @@ interface ProfitSummaryResponse {
   yearly: ProfitSeries;
 }
 
-type ProfitScope = 'daily' | 'monthly' | 'yearly';
+type ProfitScope = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 type SelectedPeriods = Partial<Record<ProfitScope, string | undefined>>;
 
@@ -48,7 +48,7 @@ interface PeriodGroup {
   points: ProfitPoint[];
 }
 
-const scopes: ProfitScope[] = ['daily', 'monthly', 'yearly'];
+const scopes: ProfitScope[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
 const demoProfitSummary: ProfitSummaryResponse = createDemoProfitSummary();
 
@@ -114,6 +114,14 @@ function toLocalStartOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function toLocalStartOfWeek(date: Date) {
+  const local = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = local.getDay();
+  const diff = (day + 6) % 7;
+  local.setDate(local.getDate() - diff);
+  return local;
+}
+
 function toLocalStartOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
@@ -122,29 +130,81 @@ function toLocalStartOfYear(date: Date) {
   return new Date(date.getFullYear(), 0, 1);
 }
 
-function formatSelectionLabel(scope: ProfitScope, isoDate: string, locale: string) {
-  const date = new Date(isoDate);
+function parseKeyToLocalDate(key: string) {
+  const date = new Date(key);
   if (Number.isNaN(date.valueOf())) {
-    return isoDate;
+    return undefined;
   }
-  switch (scope) {
-    case 'daily':
-      return new Intl.DateTimeFormat(locale, {
-        month: 'short',
-        day: 'numeric'
-      }).format(date);
-    case 'monthly':
-      return new Intl.DateTimeFormat(locale, {
-        month: 'long',
-        year: 'numeric'
-      }).format(date);
-    case 'yearly':
-      return new Intl.DateTimeFormat(locale, {
-        year: 'numeric'
-      }).format(date);
-    default:
-      return date.toLocaleDateString(locale);
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function toDateInputValue(key: string) {
+  const date = parseKeyToLocalDate(key);
+  if (!date) {
+    return '';
   }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toMonthInputValue(key: string) {
+  const date = parseKeyToLocalDate(key);
+  if (!date) {
+    return '';
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function fromDateInputValue(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return undefined;
+  }
+  const [yearStr, monthStr, dayStr] = value.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return undefined;
+  }
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+}
+
+function fromWeekDateInputValue(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return undefined;
+  }
+  const [yearStr, monthStr, dayStr] = value.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return undefined;
+  }
+  const date = new Date(year, month - 1, day);
+  const startOfWeek = toLocalStartOfWeek(date);
+  startOfWeek.setHours(0, 0, 0, 0);
+  return startOfWeek.toISOString();
+}
+
+function fromMonthInputValue(value: string) {
+  if (!/^\d{4}-\d{2}$/.test(value)) {
+    return undefined;
+  }
+  const [yearStr, monthStr] = value.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) {
+    return undefined;
+  }
+  const date = new Date(year, month - 1, 1);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
 }
 
 function formatPointLabel(scope: ProfitScope, isoDate: string, locale: string) {
@@ -157,6 +217,12 @@ function formatPointLabel(scope: ProfitScope, isoDate: string, locale: string) {
       return new Intl.DateTimeFormat(locale, {
         hour: 'numeric',
         minute: '2-digit'
+      }).format(date);
+    case 'weekly':
+      return new Intl.DateTimeFormat(locale, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
       }).format(date);
     case 'monthly':
       return new Intl.DateTimeFormat(locale, {
@@ -208,6 +274,7 @@ export function ProfitsPage() {
         );
       return {
         daily: sortPoints(profitSummary.daily?.points),
+        weekly: sortPoints(profitSummary.weekly?.points),
         monthly: sortPoints(profitSummary.monthly?.points),
         yearly: sortPoints(profitSummary.yearly?.points)
       } satisfies Record<ProfitScope, ProfitPoint[]>;
@@ -251,6 +318,7 @@ export function ProfitsPage() {
 
       return {
         daily: groupPoints(sortedPoints.daily, toLocalStartOfDay),
+        weekly: groupPoints(sortedPoints.weekly, toLocalStartOfWeek),
         monthly: groupPoints(sortedPoints.monthly, toLocalStartOfMonth),
         yearly: groupPoints(sortedPoints.yearly, toLocalStartOfYear)
       } satisfies Record<ProfitScope, PeriodGroup[]>;
@@ -287,28 +355,18 @@ export function ProfitsPage() {
     });
   }, [periodGroups]);
 
-  const periodOptions = useMemo(
-    () =>
-      periodGroups[scope].map((group) => ({
-        value: group.key,
-        label: formatSelectionLabel(scope, group.key, locale)
-      })),
-    [locale, scope, periodGroups]
-  );
+  const periodGroupsForScope = periodGroups[scope];
+  const fallbackPeriodKey = periodGroupsForScope[0]?.key;
+  const selectedPeriodKey = selectedPeriods[scope] ?? fallbackPeriodKey;
 
   const selectedPoints = useMemo(() => {
     const groups = periodGroups[scope];
-    const selected = selectedPeriods[scope];
-
-    if (selected) {
-      const match = groups.find((group) => group.key === selected);
-      if (match) {
-        return match.points;
-      }
+    if (!selectedPeriodKey) {
+      return groups[0]?.points ?? [];
     }
-
-    return groups[0]?.points ?? [];
-  }, [periodGroups, scope, selectedPeriods]);
+    const match = groups.find((group) => group.key === selectedPeriodKey);
+    return match ? match.points : [];
+  }, [periodGroups, scope, selectedPeriodKey]);
 
   const chartData = useMemo(
     () =>
@@ -355,17 +413,118 @@ export function ProfitsPage() {
   const periodLabel =
     scope === 'daily'
       ? t('profitPeriodDay')
-      : scope === 'monthly'
-        ? t('profitPeriodMonth')
-        : t('profitPeriodYear');
+      : scope === 'weekly'
+        ? t('profitPeriodWeek')
+        : scope === 'monthly'
+          ? t('profitPeriodMonth')
+          : t('profitPeriodYear');
   const hasData = chartData.length > 0;
-  const selectedPeriodValue = selectedPeriods[scope] ?? periodOptions[0]?.value ?? '';
   const periodPickerLabel =
     scope === 'daily'
       ? t('profitPeriodPickerDaily')
-      : scope === 'monthly'
-        ? t('profitPeriodPickerMonthly')
-        : t('profitPeriodPickerYearly');
+      : scope === 'weekly'
+        ? t('profitPeriodPickerWeekly')
+        : scope === 'monthly'
+          ? t('profitPeriodPickerMonthly')
+          : t('profitPeriodPickerYearly');
+
+  const periodMinKey =
+    periodGroupsForScope.length > 0
+      ? periodGroupsForScope[periodGroupsForScope.length - 1]?.key
+      : undefined;
+  const periodMaxKey = periodGroupsForScope[0]?.key;
+
+  const renderPeriodPicker = () => {
+    if (scope === 'yearly') {
+      return (
+        <select
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          value={selectedPeriodKey ?? ''}
+          onChange={(event) => {
+            const value = event.target.value;
+            setSelectedPeriods((prev) => ({
+              ...prev,
+              [scope]: value || undefined
+            }));
+          }}
+          disabled={periodGroupsForScope.length === 0}
+        >
+          {periodGroupsForScope.length === 0 ? (
+            <option value="">{t('profitPeriodUnavailable')}</option>
+          ) : (
+            periodGroupsForScope.map((group) => {
+              const date = parseKeyToLocalDate(group.key);
+              const label =
+                date !== undefined
+                  ? new Intl.DateTimeFormat(locale, { year: 'numeric' }).format(date)
+                  : group.key;
+              return (
+                <option key={group.key} value={group.key}>
+                  {label}
+                </option>
+              );
+            })
+          )}
+        </select>
+      );
+    }
+
+    if (scope === 'monthly') {
+      const value = selectedPeriodKey ? toMonthInputValue(selectedPeriodKey) : '';
+      const min = periodMinKey ? toMonthInputValue(periodMinKey) : undefined;
+      const max = periodMaxKey ? toMonthInputValue(periodMaxKey) : undefined;
+      return (
+        <input
+          type="month"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          value={value}
+          min={min}
+          max={max}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (!next) {
+              setSelectedPeriods((prev) => ({ ...prev, [scope]: undefined }));
+              return;
+            }
+            const iso = fromMonthInputValue(next);
+            setSelectedPeriods((prev) => ({
+              ...prev,
+              [scope]: iso
+            }));
+          }}
+          disabled={periodGroupsForScope.length === 0}
+          placeholder={periodGroupsForScope.length === 0 ? t('profitPeriodUnavailable') : undefined}
+        />
+      );
+    }
+
+    const value = selectedPeriodKey ? toDateInputValue(selectedPeriodKey) : '';
+    const min = periodMinKey ? toDateInputValue(periodMinKey) : undefined;
+    const max = periodMaxKey ? toDateInputValue(periodMaxKey) : undefined;
+    return (
+      <input
+        type="date"
+        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (!next) {
+            setSelectedPeriods((prev) => ({ ...prev, [scope]: undefined }));
+            return;
+          }
+          const iso = scope === 'weekly' ? fromWeekDateInputValue(next) : fromDateInputValue(next);
+          setSelectedPeriods((prev) => ({
+            ...prev,
+            [scope]: iso
+          }));
+        }}
+        disabled={periodGroupsForScope.length === 0}
+        placeholder={periodGroupsForScope.length === 0 ? t('profitPeriodUnavailable') : undefined}
+      />
+    );
+  };
 
   return (
     <div className="flex min-h-screen flex-col gap-4 bg-slate-100 p-4 dark:bg-slate-950">
@@ -411,34 +570,14 @@ export function ProfitsPage() {
                   }}
                 >
                   <option value="daily">{t('profitScopeDaily')}</option>
+                  <option value="weekly">{t('profitScopeWeekly')}</option>
                   <option value="monthly">{t('profitScopeMonthly')}</option>
                   <option value="yearly">{t('profitScopeYearly')}</option>
                 </select>
               </label>
               <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
                 <span className="mb-1 font-medium">{periodPickerLabel}</span>
-                <select
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  value={selectedPeriodValue}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setSelectedPeriods((prev) => ({
-                      ...prev,
-                      [scope]: value || undefined
-                    }));
-                  }}
-                  disabled={periodOptions.length === 0}
-                >
-                  {periodOptions.length === 0 ? (
-                    <option value="">{t('profitPeriodUnavailable')}</option>
-                  ) : (
-                    periodOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))
-                  )}
-                </select>
+                {renderPeriodPicker()}
               </label>
             </div>
           </div>

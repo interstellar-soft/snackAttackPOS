@@ -40,11 +40,6 @@ public class AnalyticsController : ControllerBase
             return new ProfitSummaryResponse();
         }
 
-        var now = DateTime.UtcNow;
-        var hourlyWindowStart = now.AddHours(-23);
-        var dailyWindowStart = now.AddDays(-29);
-        var monthlyWindowStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
-
         static DateTime AsUtc(DateTime date)
         {
             return DateTime.SpecifyKind(date, DateTimeKind.Utc);
@@ -55,25 +50,29 @@ public class AnalyticsController : ControllerBase
             return new DateTime(date.Year, date.Month, date.Day, date.Hour, 0, 0, DateTimeKind.Utc);
         }
 
-        var hourly = BuildSeries(
-            lines.Where(l => l.Transaction != null && AsUtc(l.Transaction!.CreatedAt) >= hourlyWindowStart),
-            StartOfHour);
+        static DateTime StartOfDay(DateTime date)
+        {
+            return new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Utc);
+        }
 
-        var daily = BuildSeries(
-            lines.Where(l => l.Transaction != null && AsUtc(l.Transaction!.CreatedAt) >= dailyWindowStart),
-            date => date.Date);
+        static DateTime StartOfMonth(DateTime date)
+        {
+            return new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        }
 
-        var weekly = BuildSeries(lines, StartOfWeek);
+        var hourly = BuildSeries(lines, date => StartOfHour(AsUtc(date)));
 
-        var monthly = BuildSeries(
-            lines.Where(l => l.Transaction != null && AsUtc(l.Transaction!.CreatedAt) >= monthlyWindowStart),
-            date => new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc));
+        var daily = BuildSeries(lines, date => StartOfDay(AsUtc(date)));
+
+        var weekly = BuildSeries(lines, date => StartOfWeek(AsUtc(date)));
+
+        var monthly = BuildSeries(lines, date => StartOfMonth(AsUtc(date)));
 
         return new ProfitSummaryResponse
         {
             Daily = new ProfitSeries { Points = hourly },
-            Weekly = new ProfitSeries { Points = weekly },
-            Monthly = new ProfitSeries { Points = daily },
+            Weekly = new ProfitSeries { Points = daily },
+            Monthly = new ProfitSeries { Points = weekly },
             Yearly = new ProfitSeries { Points = monthly }
         };
     }
@@ -346,8 +345,8 @@ public class AnalyticsController : ControllerBase
 
     private static DateTime StartOfWeek(DateTime date)
     {
-        var monday = date.Date;
-        var diff = (7 + (monday.DayOfWeek - DayOfWeek.Monday)) % 7;
-        return monday.AddDays(-diff);
+        var utcDate = DateTime.SpecifyKind(new DateTime(date.Year, date.Month, date.Day, 0, 0, 0), DateTimeKind.Utc);
+        var diff = (7 + (utcDate.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return utcDate.AddDays(-diff);
     }
 }
