@@ -28,4 +28,5 @@ public class PurchaseLineResponse
     public decimal TotalCostLbp { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal? CurrentSalePriceUsd { get; set; }
+    public string Currency { get; set; } = "USD";
 }

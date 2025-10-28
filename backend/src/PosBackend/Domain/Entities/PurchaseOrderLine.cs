@@ -12,4 +12,5 @@ public class PurchaseOrderLine : BaseEntity
     public decimal UnitCostLbp { get; set; }
     public decimal TotalCostUsd { get; set; }
     public decimal TotalCostLbp { get; set; }
+    public string Currency { get; set; } = "USD";
 }

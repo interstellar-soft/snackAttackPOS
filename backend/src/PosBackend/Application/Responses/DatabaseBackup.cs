@@ -138,6 +138,7 @@ public class PurchaseOrderLineBackup : BackupEntityBase
     public decimal UnitCostLbp { get; set; }
     public decimal TotalCostUsd { get; set; }
     public decimal TotalCostLbp { get; set; }
+    public string Currency { get; set; } = "USD";
 }
 
 public class PosTransactionBackup : BackupEntityBase

@@ -136,6 +136,7 @@ public class PurchasesController : ControllerBase
             }
 
             var currency = string.IsNullOrWhiteSpace(item.Currency) ? "USD" : item.Currency.ToUpperInvariant();
+            currency = currency == "LBP" ? "LBP" : "USD";
             decimal unitCostUsd;
             decimal unitCostLbp;
             if (currency == "LBP")
@@ -162,7 +163,8 @@ public class PurchasesController : ControllerBase
                 UnitCostUsd = unitCostUsd,
                 UnitCostLbp = unitCostLbp,
                 TotalCostUsd = lineCostUsd,
-                TotalCostLbp = lineCostLbp
+                TotalCostLbp = lineCostLbp,
+                Currency = currency
             };
 
             purchase.Lines.Add(line);
@@ -263,6 +265,7 @@ public class PurchasesController : ControllerBase
             }
 
             var currency = string.IsNullOrWhiteSpace(item.Currency) ? "USD" : item.Currency.ToUpperInvariant();
+            currency = currency == "LBP" ? "LBP" : "USD";
             decimal unitCostUsd;
             decimal unitCostLbp;
             if (currency == "LBP")
@@ -289,7 +292,8 @@ public class PurchasesController : ControllerBase
                 UnitCostUsd = unitCostUsd,
                 UnitCostLbp = unitCostLbp,
                 TotalCostUsd = lineCostUsd,
-                TotalCostLbp = lineCostLbp
+                TotalCostLbp = lineCostLbp,
+                Currency = currency
             };
 
             newLines.Add(line);
@@ -575,7 +579,8 @@ public class PurchasesController : ControllerBase
                 TotalCostUsd = line.TotalCostUsd,
                 TotalCostLbp = line.TotalCostLbp,
                 QuantityOnHand = line.Product?.Inventory?.QuantityOnHand ?? 0,
-                CurrentSalePriceUsd = line.Product?.PriceUsd
+                CurrentSalePriceUsd = line.Product?.PriceUsd,
+                Currency = line.Currency
             }).ToList()
         };
     }

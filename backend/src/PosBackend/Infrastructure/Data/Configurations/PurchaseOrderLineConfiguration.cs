@@ -15,5 +15,6 @@ public class PurchaseOrderLineConfiguration : IEntityTypeConfiguration<PurchaseO
         builder.Property(l => l.UnitCostLbp).HasColumnType("numeric(20,2)");
         builder.Property(l => l.TotalCostUsd).HasColumnType("numeric(14,2)");
         builder.Property(l => l.TotalCostLbp).HasColumnType("numeric(20,2)");
+        builder.Property(l => l.Currency).HasMaxLength(3);
     }
 }
