@@ -1,4 +1,4 @@
-import { type SVGProps, useEffect, useMemo, useState } from 'react';
+import { type SVGProps, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -125,24 +125,24 @@ function createDemoProfitSummary(): ProfitSummaryResponse {
   };
 }
 
-function toLocalStartOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+function toUtcStartOfDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
-function toLocalStartOfWeek(date: Date) {
-  const local = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = local.getDay();
+function toUtcStartOfWeek(date: Date) {
+  const local = toUtcStartOfDay(date);
+  const day = local.getUTCDay();
   const diff = (day + 6) % 7;
-  local.setDate(local.getDate() - diff);
-  return local;
+  local.setUTCDate(local.getUTCDate() - diff);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
 }
 
-function toLocalStartOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
+function toUtcStartOfMonth(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
-function toLocalStartOfYear(date: Date) {
-  return new Date(date.getFullYear(), 0, 1);
+function toUtcStartOfYear(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
 }
 
 function parseKeyToLocalDate(key: string) {
@@ -185,8 +185,7 @@ function fromDateInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return undefined;
   }
-  const date = new Date(year, month - 1, day);
-  date.setHours(0, 0, 0, 0);
+  const date = new Date(Date.UTC(year, month - 1, day));
   return date.toISOString();
 }
 
@@ -201,9 +200,8 @@ function fromWeekDateInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return undefined;
   }
-  const date = new Date(year, month - 1, day);
-  const startOfWeek = toLocalStartOfWeek(date);
-  startOfWeek.setHours(0, 0, 0, 0);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const startOfWeek = toUtcStartOfWeek(date);
   return startOfWeek.toISOString();
 }
 
@@ -217,8 +215,7 @@ function fromMonthInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month)) {
     return undefined;
   }
-  const date = new Date(year, month - 1, 1);
-  date.setHours(0, 0, 0, 0);
+  const date = new Date(Date.UTC(year, month - 1, 1));
   return date.toISOString();
 }
 
@@ -230,8 +227,7 @@ function fromYearInputValue(value: string) {
   if (!Number.isFinite(year)) {
     return undefined;
   }
-  const date = new Date(year, 0, 1);
-  date.setHours(0, 0, 0, 0);
+  const date = new Date(Date.UTC(year, 0, 1));
   return date.toISOString();
 }
 
@@ -284,9 +280,9 @@ function formatPeriodSummaryLabel(scope: ProfitScope, isoDate: string, locale: s
     case 'daily':
       return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
     case 'weekly': {
-      const start = toLocalStartOfWeek(date);
+      const start = toUtcStartOfWeek(date);
       const end = new Date(start);
-      end.setDate(end.getDate() + 6);
+      end.setUTCDate(end.getUTCDate() + 6);
       const startLabel = new Intl.DateTimeFormat(locale, {
         month: 'short',
         day: 'numeric',
@@ -324,6 +320,7 @@ export function ProfitsPage() {
   const [scope, setScope] = useState<ProfitScope>('daily');
   const [selectedPeriods, setSelectedPeriods] = useState<SelectedPeriods>({});
   const [yearInputValue, setYearInputValue] = useState('');
+  const pickerRef = useRef<HTMLInputElement | null>(null);
 
   const { data, isLoading, isError } = useQuery<ProfitSummaryResponse>({
     queryKey: ['profit-summary', token],
@@ -391,10 +388,10 @@ export function ProfitsPage() {
       };
 
       return {
-        daily: groupPoints(sortedPoints.daily, toLocalStartOfDay),
-        weekly: groupPoints(sortedPoints.weekly, toLocalStartOfWeek),
-        monthly: groupPoints(sortedPoints.monthly, toLocalStartOfMonth),
-        yearly: groupPoints(sortedPoints.yearly, toLocalStartOfYear)
+        daily: groupPoints(sortedPoints.daily, toUtcStartOfDay),
+        weekly: groupPoints(sortedPoints.weekly, toUtcStartOfWeek),
+        monthly: groupPoints(sortedPoints.monthly, toUtcStartOfMonth),
+        yearly: groupPoints(sortedPoints.yearly, toUtcStartOfYear)
       } satisfies Record<ProfitScope, PeriodGroup[]>;
     },
     [sortedPoints]
@@ -535,14 +532,34 @@ export function ProfitsPage() {
           ? t('profitPeriodPickerMonthly')
           : t('profitPeriodPickerYearly');
   const pickerInputClass =
-    'h-10 min-w-[12rem] appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm font-medium text-slate-700 shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-emerald-400 dark:focus:ring-emerald-500/40';
+    'h-10 min-w-[12rem] cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm font-medium text-slate-700 shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-emerald-400 dark:focus:ring-emerald-500/40';
   const pickerIconClass =
     'pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500';
+
+  const openPicker = () => {
+    const input = pickerRef.current;
+    if (!input) {
+      return;
+    }
+    const picker = input as HTMLInputElement & { showPicker?: () => void };
+    if (typeof picker.showPicker === 'function') {
+      picker.showPicker();
+    }
+    input.focus();
+  };
+
+  const handlePickerContainerPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.target === pickerRef.current) {
+      return;
+    }
+    event.preventDefault();
+    openPicker();
+  };
 
   const renderPeriodPicker = () => {
     if (scope === 'yearly') {
       return (
-        <div className="relative">
+        <div className="relative" onPointerDown={handlePickerContainerPointerDown}>
           <input
             type="text"
             inputMode="numeric"
@@ -551,6 +568,7 @@ export function ProfitsPage() {
             className={pickerInputClass}
             value={yearInputValue}
             placeholder="YYYY"
+            ref={pickerRef}
             onChange={(event) => {
               let nextValue = event.target.value.replace(/[^\d]/g, '');
               if (nextValue.length > 4) {
@@ -589,11 +607,12 @@ export function ProfitsPage() {
     if (scope === 'monthly') {
       const value = selectedPeriodKey ? toMonthInputValue(selectedPeriodKey) : '';
       return (
-        <div className="relative">
+        <div className="relative" onPointerDown={handlePickerContainerPointerDown}>
           <input
             type="month"
             className={pickerInputClass}
             value={value}
+            ref={pickerRef}
             onChange={(event) => {
               const next = event.target.value;
               if (!next) {
@@ -615,11 +634,12 @@ export function ProfitsPage() {
 
     const value = selectedPeriodKey ? toDateInputValue(selectedPeriodKey) : '';
     return (
-      <div className="relative">
+      <div className="relative" onPointerDown={handlePickerContainerPointerDown}>
         <input
           type="date"
           className={pickerInputClass}
           value={value}
+          ref={pickerRef}
           onChange={(event) => {
             const next = event.target.value;
             if (!next) {
