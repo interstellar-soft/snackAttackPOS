@@ -625,6 +625,16 @@ export function ProfitsPage() {
 
   const averageProfit = chartData.length > 0 ? totals.netProfit / chartData.length : 0;
   const averageSale = chartData.length > 0 ? totals.revenue / chartData.length : 0;
+  const netProfitMargin = totals.revenue > 0 ? totals.netProfit / totals.revenue : 0;
+  const formattedNetProfitMargin = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        style: 'percent',
+        maximumFractionDigits: 1,
+        minimumFractionDigits: 0
+      }).format(netProfitMargin),
+    [locale, netProfitMargin]
+  );
   const periodLabel =
     scope === 'daily' || scope === 'custom'
       ? t('profitPeriodDay')
@@ -903,7 +913,7 @@ export function ProfitsPage() {
           </div>
         </Card>
 
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
           <Card className="space-y-2 p-4">
             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalNet')}</p>
             <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
@@ -933,6 +943,13 @@ export function ProfitsPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t('profitAveragePerPeriod', { period: periodLabel })}
             </p>
+          </Card>
+          <Card className="space-y-2 p-4">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitNetMargin')}</p>
+            <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
+              {formattedNetProfitMargin}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t('profitNetMarginDescription')}</p>
           </Card>
           <Card className="space-y-2 p-4">
             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalDebt')}</p>
