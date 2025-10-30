@@ -39,16 +39,18 @@ interface ProfitSummaryResponse {
   yearly: ProfitSeries;
 }
 
-type ProfitScope = 'daily' | 'weekly' | 'monthly' | 'yearly';
+type BaseProfitScope = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
-type SelectedPeriods = Partial<Record<ProfitScope, string | undefined>>;
+type ProfitScope = BaseProfitScope | 'custom';
+
+type SelectedPeriods = Partial<Record<BaseProfitScope, string | undefined>>;
 
 interface PeriodGroup {
   key: string;
   points: ProfitPoint[];
 }
 
-const scopes: ProfitScope[] = ['daily', 'weekly', 'monthly', 'yearly'];
+const baseScopes: BaseProfitScope[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
 const demoProfitSummary: ProfitSummaryResponse = createDemoProfitSummary();
 
@@ -126,23 +128,32 @@ function createDemoProfitSummary(): ProfitSummaryResponse {
 }
 
 function toUtcStartOfDay(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const local = new Date(date);
+  local.setHours(0, 0, 0, 0);
+  return local;
 }
 
 function toUtcStartOfWeek(date: Date) {
   const local = toUtcStartOfDay(date);
-  const day = local.getUTCDay();
+  const day = local.getDay();
   const diff = (day + 6) % 7;
-  local.setUTCDate(local.getUTCDate() - diff);
-  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
+  local.setDate(local.getDate() - diff);
+  local.setHours(0, 0, 0, 0);
+  return local;
 }
 
 function toUtcStartOfMonth(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  const local = toUtcStartOfDay(date);
+  local.setDate(1);
+  local.setHours(0, 0, 0, 0);
+  return local;
 }
 
 function toUtcStartOfYear(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const local = toUtcStartOfDay(date);
+  local.setMonth(0, 1);
+  local.setHours(0, 0, 0, 0);
+  return local;
 }
 
 function parseKeyToLocalDate(key: string) {
@@ -150,7 +161,7 @@ function parseKeyToLocalDate(key: string) {
   if (Number.isNaN(date.valueOf())) {
     return undefined;
   }
-  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function toDateInputValue(key: string) {
@@ -185,7 +196,8 @@ function fromDateInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return undefined;
   }
-  const date = new Date(Date.UTC(year, month - 1, day));
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
   return date.toISOString();
 }
 
@@ -200,7 +212,7 @@ function fromWeekDateInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return undefined;
   }
-  const date = new Date(Date.UTC(year, month - 1, day));
+  const date = new Date(year, month - 1, day);
   const startOfWeek = toUtcStartOfWeek(date);
   return startOfWeek.toISOString();
 }
@@ -215,7 +227,8 @@ function fromMonthInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month)) {
     return undefined;
   }
-  const date = new Date(Date.UTC(year, month - 1, 1));
+  const date = new Date(year, month - 1, 1);
+  date.setHours(0, 0, 0, 0);
   return date.toISOString();
 }
 
@@ -227,7 +240,8 @@ function fromYearInputValue(value: string) {
   if (!Number.isFinite(year)) {
     return undefined;
   }
-  const date = new Date(Date.UTC(year, 0, 1));
+  const date = new Date(year, 0, 1);
+  date.setHours(0, 0, 0, 0);
   return date.toISOString();
 }
 
@@ -249,6 +263,10 @@ function formatPointLabel(scope: ProfitScope, isoDate: string, locale: string) {
       return new Intl.DateTimeFormat(locale, {
         hour: 'numeric',
         minute: '2-digit'
+      }).format(date);
+    case 'custom':
+      return new Intl.DateTimeFormat(locale, {
+        dateStyle: 'medium'
       }).format(date);
     case 'weekly':
       return new Intl.DateTimeFormat(locale, {
@@ -278,6 +296,8 @@ function formatPeriodSummaryLabel(scope: ProfitScope, isoDate: string, locale: s
 
   switch (scope) {
     case 'daily':
+      return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
+    case 'custom':
       return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
     case 'weekly': {
       const start = toUtcStartOfWeek(date);
@@ -319,6 +339,7 @@ export function ProfitsPage() {
 
   const [scope, setScope] = useState<ProfitScope>('daily');
   const [selectedPeriods, setSelectedPeriods] = useState<SelectedPeriods>({});
+  const [customRange, setCustomRange] = useState<{ start?: string; end?: string }>({});
   const [yearInputValue, setYearInputValue] = useState('');
   const pickerRef = useRef<HTMLInputElement | null>(null);
 
@@ -354,7 +375,7 @@ export function ProfitsPage() {
         weekly: sortPoints(profitSummary.weekly?.points),
         monthly: sortPoints(profitSummary.monthly?.points),
         yearly: sortPoints(profitSummary.yearly?.points)
-      } satisfies Record<ProfitScope, ProfitPoint[]>;
+      } satisfies Record<BaseProfitScope, ProfitPoint[]>;
     },
     [profitSummary]
   );
@@ -398,17 +419,46 @@ export function ProfitsPage() {
         weekly: groupPoints(sortedPoints.weekly, toUtcStartOfWeek),
         monthly: groupPoints(sortedPoints.monthly, toUtcStartOfMonth),
         yearly: groupPoints(sortedPoints.yearly, toUtcStartOfYear)
-      } satisfies Record<ProfitScope, PeriodGroup[]>;
+      } satisfies Record<BaseProfitScope, PeriodGroup[]>;
     },
     [sortedPoints]
   );
+
+  useEffect(() => {
+    if (customRange.start && customRange.end) {
+      return;
+    }
+
+    const mostRecent = periodGroups.daily[0]?.key;
+    if (!mostRecent) {
+      return;
+    }
+
+    const oldest = periodGroups.daily[periodGroups.daily.length - 1]?.key;
+    const mostRecentDate = new Date(mostRecent);
+    const defaultStart = new Date(mostRecentDate);
+    defaultStart.setUTCDate(defaultStart.getUTCDate() - 6);
+
+    let startIso = defaultStart.toISOString();
+    if (oldest) {
+      const oldestDate = new Date(oldest);
+      if (defaultStart < oldestDate) {
+        startIso = oldestDate.toISOString();
+      }
+    }
+
+    setCustomRange((prev) => ({
+      start: prev.start ?? startIso,
+      end: prev.end ?? mostRecent
+    }));
+  }, [customRange.end, customRange.start, periodGroups.daily]);
 
   useEffect(() => {
     setSelectedPeriods((prev) => {
       const next: SelectedPeriods = { ...prev };
       let updated = false;
 
-      scopes.forEach((key) => {
+      baseScopes.forEach((key) => {
         const groups = periodGroups[key];
         const current = next[key];
 
@@ -449,20 +499,89 @@ export function ProfitsPage() {
     });
   }, [selectedPeriods.yearly, periodGroups.yearly]);
 
-  const periodGroupsForScope = periodGroups[scope];
+  const periodGroupsForScope = scope === 'custom' ? [] : periodGroups[scope];
   const fallbackPeriodKey = periodGroupsForScope[0]?.key;
-  const explicitPeriodKey = selectedPeriods[scope];
-  const selectedPeriodKey = explicitPeriodKey ?? fallbackPeriodKey;
-  const isExplicitSelection = explicitPeriodKey !== undefined;
+  const explicitPeriodKey = scope === 'custom' ? undefined : selectedPeriods[scope];
+  const selectedPeriodKey = scope === 'custom' ? undefined : explicitPeriodKey ?? fallbackPeriodKey;
+  const isExplicitSelection =
+    scope === 'custom' ? Boolean(customRange.start && customRange.end) : explicitPeriodKey !== undefined;
+
+  const aggregatedDailyPoints = useMemo(() =>
+    periodGroups.daily.map((group) => {
+      const totals = group.points.reduce(
+        (acc, point) => ({
+          grossProfitUsd: acc.grossProfitUsd + Number(point.grossProfitUsd ?? 0),
+          netProfitUsd: acc.netProfitUsd + Number(point.netProfitUsd ?? 0),
+          revenueUsd: acc.revenueUsd + Number(point.revenueUsd ?? 0),
+          costUsd: acc.costUsd + Number(point.costUsd ?? 0)
+        }),
+        { grossProfitUsd: 0, netProfitUsd: 0, revenueUsd: 0, costUsd: 0 }
+      );
+
+      return {
+        periodStart: group.key,
+        grossProfitUsd: totals.grossProfitUsd,
+        netProfitUsd: totals.netProfitUsd,
+        revenueUsd: totals.revenueUsd,
+        costUsd: totals.costUsd
+      } satisfies ProfitPoint;
+    }),
+    [periodGroups.daily]
+  );
+
+  const customRangePoints = useMemo(() => {
+    if (!customRange.start || !customRange.end) {
+      return [];
+    }
+
+    const startDate = new Date(customRange.start);
+    const endDate = new Date(customRange.end);
+
+    if (Number.isNaN(startDate.valueOf()) || Number.isNaN(endDate.valueOf()) || startDate > endDate) {
+      return [];
+    }
+
+    return aggregatedDailyPoints
+      .filter((point) => {
+        const pointDate = new Date(point.periodStart);
+        return pointDate >= startDate && pointDate <= endDate;
+      })
+      .sort((a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime());
+  }, [aggregatedDailyPoints, customRange.end, customRange.start]);
+
+  const customRangeLabel = useMemo(() => {
+    if (!customRange.start || !customRange.end) {
+      return undefined;
+    }
+    const startDate = new Date(customRange.start);
+    const endDate = new Date(customRange.end);
+    if (Number.isNaN(startDate.valueOf()) || Number.isNaN(endDate.valueOf()) || startDate > endDate) {
+      return undefined;
+    }
+    const formatter = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+    return `${formatter.format(startDate)} – ${formatter.format(endDate)}`;
+  }, [customRange.end, customRange.start, locale]);
+
+  const isCustomRangeInvalid = useMemo(() => {
+    if (!customRange.start || !customRange.end) {
+      return false;
+    }
+    const startDate = new Date(customRange.start);
+    const endDate = new Date(customRange.end);
+    return Number.isNaN(startDate.valueOf()) || Number.isNaN(endDate.valueOf()) || startDate > endDate;
+  }, [customRange.end, customRange.start]);
 
   const selectedPoints = useMemo(() => {
+    if (scope === 'custom') {
+      return customRangePoints;
+    }
     const groups = periodGroups[scope];
     if (!selectedPeriodKey) {
       return groups[0]?.points ?? [];
     }
     const match = groups.find((group) => group.key === selectedPeriodKey);
     return match ? match.points : [];
-  }, [periodGroups, scope, selectedPeriodKey]);
+  }, [customRangePoints, periodGroups, scope, selectedPeriodKey]);
 
   const chartData = useMemo(
     () =>
@@ -507,16 +626,19 @@ export function ProfitsPage() {
   const averageProfit = chartData.length > 0 ? totals.netProfit / chartData.length : 0;
   const averageSale = chartData.length > 0 ? totals.revenue / chartData.length : 0;
   const periodLabel =
-    scope === 'daily'
+    scope === 'daily' || scope === 'custom'
       ? t('profitPeriodDay')
       : scope === 'weekly'
         ? t('profitPeriodWeek')
         : scope === 'monthly'
           ? t('profitPeriodMonth')
           : t('profitPeriodYear');
-  const selectedPeriodLabel = selectedPeriodKey
-    ? formatPeriodSummaryLabel(scope, selectedPeriodKey, locale)
-    : undefined;
+  const selectedPeriodLabel =
+    scope === 'custom'
+      ? customRangeLabel
+      : selectedPeriodKey
+        ? formatPeriodSummaryLabel(scope, selectedPeriodKey, locale)
+        : undefined;
   const placeholderRow =
     selectedPeriodLabel && isExplicitSelection && chartData.length === 0
       ? {
@@ -536,7 +658,9 @@ export function ProfitsPage() {
         ? t('profitPeriodPickerWeekly')
         : scope === 'monthly'
           ? t('profitPeriodPickerMonthly')
-          : t('profitPeriodPickerYearly');
+          : scope === 'yearly'
+            ? t('profitPeriodPickerYearly')
+            : t('profitPeriodPickerCustom');
   const pickerInputClass =
     'h-10 min-w-[12rem] cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm font-medium text-slate-700 shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-emerald-400 dark:focus:ring-emerald-500/40';
   const pickerIconClass =
@@ -646,6 +770,47 @@ export function ProfitsPage() {
       );
     }
 
+    if (scope === 'custom') {
+      const startValue = customRange.start ? toDateInputValue(customRange.start) : '';
+      const endValue = customRange.end ? toDateInputValue(customRange.end) : '';
+      return (
+        <div className="flex flex-wrap gap-2">
+          <div className="relative">
+            <input
+              type="date"
+              className={pickerInputClass}
+              value={startValue}
+              onChange={(event) => {
+                const next = event.target.value;
+                setCustomRange((prev) => ({
+                  ...prev,
+                  start: next ? fromDateInputValue(next) : undefined
+                }));
+              }}
+              autoComplete="off"
+            />
+            <ChevronDownIcon className={pickerIconClass} />
+          </div>
+          <div className="relative">
+            <input
+              type="date"
+              className={pickerInputClass}
+              value={endValue}
+              onChange={(event) => {
+                const next = event.target.value;
+                setCustomRange((prev) => ({
+                  ...prev,
+                  end: next ? fromDateInputValue(next) : undefined
+                }));
+              }}
+              autoComplete="off"
+            />
+            <ChevronDownIcon className={pickerIconClass} />
+          </div>
+        </div>
+      );
+    }
+
     const value = selectedPeriodKey ? toDateInputValue(selectedPeriodKey) : '';
     return (
       <div className="relative" onPointerDown={handlePickerContainerPointerDown}>
@@ -657,14 +822,18 @@ export function ProfitsPage() {
           onChange={(event) => {
             const next = event.target.value;
             if (!next) {
-              setSelectedPeriods((prev) => ({ ...prev, [scope]: undefined }));
+              if (scope === 'weekly' || scope === 'daily') {
+                setSelectedPeriods((prev) => ({ ...prev, [scope]: undefined }));
+              }
               return;
             }
             const iso = scope === 'weekly' ? fromWeekDateInputValue(next) : fromDateInputValue(next);
-            setSelectedPeriods((prev) => ({
-              ...prev,
-              [scope]: iso
-            }));
+            if (scope === 'weekly' || scope === 'daily') {
+              setSelectedPeriods((prev) => ({
+                ...prev,
+                [scope]: iso
+              }));
+            }
           }}
           autoComplete="off"
         />
@@ -720,11 +889,15 @@ export function ProfitsPage() {
                   <option value="weekly">{t('profitScopeWeekly')}</option>
                   <option value="monthly">{t('profitScopeMonthly')}</option>
                   <option value="yearly">{t('profitScopeYearly')}</option>
+                  <option value="custom">{t('profitScopeCustom')}</option>
                 </select>
               </label>
               <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
                 <span className="mb-1 font-medium">{periodPickerLabel}</span>
                 {renderPeriodPicker()}
+                {scope === 'custom' && isCustomRangeInvalid && (
+                  <span className="mt-1 text-xs text-red-600 dark:text-red-400">{t('profitCustomRangeInvalid')}</span>
+                )}
               </label>
             </div>
           </div>
