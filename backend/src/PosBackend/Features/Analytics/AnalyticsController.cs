@@ -32,7 +32,10 @@ public class AnalyticsController : ControllerBase
         var lookbackStart = DateTime.UtcNow.AddYears(-3);
         var lines = await _db.TransactionLines
             .Include(l => l.Transaction)
-            .Where(l => l.Transaction != null && l.Transaction.CreatedAt >= lookbackStart)
+            .Where(l =>
+                l.Transaction != null &&
+                l.Transaction.CreatedAt >= lookbackStart &&
+                !_db.PersonalPurchases.Any(p => p.TransactionId == l.TransactionId))
             .ToListAsync(cancellationToken);
 
         if (lines.Count == 0)
@@ -66,6 +69,7 @@ public class AnalyticsController : ControllerBase
             .Include(t => t.Lines)
             .ThenInclude(l => l.Product)
             .ThenInclude(p => p!.Category)
+            .Where(t => !_db.PersonalPurchases.Any(p => p.TransactionId == t.Id))
             .OrderByDescending(t => t.CreatedAt)
             .Take(500)
             .ToListAsync(cancellationToken);
