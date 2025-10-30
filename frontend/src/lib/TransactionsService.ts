@@ -264,9 +264,79 @@ export const TransactionsService = {
           token ?? undefined
         );
       },
-      onSuccess: (_, variables) => {
+      onSuccess: (transaction) => {
+        queryClient.setQueryData<DebtCard[] | undefined>(
+          token ? [...transactionsKeys.debts(), token] : [...transactionsKeys.debts()],
+          (previous) => {
+            if (!previous) {
+              return previous;
+            }
+
+            const updatedCards = previous
+              .map((card) => {
+                const hasTransaction = card.transactions.some((existing) => existing.id === transaction.id);
+                if (!hasTransaction) {
+                  return card;
+                }
+
+                const updatedTransactions = card.transactions
+                  .map((existing) =>
+                    existing.id === transaction.id
+                      ? {
+                          ...existing,
+                          paidUsd: transaction.paidUsd,
+                          paidLbp: transaction.paidLbp,
+                          balanceUsd: transaction.balanceUsd,
+                          balanceLbp: transaction.balanceLbp
+                        }
+                      : existing
+                  )
+                  .filter((item) => item.balanceUsd > 0 || item.balanceLbp > 0);
+
+                if (updatedTransactions.length === 0) {
+                  return null;
+                }
+
+                const aggregates = updatedTransactions.reduce(
+                  (acc, item) => ({
+                    totalUsd: acc.totalUsd + item.totalUsd,
+                    totalLbp: acc.totalLbp + item.totalLbp,
+                    paidUsd: acc.paidUsd + item.paidUsd,
+                    paidLbp: acc.paidLbp + item.paidLbp,
+                    balanceUsd: acc.balanceUsd + item.balanceUsd,
+                    balanceLbp: acc.balanceLbp + item.balanceLbp
+                  }),
+                  {
+                    totalUsd: 0,
+                    totalLbp: 0,
+                    paidUsd: 0,
+                    paidLbp: 0,
+                    balanceUsd: 0,
+                    balanceLbp: 0
+                  }
+                );
+
+                const updatedCard: DebtCard = {
+                  ...card,
+                  totalUsd: aggregates.totalUsd,
+                  totalLbp: aggregates.totalLbp,
+                  paidUsd: aggregates.paidUsd,
+                  paidLbp: aggregates.paidLbp,
+                  balanceUsd: aggregates.balanceUsd,
+                  balanceLbp: aggregates.balanceLbp,
+                  transactions: updatedTransactions
+                };
+
+                return updatedCard;
+              })
+              .filter((card): card is DebtCard => card !== null && card !== undefined);
+
+            return updatedCards;
+          }
+        );
+
         queryClient.invalidateQueries({ queryKey: transactionsKeys.debts() });
-        queryClient.invalidateQueries({ queryKey: transactionsKeys.detail(variables.id) });
+        queryClient.invalidateQueries({ queryKey: transactionsKeys.detail(transaction.id) });
         queryClient.invalidateQueries({ queryKey: transactionsKeys.list() });
       }
     });
