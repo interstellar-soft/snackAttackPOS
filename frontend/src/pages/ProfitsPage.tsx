@@ -329,7 +329,13 @@ export function ProfitsPage() {
       if (!token) {
         throw new Error('Unauthorized');
       }
-      return await apiFetch<ProfitSummaryResponse>('/api/analytics/profit', {}, token);
+      const resolvedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const params = new URLSearchParams();
+      if (resolvedTimezone) {
+        params.set('timezone', resolvedTimezone);
+      }
+      const path = params.size > 0 ? `/api/analytics/profit?${params.toString()}` : '/api/analytics/profit';
+      return await apiFetch<ProfitSummaryResponse>(path, {}, token);
     }
   });
 
@@ -549,9 +555,17 @@ export function ProfitsPage() {
   };
 
   const handlePickerContainerPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.target === pickerRef.current) {
+    const input = pickerRef.current;
+    if (!input) {
       return;
     }
+
+    const target = event.target;
+    const isTextInput = input.type === 'text';
+    if (target instanceof HTMLInputElement && target === input && isTextInput) {
+      return;
+    }
+
     event.preventDefault();
     openPicker();
   };

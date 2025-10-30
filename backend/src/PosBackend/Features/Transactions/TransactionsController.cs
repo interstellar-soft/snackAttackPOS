@@ -778,7 +778,7 @@ public class TransactionsController : ControllerBase
         transaction.BalanceLbp = balance.balanceLbp;
         transaction.UpdatedAt = DateTime.UtcNow;
 
-        var isSettled = transaction.BalanceUsd <= 0.01m && transaction.BalanceLbp <= 100m;
+        var isSettled = Math.Abs(transaction.BalanceUsd) <= 0.01m && Math.Abs(transaction.BalanceLbp) <= 100m;
 
         if (isSettled)
         {
