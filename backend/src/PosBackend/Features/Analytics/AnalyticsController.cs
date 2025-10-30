@@ -27,7 +27,7 @@ public class AnalyticsController : ControllerBase
     }
 
     [HttpGet("profit")]
-    public async Task<ActionResult<ProfitSummaryResponse>> GetProfitSummary(CancellationToken cancellationToken)
+    public async Task<ActionResult<ProfitSummaryResponse>> GetProfitSummary([FromQuery] string? timezone, CancellationToken cancellationToken)
     {
         var lookbackStart = DateTime.UtcNow.AddYears(-3);
         var lines = await _db.TransactionLines
@@ -40,33 +40,15 @@ public class AnalyticsController : ControllerBase
             return new ProfitSummaryResponse();
         }
 
-        static DateTime AsUtc(DateTime date)
-        {
-            return DateTime.SpecifyKind(date, DateTimeKind.Utc);
-        }
+        var resolvedTimezone = ResolveTimeZone(timezone);
 
-        static DateTime StartOfHour(DateTime date)
-        {
-            return new DateTime(date.Year, date.Month, date.Day, date.Hour, 0, 0, DateTimeKind.Utc);
-        }
+        var hourly = BuildSeries(lines, resolvedTimezone, StartOfHourUtc);
 
-        static DateTime StartOfDay(DateTime date)
-        {
-            return new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Utc);
-        }
+        var daily = BuildSeries(lines, resolvedTimezone, StartOfDayUtc);
 
-        static DateTime StartOfMonth(DateTime date)
-        {
-            return new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        }
+        var weekly = BuildSeries(lines, resolvedTimezone, StartOfWeekUtc);
 
-        var hourly = BuildSeries(lines, date => StartOfHour(AsUtc(date)));
-
-        var daily = BuildSeries(lines, date => StartOfDay(AsUtc(date)));
-
-        var weekly = BuildSeries(lines, date => StartOfWeek(AsUtc(date)));
-
-        var monthly = BuildSeries(lines, date => StartOfMonth(AsUtc(date)));
+        var monthly = BuildSeries(lines, resolvedTimezone, StartOfMonthUtc);
 
         return new ProfitSummaryResponse
         {
@@ -320,11 +302,18 @@ public class AnalyticsController : ControllerBase
         return NoContent();
     }
 
-    private static List<ProfitPoint> BuildSeries(IEnumerable<TransactionLine> lines, Func<DateTime, DateTime> bucketSelector)
+    private static List<ProfitPoint> BuildSeries(
+        IEnumerable<TransactionLine> lines,
+        TimeZoneInfo timezone,
+        Func<DateTime, TimeZoneInfo, DateTime> bucketSelector)
     {
         return lines
             .Where(l => l.Transaction is not null)
-            .GroupBy(l => bucketSelector(DateTime.SpecifyKind(l.Transaction!.CreatedAt, DateTimeKind.Utc)))
+            .GroupBy(l =>
+            {
+                var utcCreatedAt = DateTime.SpecifyKind(l.Transaction!.CreatedAt, DateTimeKind.Utc);
+                return bucketSelector(utcCreatedAt, timezone);
+            })
             .OrderBy(g => g.Key)
             .Select(g =>
             {
@@ -343,10 +332,52 @@ public class AnalyticsController : ControllerBase
             .ToList();
     }
 
-    private static DateTime StartOfWeek(DateTime date)
+    private static TimeZoneInfo ResolveTimeZone(string? timezoneId)
     {
-        var utcDate = DateTime.SpecifyKind(new DateTime(date.Year, date.Month, date.Day, 0, 0, 0), DateTimeKind.Utc);
-        var diff = (7 + (utcDate.DayOfWeek - DayOfWeek.Monday)) % 7;
-        return utcDate.AddDays(-diff);
+        if (!string.IsNullOrWhiteSpace(timezoneId))
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(timezoneId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return TimeZoneInfo.Local;
+    }
+
+    private static DateTime StartOfHourUtc(DateTime dateUtc, TimeZoneInfo timezone)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(dateUtc, timezone);
+        var localStart = new DateTime(local.Year, local.Month, local.Day, local.Hour, 0, 0, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(localStart, timezone);
+    }
+
+    private static DateTime StartOfDayUtc(DateTime dateUtc, TimeZoneInfo timezone)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(dateUtc, timezone);
+        var localStart = new DateTime(local.Year, local.Month, local.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(localStart, timezone);
+    }
+
+    private static DateTime StartOfMonthUtc(DateTime dateUtc, TimeZoneInfo timezone)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(dateUtc, timezone);
+        var localStart = new DateTime(local.Year, local.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(localStart, timezone);
+    }
+
+    private static DateTime StartOfWeekUtc(DateTime dateUtc, TimeZoneInfo timezone)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(dateUtc, timezone);
+        var localStart = new DateTime(local.Year, local.Month, local.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        var diff = (7 + (localStart.DayOfWeek - DayOfWeek.Monday)) % 7;
+        var weekStartLocal = localStart.AddDays(-diff);
+        return TimeZoneInfo.ConvertTimeToUtc(weekStartLocal, timezone);
     }
 }
