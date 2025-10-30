@@ -164,6 +164,10 @@ export function DebtsPage() {
       { id: selectedTransaction.id, paidUsd, paidLbp },
       {
         onSuccess: (result) => {
+          const nextUsd = result.balanceUsd > 0 ? result.balanceUsd.toFixed(2) : '0';
+          const nextLbp = result.balanceLbp > 0 ? Math.round(result.balanceLbp).toString() : '0';
+          setSettleUsd(nextUsd);
+          setSettleLbp(nextLbp);
           setFeedback({ type: 'success', message: t('debtsSettleSuccess', { number: result.transactionNumber }) });
         },
         onError: () => {
