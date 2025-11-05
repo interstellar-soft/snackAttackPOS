@@ -159,9 +159,28 @@ export const useCartStore = create<CartState>()(
             const items = [...state.items];
             const existing = items[existingIndex];
             const nextQuantity = existing.quantity + normalized.quantity;
+            const shouldApplyManualTotals =
+              (existing.manualTotalUsd !== null && existing.manualTotalUsd !== undefined) ||
+              (existing.manualTotalLbp !== null && existing.manualTotalLbp !== undefined) ||
+              (normalized.manualTotalUsd !== null && normalized.manualTotalUsd !== undefined) ||
+              (normalized.manualTotalLbp !== null && normalized.manualTotalLbp !== undefined);
+            const nextManualTotalUsd = shouldApplyManualTotals
+              ? clampUsd(
+                  (existing.manualTotalUsd ?? existing.priceUsd * existing.quantity) +
+                    (normalized.manualTotalUsd ?? normalized.priceUsd * normalized.quantity)
+                )
+              : null;
+            const nextManualTotalLbp = shouldApplyManualTotals
+              ? clampLbp(
+                  (existing.manualTotalLbp ?? existing.priceLbp * existing.quantity) +
+                    (normalized.manualTotalLbp ?? normalized.priceLbp * normalized.quantity)
+                )
+              : null;
             items[existingIndex] = {
               ...existing,
-              quantity: nextQuantity
+              quantity: nextQuantity,
+              manualTotalUsd: nextManualTotalUsd,
+              manualTotalLbp: nextManualTotalLbp
             };
             return { items, lastAddedItemId: existing.lineId };
           });
