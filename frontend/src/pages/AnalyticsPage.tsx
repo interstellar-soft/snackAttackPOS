@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { TopBar } from '../components/pos/TopBar';
 import { useLanguageDirection } from '../hooks/useLanguageDirection';
 import { formatCurrency } from '../lib/utils';
+import { Input } from '../components/ui/input';
+import { ProductsService } from '../lib/ProductsService';
 
 interface MetricValue {
   label: string;
@@ -61,6 +63,27 @@ interface AnalyticsDashboardResponse {
   seasonalForecast: TimeseriesBandPoint[];
   currencyMixTrend: CurrencySplitPoint[];
   changeIssuanceTrend: CurrencySplitPoint[];
+}
+
+interface SalesMetricValue {
+  label: string;
+  quantitySold: number;
+  salesUsd: number;
+}
+
+interface ProductDateSalesResponse {
+  productId: string;
+  productName: string;
+  startDate: string;
+  endDate: string;
+  quantitySold: number;
+  salesUsd: number;
+}
+
+interface SalesBreakdownResponse {
+  topItems: SalesMetricValue[];
+  topCategories: SalesMetricValue[];
+  selectedProductSales?: ProductDateSalesResponse | null;
 }
 
 const demoDashboard: AnalyticsDashboardResponse = {
@@ -149,6 +172,37 @@ export function AnalyticsPage() {
 
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
+  const [selectedStartDate, setSelectedStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [selectedEndDate, setSelectedEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+
+  const productsQuery = ProductsService.useInventoryProducts();
+  const products = productsQuery.data ?? [];
+
+  const { data: salesBreakdown } = useQuery<SalesBreakdownResponse>({
+    queryKey: ['analytics-sales-breakdown', token, selectedStartDate, selectedEndDate, selectedProductId],
+    queryFn: async () => {
+      if (!token) throw new Error('Unauthorized');
+      const params = new URLSearchParams();
+      if (selectedStartDate) {
+        params.set('startDate', selectedStartDate);
+      }
+      if (selectedEndDate) {
+        params.set('endDate', selectedEndDate);
+      }
+      if (selectedProductId) {
+        params.set('productId', selectedProductId);
+      }
+
+      const query = params.toString();
+      return await apiFetch<SalesBreakdownResponse>(
+        `/api/analytics/sales-breakdown${query ? `?${query}` : ''}`,
+        {},
+        token
+      );
+    },
+    enabled: !!token
+  });
 
   const profitLeaderList = dashboard.profitLeaders.slice(0, 5);
   const lossLeaderList = dashboard.lossLeaders.slice(0, 5);
@@ -217,6 +271,91 @@ export function AnalyticsPage() {
         </Card>
       )}
       <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>{t('salesInsightsTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1 text-sm">
+                <span className="text-slate-600 dark:text-slate-300">{t('salesInsightsDate')}</span>
+                <Input
+                  type="date"
+                  value={selectedStartDate}
+                  onChange={(event) => setSelectedStartDate(event.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-slate-600 dark:text-slate-300">{t('salesInsightsDateTo')}</span>
+                <Input
+                  type="date"
+                  value={selectedEndDate}
+                  onChange={(event) => setSelectedEndDate(event.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-sm md:col-span-2">
+                <span className="text-slate-600 dark:text-slate-300">{t('salesInsightsItem')}</span>
+                <select
+                  className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  value={selectedProductId}
+                  onChange={(event) => setSelectedProductId(event.target.value)}
+                >
+                  <option value="">{t('salesInsightsItemPlaceholder')}</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {salesBreakdown?.selectedProductSales && (
+              <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100">
+                <p className="font-semibold">{salesBreakdown.selectedProductSales.productName}</p>
+                <p>
+                  {t('salesInsightsOnDateRange', {
+                    startDate: selectedStartDate,
+                    endDate: selectedEndDate
+                  })}
+                  : {salesBreakdown.selectedProductSales.quantitySold}
+                </p>
+                <p>
+                  {t('salesInsightsRevenue')}: {formatCurrency(salesBreakdown.selectedProductSales.salesUsd, 'USD', locale)}
+                </p>
+              </div>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{t('salesInsightsTopItems')}</h3>
+                <ul className="space-y-1 text-sm">
+                  {(salesBreakdown?.topItems ?? []).slice(0, 8).map((metric) => (
+                    <li key={metric.label} className="flex justify-between gap-2">
+                      <span>{metric.label}</span>
+                      <span className="text-right font-medium">
+                        {metric.quantitySold} · {formatCurrency(metric.salesUsd, 'USD', locale)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{t('salesInsightsTopCategories')}</h3>
+                <ul className="space-y-1 text-sm">
+                  {(salesBreakdown?.topCategories ?? []).slice(0, 8).map((metric) => (
+                    <li key={metric.label} className="flex justify-between gap-2">
+                      <span>{metric.label}</span>
+                      <span className="text-right font-medium">
+                        {metric.quantitySold} · {formatCurrency(metric.salesUsd, 'USD', locale)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>{t('profitLeaders')}</CardTitle>

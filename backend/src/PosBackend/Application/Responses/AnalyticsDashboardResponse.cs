@@ -18,7 +18,16 @@ public class AnalyticsDashboardResponse
     public IEnumerable<CurrencySplitPoint> ChangeIssuanceTrend { get; set; } = Enumerable.Empty<CurrencySplitPoint>();
 }
 
+public class SalesBreakdownResponse
+{
+    public IEnumerable<SalesMetricValue> TopItems { get; set; } = Enumerable.Empty<SalesMetricValue>();
+    public IEnumerable<SalesMetricValue> TopCategories { get; set; } = Enumerable.Empty<SalesMetricValue>();
+    public ProductRangeSalesResponse? SelectedProductSales { get; set; }
+}
+
 public record MetricValue(string Label, decimal Value);
+public record SalesMetricValue(string Label, decimal QuantitySold, decimal SalesUsd);
+public record ProductRangeSalesResponse(Guid ProductId, string ProductName, DateOnly StartDate, DateOnly EndDate, decimal QuantitySold, decimal SalesUsd);
 
 public record MarginPoint(string Label, decimal MarginPercent, decimal RevenueUsd);
 

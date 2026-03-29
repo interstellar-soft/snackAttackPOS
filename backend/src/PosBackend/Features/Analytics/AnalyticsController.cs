@@ -126,19 +126,7 @@ public class AnalyticsController : ControllerBase
             };
         }
 
-        TimeZoneInfo timezone;
-        try
-        {
-            timezone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Beirut");
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            timezone = TimeZoneInfo.Local;
-        }
-        catch (InvalidTimeZoneException)
-        {
-            timezone = TimeZoneInfo.Local;
-        }
+        var timezone = ResolveAnalyticsTimeZone();
 
         DateTime ToLocal(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), timezone);
 
@@ -273,6 +261,84 @@ public class AnalyticsController : ControllerBase
         };
     }
 
+    [HttpGet("sales-breakdown")]
+    public async Task<ActionResult<SalesBreakdownResponse>> GetSalesBreakdown(
+        [FromQuery] DateOnly? startDate,
+        [FromQuery] DateOnly? endDate,
+        [FromQuery] Guid? productId,
+        CancellationToken cancellationToken)
+    {
+        if (startDate.HasValue && endDate.HasValue && startDate > endDate)
+        {
+            return BadRequest("startDate must be earlier than or equal to endDate.");
+        }
+
+        var timezone = ResolveAnalyticsTimeZone();
+        var lines = await _db.TransactionLines
+            .Include(line => line.Transaction)
+            .Include(line => line.Product)
+            .ThenInclude(product => product!.Category)
+            .Where(line =>
+                line.Transaction != null &&
+                !line.IsWaste &&
+                !_db.PersonalPurchases.Any(p => p.TransactionId == line.TransactionId))
+            .ToListAsync(cancellationToken);
+
+        var topItems = lines
+            .GroupBy(line => line.Product?.Name ?? "Unknown")
+            .Select(group => new SalesMetricValue(
+                group.Key,
+                decimal.Round(group.Sum(line => line.Quantity), 3),
+                decimal.Round(group.Sum(line => line.TotalUsd), 2)))
+            .OrderByDescending(metric => metric.QuantitySold)
+            .Take(10)
+            .ToList();
+
+        var topCategories = lines
+            .GroupBy(line => line.Product?.Category?.Name ?? "General")
+            .Select(group => new SalesMetricValue(
+                group.Key,
+                decimal.Round(group.Sum(line => line.Quantity), 3),
+                decimal.Round(group.Sum(line => line.TotalUsd), 2)))
+            .OrderByDescending(metric => metric.QuantitySold)
+            .Take(10)
+            .ToList();
+
+        ProductRangeSalesResponse? selectedProductSales = null;
+        if (startDate.HasValue && endDate.HasValue && productId.HasValue)
+        {
+            var product = await _db.Products
+                .Where(p => p.Id == productId.Value)
+                .Select(p => new { p.Id, p.Name })
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (product is not null)
+            {
+                var productLinesInRange = lines
+                    .Where(line =>
+                        line.ProductId == product.Id &&
+                        DateOnly.FromDateTime(ToLocal(line.Transaction!.CreatedAt, timezone)) >= startDate.Value &&
+                        DateOnly.FromDateTime(ToLocal(line.Transaction!.CreatedAt, timezone)) <= endDate.Value)
+                    .ToList();
+
+                selectedProductSales = new ProductRangeSalesResponse(
+                    product.Id,
+                    product.Name,
+                    startDate.Value,
+                    endDate.Value,
+                    decimal.Round(productLinesInRange.Sum(line => line.Quantity), 3),
+                    decimal.Round(productLinesInRange.Sum(line => line.TotalUsd), 2));
+            }
+        }
+
+        return new SalesBreakdownResponse
+        {
+            TopItems = topItems,
+            TopCategories = topCategories,
+            SelectedProductSales = selectedProductSales
+        };
+    }
+
     [HttpPost("reset")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ResetAnalytics(CancellationToken cancellationToken)
@@ -334,6 +400,27 @@ public class AnalyticsController : ControllerBase
                 };
             })
             .ToList();
+    }
+
+    private static TimeZoneInfo ResolveAnalyticsTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Beirut");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.Local;
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.Local;
+        }
+    }
+
+    private static DateTime ToLocal(DateTime utc, TimeZoneInfo timezone)
+    {
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), timezone);
     }
 
     private static TimeZoneInfo ResolveTimeZone(string? timezoneId)
