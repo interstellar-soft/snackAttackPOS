@@ -678,15 +678,50 @@ export function ProfitsPage() {
   }, [aggregatedDailyPoints, customRangePoints, periodGroups, scope, selectedPeriodKey]);
 
   const chartData = useMemo(
-    () =>
-      selectedPoints.map((point) => ({
+    () => {
+      const pointsForChart = (() => {
+        if (scope !== 'daily' || !selectedPeriodKey) {
+          return selectedPoints;
+        }
+
+        const dayStart = toUtcStartOfDay(new Date(selectedPeriodKey));
+        const hourBuckets = new Map<string, ProfitPoint>();
+
+        selectedPoints.forEach((point) => {
+          const pointDate = new Date(point.periodStart);
+          if (Number.isNaN(pointDate.valueOf())) {
+            return;
+          }
+          const hourStart = new Date(pointDate);
+          hourStart.setUTCMinutes(0, 0, 0);
+          hourBuckets.set(hourStart.toISOString(), point);
+        });
+
+        return Array.from({ length: 24 }, (_, hour) => {
+          const hourDate = new Date(dayStart);
+          hourDate.setUTCHours(hour, 0, 0, 0);
+          const key = hourDate.toISOString();
+          return (
+            hourBuckets.get(key) ?? {
+              periodStart: key,
+              grossProfitUsd: 0,
+              netProfitUsd: 0,
+              revenueUsd: 0,
+              costUsd: 0
+            }
+          );
+        });
+      })();
+
+      return pointsForChart.map((point) => ({
         label: formatPointLabel(scope, point.periodStart, locale),
         grossProfit: Number(point.grossProfitUsd ?? 0),
         netProfit: Number(point.netProfitUsd ?? 0),
         revenue: Number(point.revenueUsd ?? 0),
         cost: Number(point.costUsd ?? 0)
-      })),
-    [selectedPoints, locale, scope]
+      }));
+    },
+    [selectedPeriodKey, selectedPoints, locale, scope]
   );
 
   const outstandingDebt = useMemo(
@@ -717,7 +752,6 @@ export function ProfitsPage() {
     [chartData]
   );
 
-  const averageProfit = chartData.length > 0 ? totals.netProfit / chartData.length : 0;
   const averageSale = chartData.length > 0 ? totals.revenue / chartData.length : 0;
   const netProfitMargin = totals.revenue > 0 ? totals.netProfit / totals.revenue : 0;
   const formattedNetProfitMargin = useMemo(
