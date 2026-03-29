@@ -486,7 +486,10 @@ export function CartPanel({
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                   <label className="space-y-1">
-                    <span>{t('quantity')}</span>
+                    <span>
+                      {t('quantity')}
+                      {item.isSoldByWeight && item.weightUnit ? ` (${item.weightUnit})` : ''}
+                    </span>
                     {/**
                      * Use a text input when highlighted to allow selecting the full value reliably.
                      */}

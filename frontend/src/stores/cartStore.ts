@@ -72,6 +72,7 @@ export interface CartItem {
   costLbp: number;
   quantity: number;
   isSoldByWeight?: boolean;
+  weightUnit?: 'kg' | 'g' | 'lb' | null;
   discountPercent: number;
   isWaste: boolean;
   hasConfiguredPriceOverride: boolean;

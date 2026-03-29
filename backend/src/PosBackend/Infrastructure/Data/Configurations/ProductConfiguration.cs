@@ -24,6 +24,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.IsSoldByWeight)
             .HasColumnName("is_sold_by_weight")
             .HasDefaultValue(false);
+        builder.Property(p => p.WeightUnit)
+            .HasColumnName("weight_unit")
+            .HasMaxLength(10);
         builder.HasMany(p => p.AdditionalBarcodes)
             .WithOne(b => b.Product!)
             .HasForeignKey(b => b.ProductId)

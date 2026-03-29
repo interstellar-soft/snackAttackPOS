@@ -163,6 +163,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<decimal>("PriceUsd").HasColumnType("numeric(12,2)");
                 b.Property<string>("Sku").HasColumnType("text").IsRequired(false);
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("WeightUnit").HasMaxLength(10).HasColumnName("weight_unit").HasColumnType("character varying(10)");
                 b.HasKey("Id");
                 b.HasIndex("Barcode").IsUnique();
                 b.HasIndex("CategoryId");

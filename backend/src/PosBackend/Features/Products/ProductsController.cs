@@ -121,6 +121,7 @@ public class ProductsController : ControllerBase
             PriceUsd = priceResult.PriceUsd,
             PriceLbp = priceResult.PriceLbp,
             IsSoldByWeight = request.IsSoldByWeight,
+            WeightUnit = request.WeightUnit,
             IsActive = true,
             IsPinned = request.IsPinned,
             Category = category
@@ -224,6 +225,7 @@ public class ProductsController : ControllerBase
         product.PriceUsd = priceResult.PriceUsd;
         product.PriceLbp = priceResult.PriceLbp;
         product.IsSoldByWeight = request.IsSoldByWeight;
+        product.WeightUnit = request.WeightUnit;
         product.IsPinned = request.IsPinned;
         product.Category = category;
         product.UpdatedAt = DateTime.UtcNow;
@@ -437,6 +439,7 @@ public class ProductsController : ControllerBase
             CategoryName = product.Category?.Name ?? string.Empty,
             IsPinned = product.IsPinned,
             IsSoldByWeight = product.IsSoldByWeight,
+            WeightUnit = product.WeightUnit,
             QuantityOnHand = inventory?.QuantityOnHand ?? 0,
             AverageCostUsd = inventory?.AverageCostUsd ?? 0,
             ReorderPoint = inventory?.ReorderPoint ?? 3m,
@@ -533,6 +536,21 @@ public class ProductsController : ControllerBase
         if (request.QuantityOnHand is decimal quantityOnHand && quantityOnHand < 0)
         {
             AddError(errors, nameof(request.QuantityOnHand), "Quantity on hand cannot be negative.");
+        }
+
+        request.WeightUnit = NormalizeOptional(request.WeightUnit)?.ToLowerInvariant();
+        var allowedWeightUnits = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "kg", "g", "lb" };
+        if (request.IsSoldByWeight)
+        {
+            request.WeightUnit ??= "kg";
+            if (!allowedWeightUnits.Contains(request.WeightUnit))
+            {
+                AddError(errors, nameof(request.WeightUnit), "Weight unit must be one of: kg, g, lb.");
+            }
+        }
+        else
+        {
+            request.WeightUnit = null;
         }
 
         if (request.Sku is not null)

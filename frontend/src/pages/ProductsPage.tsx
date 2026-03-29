@@ -44,6 +44,7 @@ type ProductFormValues = {
   stockQuantity: string;
   isPinned: boolean;
   isSoldByWeight: boolean;
+  weightUnit: 'kg' | 'g' | 'lb';
   reorderPoint: string;
   additionalBarcodes: ProductFormBarcode[];
 };
@@ -93,6 +94,7 @@ const emptyValues: ProductFormValues = {
   stockQuantity: '',
   isPinned: false,
   isSoldByWeight: false,
+  weightUnit: 'kg',
   reorderPoint: '3',
   additionalBarcodes: []
 };
@@ -203,7 +205,7 @@ export function ProductsPage() {
             )}
             {product.isSoldByWeight && (
               <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">
-                {t('inventorySoldByWeightTag')}
+                {t('inventorySoldByWeightTag', { unit: product.weightUnit ?? 'kg' })}
               </span>
             )}
           </div>
@@ -355,6 +357,7 @@ export function ProductsPage() {
         currency: values.currency,
         isPinned: values.isPinned,
         isSoldByWeight: values.isSoldByWeight,
+        ...(values.isSoldByWeight ? { weightUnit: values.weightUnit } : {}),
         reorderPoint: parsedReorderPoint,
         ...(sku ? { sku } : {}),
         ...(parsedCost !== null
@@ -437,6 +440,7 @@ export function ProductsPage() {
         currency: 'USD',
         isPinned: !product.isPinned,
         isSoldByWeight: product.isSoldByWeight ?? false,
+        ...(product.isSoldByWeight ? { weightUnit: product.weightUnit ?? 'kg' } : {}),
         reorderPoint: product.reorderPoint ?? 3,
         additionalBarcodes: mapProductBarcodesToApi(product),
         ...(product.sku && product.sku.trim() ? { sku: product.sku } : {})
@@ -603,6 +607,7 @@ export function ProductsPage() {
                 : '',
             isPinned: dialog.product.isPinned,
             isSoldByWeight: dialog.product.isSoldByWeight ?? false,
+            weightUnit: dialog.product.weightUnit ?? 'kg',
             reorderPoint: (dialog.product.reorderPoint ?? 3).toString(),
             additionalBarcodes: mapProductBarcodesToForm(dialog.product)
           }}
@@ -1044,6 +1049,23 @@ function ProductFormDialog({
                 {t('inventorySoldByWeight')}
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400">{t('inventorySoldByWeightDescription')}</p>
+              {formValues.isSoldByWeight && (
+                <div className="pt-2">
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="product-weight-unit">
+                    {t('inventoryWeightUnit')}
+                  </label>
+                  <select
+                    id="product-weight-unit"
+                    value={formValues.weightUnit}
+                    onChange={handleChange('weightUnit')}
+                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    <option value="kg">{t('inventoryWeightUnitKg')}</option>
+                    <option value="g">{t('inventoryWeightUnitG')}</option>
+                    <option value="lb">{t('inventoryWeightUnitLb')}</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         </div>

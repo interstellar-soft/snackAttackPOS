@@ -35,6 +35,7 @@ public abstract class ProductMutationRequestBase
 
     public bool IsPinned { get; set; }
     public bool IsSoldByWeight { get; set; }
+    public string? WeightUnit { get; set; }
 
     public decimal? ReorderPoint { get; set; }
 

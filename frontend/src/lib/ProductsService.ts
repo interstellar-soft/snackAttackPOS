@@ -24,6 +24,7 @@ export interface Product {
   flagReason?: string | null;
   isPinned?: boolean;
   isSoldByWeight?: boolean;
+  weightUnit?: 'kg' | 'g' | 'lb' | null;
   quantityOnHand?: number;
   averageCostUsd?: number;
   reorderPoint?: number;
@@ -50,6 +51,7 @@ export interface CreateProductInput {
   description?: string;
   isPinned: boolean;
   isSoldByWeight: boolean;
+  weightUnit?: 'kg' | 'g' | 'lb';
   reorderPoint: number;
   quantityOnHand?: number;
   additionalBarcodes?: ProductBarcodeInput[];

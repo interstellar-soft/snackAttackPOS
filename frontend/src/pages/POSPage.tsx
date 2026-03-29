@@ -45,6 +45,7 @@ interface ProductResponse {
   flagReason?: string;
   averageCostUsd?: number;
   isSoldByWeight?: boolean;
+  weightUnit?: 'kg' | 'g' | 'lb' | null;
 }
 
 export function POSPage() {
@@ -321,6 +322,7 @@ export function POSPage() {
         costLbp: unitCostLbp,
         quantity: scannedQuantity,
         isSoldByWeight: product.isSoldByWeight ?? false,
+        weightUnit: product.weightUnit ?? null,
         discountPercent: 0,
         isWaste: false,
         hasConfiguredPriceOverride: hasConfiguredOverride,
