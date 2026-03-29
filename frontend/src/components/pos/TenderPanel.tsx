@@ -1,4 +1,4 @@
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useMemo, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -34,6 +34,7 @@ interface TenderPanelProps {
   onChangeDebtCardName?: (next: string) => void;
   debtCardOptions?: string[];
   debtCardOptionsLoading?: boolean;
+  usdInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export function TenderPanel({
@@ -61,7 +62,8 @@ export function TenderPanel({
   debtCardName = '',
   onChangeDebtCardName,
   debtCardOptions = [],
-  debtCardOptionsLoading = false
+  debtCardOptionsLoading = false,
+  usdInputRef
 }: TenderPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
@@ -151,6 +153,7 @@ export function TenderPanel({
         <div>
           <label className="mb-1 block text-xs uppercase tracking-wide text-slate-500">USD</label>
           <Input
+            ref={usdInputRef}
             type="number"
             value={paidUsdText}
             min={0}

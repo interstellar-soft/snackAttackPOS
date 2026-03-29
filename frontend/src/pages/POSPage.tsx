@@ -115,6 +115,7 @@ export function POSPage() {
   const [serialStatusMessage, setSerialStatusMessage] = useState<string | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
+  const usdInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeBufferRef = useRef('');
   const pricingRequestIdRef = useRef(0);
   const checkoutMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -814,13 +815,20 @@ export function POSPage() {
       setCheckoutMessage(t('tenderDebtNameRequired'));
       return;
     }
-    const parsedUsd = parseTenderAmount(paidUsdText);
-    const parsedLbp = parseTenderAmount(paidLbpText);
+    const hasUsdInput = paidUsdText.trim().length > 0;
+    const hasLbpInput = paidLbpText.trim().length > 0;
+    const shouldAssumeExactTender = !hasUsdInput && !hasLbpInput;
+    const parsedUsd = shouldAssumeExactTender ? totalUsd : parseTenderAmount(paidUsdText);
+    const parsedLbp = shouldAssumeExactTender ? 0 : parseTenderAmount(paidLbpText);
     if (parsedUsd !== paidUsdAmount) {
       setPaidUsdAmount(parsedUsd);
     }
     if (parsedLbp !== paidLbpAmount) {
       setPaidLbpAmount(parsedLbp);
+    }
+    if (shouldAssumeExactTender) {
+      setPaidUsdText(parsedUsd.toString());
+      setPaidLbpText('0');
     }
     const checkoutPayload: Record<string, unknown> = {
       exchangeRate: rate,
@@ -1013,6 +1021,7 @@ export function POSPage() {
                 </div>
               )}
               <TenderPanel
+                usdInputRef={usdInputRef}
                 paidUsdText={paidUsdText}
                 paidLbpText={paidLbpText}
                 onChangePaidUsdText={setPaidUsdText}
@@ -1047,7 +1056,13 @@ export function POSPage() {
                   highlightedItemId={lastAddedItemId}
                   onQuantityConfirm={() => {
                     setLastAddedItemId(null);
-                    focusBarcodeInput();
+                    const usdInput = usdInputRef.current;
+                    if (usdInput) {
+                      usdInput.focus();
+                      usdInput.select();
+                    } else {
+                      focusBarcodeInput();
+                    }
                   }}
                   canMarkWaste={normalizedRole === 'admin'}
                   canEditTotals={canEditCartTotals}
