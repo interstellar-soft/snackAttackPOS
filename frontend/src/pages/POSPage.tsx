@@ -916,6 +916,10 @@ export function POSPage() {
     setOverrideRequired(false);
     setOverrideReason(null);
     setBalance(response);
+
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryClient.invalidateQueries({ queryKey: ['inventory'] });
+
     if (isDebtCheckout && trimmedDebtCardName) {
       queryClient.invalidateQueries({ queryKey: TransactionsService.keys.debtCardNames() });
       queryClient.invalidateQueries({ queryKey: TransactionsService.keys.debts() });
