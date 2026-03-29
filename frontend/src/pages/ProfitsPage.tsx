@@ -52,8 +52,6 @@ interface PeriodGroup {
 
 const baseScopes: BaseProfitScope[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
-const demoProfitSummary: ProfitSummaryResponse = createDemoProfitSummary();
-
 function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -67,64 +65,6 @@ function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
       <path strokeLinecap="round" strokeLinejoin="round" d="m6 8 4 4 4-4" />
     </svg>
   );
-}
-
-function createDemoProfitSummary(): ProfitSummaryResponse {
-  const today = new Date();
-
-  const dailyPoints = Array.from({ length: 14 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(date.getDate() - (13 - index));
-    const revenue = 760 + index * 18;
-    const cost = revenue * 0.69;
-    const gross = revenue - cost;
-    return {
-      periodStart: date.toISOString(),
-      revenueUsd: Number(revenue.toFixed(2)),
-      costUsd: Number(cost.toFixed(2)),
-      grossProfitUsd: Number(gross.toFixed(2)),
-      netProfitUsd: Number((gross * 0.96).toFixed(2))
-    } satisfies ProfitPoint;
-  });
-
-  const monthlyPoints = Array.from({ length: 12 }, (_, index) => {
-    const date = new Date(today);
-    date.setMonth(date.getMonth() - (11 - index));
-    date.setDate(1);
-    const revenue = 22800 + index * 640;
-    const cost = revenue * 0.7;
-    const gross = revenue - cost;
-    return {
-      periodStart: date.toISOString(),
-      revenueUsd: Number(revenue.toFixed(2)),
-      costUsd: Number(cost.toFixed(2)),
-      grossProfitUsd: Number(gross.toFixed(2)),
-      netProfitUsd: Number((gross * 0.95).toFixed(2))
-    } satisfies ProfitPoint;
-  });
-
-  const yearlyPoints = Array.from({ length: 5 }, (_, index) => {
-    const date = new Date(today);
-    date.setFullYear(date.getFullYear() - (4 - index));
-    date.setMonth(0, 1);
-    const revenue = 240000 + index * 12000;
-    const cost = revenue * 0.71;
-    const gross = revenue - cost;
-    return {
-      periodStart: date.toISOString(),
-      revenueUsd: Number(revenue.toFixed(2)),
-      costUsd: Number(cost.toFixed(2)),
-      grossProfitUsd: Number(gross.toFixed(2)),
-      netProfitUsd: Number((gross * 0.94).toFixed(2))
-    } satisfies ProfitPoint;
-  });
-
-  return {
-    daily: { points: dailyPoints },
-    weekly: { points: dailyPoints },
-    monthly: { points: monthlyPoints },
-    yearly: { points: yearlyPoints }
-  };
 }
 
 function toUtcStartOfDay(date: Date) {
@@ -360,7 +300,12 @@ export function ProfitsPage() {
     }
   });
 
-  const profitSummary = data ?? demoProfitSummary;
+  const profitSummary: ProfitSummaryResponse = data ?? {
+    daily: { points: [] },
+    weekly: { points: [] },
+    monthly: { points: [] },
+    yearly: { points: [] }
+  };
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
@@ -576,12 +521,63 @@ export function ProfitsPage() {
       return customRangePoints;
     }
     const groups = periodGroups[scope];
-    if (!selectedPeriodKey) {
-      return groups[0]?.points ?? [];
+    const activeKey = selectedPeriodKey ?? groups[0]?.key;
+
+    if (!activeKey) {
+      return [];
     }
-    const match = groups.find((group) => group.key === selectedPeriodKey);
+
+    if (scope === 'monthly') {
+      const monthStart = toUtcStartOfMonth(new Date(activeKey));
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+      return aggregatedDailyPoints
+        .filter((point) => {
+          const pointDate = new Date(point.periodStart);
+          return pointDate >= monthStart && pointDate < monthEnd;
+        })
+        .sort((a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime());
+    }
+
+    if (scope === 'yearly') {
+      const yearStart = toUtcStartOfYear(new Date(activeKey));
+      const yearEnd = new Date(yearStart);
+      yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+
+      const withinYear = aggregatedDailyPoints.filter((point) => {
+        const pointDate = new Date(point.periodStart);
+        return pointDate >= yearStart && pointDate < yearEnd;
+      });
+
+      const byMonth = new Map<string, ProfitPoint>();
+      for (const point of withinYear) {
+        const monthKey = toUtcStartOfMonth(new Date(point.periodStart)).toISOString();
+        const existing = byMonth.get(monthKey);
+        if (existing) {
+          existing.grossProfitUsd += Number(point.grossProfitUsd ?? 0);
+          existing.netProfitUsd += Number(point.netProfitUsd ?? 0);
+          existing.revenueUsd = Number(existing.revenueUsd ?? 0) + Number(point.revenueUsd ?? 0);
+          existing.costUsd = Number(existing.costUsd ?? 0) + Number(point.costUsd ?? 0);
+        } else {
+          byMonth.set(monthKey, {
+            periodStart: monthKey,
+            grossProfitUsd: Number(point.grossProfitUsd ?? 0),
+            netProfitUsd: Number(point.netProfitUsd ?? 0),
+            revenueUsd: Number(point.revenueUsd ?? 0),
+            costUsd: Number(point.costUsd ?? 0)
+          });
+        }
+      }
+
+      return Array.from(byMonth.values()).sort(
+        (a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime()
+      );
+    }
+
+    const match = groups.find((group) => group.key === activeKey);
     return match ? match.points : [];
-  }, [customRangePoints, periodGroups, scope, selectedPeriodKey]);
+  }, [aggregatedDailyPoints, customRangePoints, periodGroups, scope, selectedPeriodKey]);
 
   const chartData = useMemo(
     () =>
@@ -675,6 +671,16 @@ export function ProfitsPage() {
     'h-10 min-w-[12rem] cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm font-medium text-slate-700 shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-emerald-400 dark:focus:ring-emerald-500/40';
   const pickerIconClass =
     'pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500';
+  const barMeaningLabel =
+    scope === 'daily'
+      ? t('profitBarsRepresentHours')
+      : scope === 'weekly'
+        ? t('profitBarsRepresentDaysInWeek')
+        : scope === 'monthly'
+          ? t('profitBarsRepresentDaysInMonth')
+          : scope === 'yearly'
+            ? t('profitBarsRepresentMonthsInYear')
+            : t('profitBarsRepresentDaysInRange');
 
   const openPicker = () => {
     const input = pickerRef.current;
@@ -969,7 +975,10 @@ export function ProfitsPage() {
 
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
-          <CardTitle>{t('profitChartTitle')}</CardTitle>
+          <div>
+            <CardTitle>{t('profitChartTitle')}</CardTitle>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{barMeaningLabel}</p>
+          </div>
         </div>
         {hasDisplayRows ? (
           <ResponsiveContainer width="100%" height={320}>
@@ -1037,4 +1046,3 @@ export function ProfitsPage() {
     </div>
   );
 }
-
