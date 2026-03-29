@@ -246,6 +246,34 @@ function toYearInputValue(key: string) {
   return String(date.getFullYear());
 }
 
+function toLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toPeriodIdentity(scope: ProfitScope, key: string) {
+  const date = new Date(key);
+  if (Number.isNaN(date.valueOf())) {
+    return key;
+  }
+
+  switch (scope) {
+    case 'daily':
+    case 'custom':
+      return toLocalDateKey(date);
+    case 'weekly':
+      return toLocalDateKey(toUtcStartOfWeek(date));
+    case 'monthly':
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    case 'yearly':
+      return String(date.getFullYear());
+    default:
+      return key;
+  }
+}
+
 function formatPointLabel(scope: ProfitScope, isoDate: string, locale: string) {
   const date = new Date(isoDate);
   if (Number.isNaN(date.valueOf())) {
@@ -675,7 +703,8 @@ export function ProfitsPage() {
       );
     }
 
-    const match = groups.find((group) => group.key === activeKey);
+    const activeIdentity = toPeriodIdentity(scope, activeKey);
+    const match = groups.find((group) => toPeriodIdentity(scope, group.key) === activeIdentity);
     return match ? match.points : [];
   }, [aggregatedDailyPoints, customRangePoints, periodGroups, scope, selectedPeriodKey]);
 
@@ -818,7 +847,13 @@ export function ProfitsPage() {
   const selectedPeriodIndex =
     scope === 'custom'
       ? -1
-      : periodGroupsForScope.findIndex((group) => group.key === (selectedPeriodKey ?? fallbackPeriodKey));
+      : periodGroupsForScope.findIndex((group) => {
+          const effectiveKey = selectedPeriodKey ?? fallbackPeriodKey;
+          if (!effectiveKey) {
+            return false;
+          }
+          return toPeriodIdentity(scope, group.key) === toPeriodIdentity(scope, effectiveKey);
+        });
   const hasPreviousPeriod = scope !== 'custom' && selectedPeriodIndex < periodGroupsForScope.length - 1;
   const hasNextPeriod = scope !== 'custom' && selectedPeriodIndex > 0;
 
