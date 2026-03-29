@@ -877,7 +877,45 @@ export function ProfitsPage() {
   };
 
   const maxSummaryValue = Math.max(totals.revenue, totals.netProfit, averageSale, 1);
-  const receiptsLikeCount = chartData.length;
+  const activityCount = useMemo(
+    () =>
+      chartData.filter(
+        (point) =>
+          Math.abs(point.revenue) > 0 ||
+          Math.abs(point.cost) > 0 ||
+          Math.abs(point.grossProfit) > 0 ||
+          Math.abs(point.netProfit) > 0
+      ).length,
+    [chartData]
+  );
+  const expectedBucketCount = useMemo(() => {
+    if (scope === 'daily') {
+      return 24;
+    }
+    if (scope === 'weekly') {
+      return 7;
+    }
+    if (scope === 'monthly') {
+      const monthSource = selectedPeriodKey ? new Date(selectedPeriodKey) : new Date();
+      if (Number.isNaN(monthSource.valueOf())) {
+        return 31;
+      }
+      return new Date(monthSource.getFullYear(), monthSource.getMonth() + 1, 0).getDate();
+    }
+    if (scope === 'yearly') {
+      return 12;
+    }
+    if (customRange.start && customRange.end) {
+      const start = new Date(customRange.start);
+      const end = new Date(customRange.end);
+      if (!Number.isNaN(start.valueOf()) && !Number.isNaN(end.valueOf()) && start <= end) {
+        const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+        const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+        return Math.max(1, Math.floor((endUtc - startUtc) / (24 * 60 * 60 * 1000)) + 1);
+      }
+    }
+    return Math.max(chartData.length, 1);
+  }, [chartData.length, customRange.end, customRange.start, scope, selectedPeriodKey]);
 
   const openPicker = () => {
     const input = pickerRef.current;
@@ -1147,9 +1185,9 @@ export function ProfitsPage() {
         <div className="mb-6 flex flex-wrap items-stretch gap-4">
           <SummaryArcCard
             label={t('profitScopeDaily')}
-            value={Intl.NumberFormat(locale).format(receiptsLikeCount)}
+            value={Intl.NumberFormat(locale).format(activityCount)}
             subtitle={t('profitBarsRepresentDaysInRange')}
-            ratio={receiptsLikeCount / Math.max(receiptsLikeCount, 24)}
+            ratio={activityCount / Math.max(expectedBucketCount, 1)}
             accentClassName="bg-amber-400/90"
             trackClassName="bg-amber-900/50"
           />
