@@ -359,21 +359,21 @@ public class AnalyticsController : ControllerBase
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(dateUtc, timezone);
         var localStart = new DateTime(local.Year, local.Month, local.Day, local.Hour, 0, 0, DateTimeKind.Unspecified);
-        return TimeZoneInfo.ConvertTimeToUtc(localStart, timezone);
+        return ConvertLocalToUtcSafe(localStart, timezone);
     }
 
     private static DateTime StartOfDayUtc(DateTime dateUtc, TimeZoneInfo timezone)
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(dateUtc, timezone);
         var localStart = new DateTime(local.Year, local.Month, local.Day, 0, 0, 0, DateTimeKind.Unspecified);
-        return TimeZoneInfo.ConvertTimeToUtc(localStart, timezone);
+        return ConvertLocalToUtcSafe(localStart, timezone);
     }
 
     private static DateTime StartOfMonthUtc(DateTime dateUtc, TimeZoneInfo timezone)
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(dateUtc, timezone);
         var localStart = new DateTime(local.Year, local.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
-        return TimeZoneInfo.ConvertTimeToUtc(localStart, timezone);
+        return ConvertLocalToUtcSafe(localStart, timezone);
     }
 
     private static DateTime StartOfWeekUtc(DateTime dateUtc, TimeZoneInfo timezone)
@@ -382,6 +382,27 @@ public class AnalyticsController : ControllerBase
         var localStart = new DateTime(local.Year, local.Month, local.Day, 0, 0, 0, DateTimeKind.Unspecified);
         var diff = (7 + (localStart.DayOfWeek - DayOfWeek.Monday)) % 7;
         var weekStartLocal = localStart.AddDays(-diff);
-        return TimeZoneInfo.ConvertTimeToUtc(weekStartLocal, timezone);
+        return ConvertLocalToUtcSafe(weekStartLocal, timezone);
+    }
+
+    private static DateTime ConvertLocalToUtcSafe(DateTime localDateTime, TimeZoneInfo timezone)
+    {
+        var candidate = localDateTime;
+        while (timezone.IsInvalidTime(candidate))
+        {
+            candidate = candidate.AddMinutes(1);
+        }
+
+        if (timezone.IsAmbiguousTime(candidate))
+        {
+            var chosenOffset = timezone
+                .GetAmbiguousTimeOffsets(candidate)
+                .OrderByDescending(offset => offset)
+                .First();
+
+            return new DateTimeOffset(candidate, chosenOffset).UtcDateTime;
+        }
+
+        return TimeZoneInfo.ConvertTimeToUtc(candidate, timezone);
     }
 }
