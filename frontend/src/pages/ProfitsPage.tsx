@@ -380,9 +380,40 @@ export function ProfitsPage() {
 
   const periodGroups = useMemo(
     () => {
+      const floorToScope = (date: Date, scopeKey: BaseProfitScope) => {
+        switch (scopeKey) {
+          case 'daily':
+            return toUtcStartOfDay(date);
+          case 'weekly':
+            return toUtcStartOfWeek(date);
+          case 'monthly':
+            return toUtcStartOfMonth(date);
+          case 'yearly':
+            return toUtcStartOfYear(date);
+        }
+      };
+
+      const stepScopeBack = (date: Date, scopeKey: BaseProfitScope) => {
+        const next = new Date(date);
+        switch (scopeKey) {
+          case 'daily':
+            next.setDate(next.getDate() - 1);
+            return next;
+          case 'weekly':
+            next.setDate(next.getDate() - 7);
+            return next;
+          case 'monthly':
+            next.setMonth(next.getMonth() - 1);
+            return next;
+          case 'yearly':
+            next.setFullYear(next.getFullYear() - 1);
+            return next;
+        }
+      };
+
       const groupPoints = (
         points: ProfitPoint[],
-        resolver: (date: Date) => Date
+        scopeKey: BaseProfitScope
       ): PeriodGroup[] => {
         const buckets = new Map<string, ProfitPoint[]>();
 
@@ -392,7 +423,7 @@ export function ProfitsPage() {
             continue;
           }
 
-          const bucketDate = resolver(parsed);
+          const bucketDate = floorToScope(parsed, scopeKey);
           const key = bucketDate.toISOString();
           const existing = buckets.get(key);
           if (existing) {
@@ -402,21 +433,35 @@ export function ProfitsPage() {
           }
         }
 
-        return Array.from(buckets.entries())
-          .map(([key, bucketPoints]) => ({
+        const todayKey = floorToScope(new Date(), scopeKey).toISOString();
+        const oldestExistingKey = Array.from(buckets.keys()).sort(
+          (a, b) => new Date(a).getTime() - new Date(b).getTime()
+        )[0];
+        const oldestKey = oldestExistingKey ?? todayKey;
+        const groups: PeriodGroup[] = [];
+
+        let cursor = new Date(todayKey);
+        const oldestDate = new Date(oldestKey);
+        while (cursor >= oldestDate) {
+          const key = cursor.toISOString();
+          const bucketPoints = buckets.get(key) ?? [];
+          groups.push({
             key,
-            points: bucketPoints.sort(
+            points: [...bucketPoints].sort(
               (a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime()
             )
-          }))
-          .sort((a, b) => new Date(b.key).getTime() - new Date(a.key).getTime());
+          });
+          cursor = stepScopeBack(cursor, scopeKey);
+        }
+
+        return groups;
       };
 
       return {
-        daily: groupPoints(sortedPoints.daily, toUtcStartOfDay),
-        weekly: groupPoints(sortedPoints.weekly, toUtcStartOfWeek),
-        monthly: groupPoints(sortedPoints.monthly, toUtcStartOfMonth),
-        yearly: groupPoints(sortedPoints.yearly, toUtcStartOfYear)
+        daily: groupPoints(sortedPoints.daily, 'daily'),
+        weekly: groupPoints(sortedPoints.weekly, 'weekly'),
+        monthly: groupPoints(sortedPoints.monthly, 'monthly'),
+        yearly: groupPoints(sortedPoints.yearly, 'yearly')
       } satisfies Record<BaseProfitScope, PeriodGroup[]>;
     },
     [sortedPoints]
