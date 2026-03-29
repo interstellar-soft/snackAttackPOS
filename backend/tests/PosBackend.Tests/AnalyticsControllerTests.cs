@@ -100,15 +100,18 @@ public class AnalyticsControllerTests
         await using var context = CreateContext();
         var controller = new AnalyticsController(context, new AuditLogger(context));
         var selectedProduct = await context.Products.SingleAsync();
-        var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2));
+        var rangeStartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-3));
+        var rangeEndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
 
-        var result = await controller.GetSalesBreakdown(targetDate, selectedProduct.Id, CancellationToken.None);
+        var result = await controller.GetSalesBreakdown(rangeStartDate, rangeEndDate, selectedProduct.Id, CancellationToken.None);
 
         var response = Assert.IsType<SalesBreakdownResponse>(result.Value);
         Assert.NotEmpty(response.TopItems);
         Assert.NotEmpty(response.TopCategories);
         Assert.NotNull(response.SelectedProductSales);
         Assert.Equal(selectedProduct.Id, response.SelectedProductSales!.ProductId);
+        Assert.Equal(rangeStartDate, response.SelectedProductSales.StartDate);
+        Assert.Equal(rangeEndDate, response.SelectedProductSales.EndDate);
         Assert.True(response.SelectedProductSales.QuantitySold > 0);
     }
 }

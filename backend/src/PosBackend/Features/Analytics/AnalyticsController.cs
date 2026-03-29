@@ -263,10 +263,16 @@ public class AnalyticsController : ControllerBase
 
     [HttpGet("sales-breakdown")]
     public async Task<ActionResult<SalesBreakdownResponse>> GetSalesBreakdown(
-        [FromQuery] DateOnly? date,
+        [FromQuery] DateOnly? startDate,
+        [FromQuery] DateOnly? endDate,
         [FromQuery] Guid? productId,
         CancellationToken cancellationToken)
     {
+        if (startDate.HasValue && endDate.HasValue && startDate > endDate)
+        {
+            return BadRequest("startDate must be earlier than or equal to endDate.");
+        }
+
         var timezone = ResolveAnalyticsTimeZone();
         var lines = await _db.TransactionLines
             .Include(line => line.Transaction)
@@ -298,8 +304,8 @@ public class AnalyticsController : ControllerBase
             .Take(10)
             .ToList();
 
-        ProductDateSalesResponse? selectedProductSales = null;
-        if (date.HasValue && productId.HasValue)
+        ProductRangeSalesResponse? selectedProductSales = null;
+        if (startDate.HasValue && endDate.HasValue && productId.HasValue)
         {
             var product = await _db.Products
                 .Where(p => p.Id == productId.Value)
@@ -308,18 +314,20 @@ public class AnalyticsController : ControllerBase
 
             if (product is not null)
             {
-                var productLinesOnDate = lines
+                var productLinesInRange = lines
                     .Where(line =>
                         line.ProductId == product.Id &&
-                        DateOnly.FromDateTime(ToLocal(line.Transaction!.CreatedAt, timezone)) == date.Value)
+                        DateOnly.FromDateTime(ToLocal(line.Transaction!.CreatedAt, timezone)) >= startDate.Value &&
+                        DateOnly.FromDateTime(ToLocal(line.Transaction!.CreatedAt, timezone)) <= endDate.Value)
                     .ToList();
 
-                selectedProductSales = new ProductDateSalesResponse(
+                selectedProductSales = new ProductRangeSalesResponse(
                     product.Id,
                     product.Name,
-                    date.Value,
-                    decimal.Round(productLinesOnDate.Sum(line => line.Quantity), 3),
-                    decimal.Round(productLinesOnDate.Sum(line => line.TotalUsd), 2));
+                    startDate.Value,
+                    endDate.Value,
+                    decimal.Round(productLinesInRange.Sum(line => line.Quantity), 3),
+                    decimal.Round(productLinesInRange.Sum(line => line.TotalUsd), 2));
             }
         }
 

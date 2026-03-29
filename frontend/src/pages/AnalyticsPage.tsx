@@ -74,7 +74,8 @@ interface SalesMetricValue {
 interface ProductDateSalesResponse {
   productId: string;
   productName: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   quantitySold: number;
   salesUsd: number;
 }
@@ -171,19 +172,23 @@ export function AnalyticsPage() {
 
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [selectedStartDate, setSelectedStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [selectedEndDate, setSelectedEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
   const productsQuery = ProductsService.useInventoryProducts();
   const products = productsQuery.data ?? [];
 
   const { data: salesBreakdown } = useQuery<SalesBreakdownResponse>({
-    queryKey: ['analytics-sales-breakdown', token, selectedDate, selectedProductId],
+    queryKey: ['analytics-sales-breakdown', token, selectedStartDate, selectedEndDate, selectedProductId],
     queryFn: async () => {
       if (!token) throw new Error('Unauthorized');
       const params = new URLSearchParams();
-      if (selectedDate) {
-        params.set('date', selectedDate);
+      if (selectedStartDate) {
+        params.set('startDate', selectedStartDate);
+      }
+      if (selectedEndDate) {
+        params.set('endDate', selectedEndDate);
       }
       if (selectedProductId) {
         params.set('productId', selectedProductId);
@@ -276,11 +281,19 @@ export function AnalyticsPage() {
                 <span className="text-slate-600 dark:text-slate-300">{t('salesInsightsDate')}</span>
                 <Input
                   type="date"
-                  value={selectedDate}
-                  onChange={(event) => setSelectedDate(event.target.value)}
+                  value={selectedStartDate}
+                  onChange={(event) => setSelectedStartDate(event.target.value)}
                 />
               </label>
               <label className="space-y-1 text-sm">
+                <span className="text-slate-600 dark:text-slate-300">{t('salesInsightsDateTo')}</span>
+                <Input
+                  type="date"
+                  value={selectedEndDate}
+                  onChange={(event) => setSelectedEndDate(event.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-sm md:col-span-2">
                 <span className="text-slate-600 dark:text-slate-300">{t('salesInsightsItem')}</span>
                 <select
                   className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
@@ -301,7 +314,11 @@ export function AnalyticsPage() {
               <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100">
                 <p className="font-semibold">{salesBreakdown.selectedProductSales.productName}</p>
                 <p>
-                  {t('salesInsightsOnDate', { date: selectedDate })}: {salesBreakdown.selectedProductSales.quantitySold}
+                  {t('salesInsightsOnDateRange', {
+                    startDate: selectedStartDate,
+                    endDate: selectedEndDate
+                  })}
+                  : {salesBreakdown.selectedProductSales.quantitySold}
                 </p>
                 <p>
                   {t('salesInsightsRevenue')}: {formatCurrency(salesBreakdown.selectedProductSales.salesUsd, 'USD', locale)}
