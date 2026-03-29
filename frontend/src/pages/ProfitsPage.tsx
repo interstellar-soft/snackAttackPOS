@@ -695,13 +695,13 @@ export function ProfitsPage() {
             return;
           }
           const hourStart = new Date(pointDate);
-          hourStart.setUTCMinutes(0, 0, 0);
+          hourStart.setMinutes(0, 0, 0);
           hourBuckets.set(hourStart.toISOString(), point);
         });
 
         return Array.from({ length: 24 }, (_, hour) => {
           const hourDate = new Date(dayStart);
-          hourDate.setUTCHours(hour, 0, 0, 0);
+          hourDate.setHours(hour, 0, 0, 0);
           const key = hourDate.toISOString();
           return (
             hourBuckets.get(key) ?? {
