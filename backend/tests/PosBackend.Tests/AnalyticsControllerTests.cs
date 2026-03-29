@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PosBackend.Application.Responses;
+using PosBackend.Application.Services;
 using PosBackend.Domain.Entities;
 using PosBackend.Features.Analytics;
 using PosBackend.Infrastructure.Data;
@@ -78,7 +79,7 @@ public class AnalyticsControllerTests
     public async Task Dashboard_ComputesKeyMetrics()
     {
         await using var context = CreateContext();
-        var controller = new AnalyticsController(context);
+        var controller = new AnalyticsController(context, new AuditLogger(context));
 
         var result = await controller.GetDashboard(CancellationToken.None);
 
@@ -91,5 +92,23 @@ public class AnalyticsControllerTests
             Assert.True(point.Usd >= 0);
             Assert.True(point.Lbp >= 0);
         });
+    }
+
+    [Fact]
+    public async Task SalesBreakdown_ReturnsTopItemsAndSelectedProductSales()
+    {
+        await using var context = CreateContext();
+        var controller = new AnalyticsController(context, new AuditLogger(context));
+        var selectedProduct = await context.Products.SingleAsync();
+        var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2));
+
+        var result = await controller.GetSalesBreakdown(targetDate, selectedProduct.Id, CancellationToken.None);
+
+        var response = Assert.IsType<SalesBreakdownResponse>(result.Value);
+        Assert.NotEmpty(response.TopItems);
+        Assert.NotEmpty(response.TopCategories);
+        Assert.NotNull(response.SelectedProductSales);
+        Assert.Equal(selectedProduct.Id, response.SelectedProductSales!.ProductId);
+        Assert.True(response.SelectedProductSales.QuantitySold > 0);
     }
 }
