@@ -580,7 +580,9 @@ public class PurchasesController : ControllerBase
                 TotalCostLbp = line.TotalCostLbp,
                 QuantityOnHand = line.Product?.Inventory?.QuantityOnHand ?? 0,
                 CurrentSalePriceUsd = line.Product?.PriceUsd,
-                Currency = line.Currency
+                Currency = line.Currency,
+                IsSoldByWeight = line.Product?.IsSoldByWeight ?? false,
+                WeightUnit = line.Product?.WeightUnit
             }).ToList()
         };
     }

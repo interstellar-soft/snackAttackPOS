@@ -17,6 +17,8 @@ export interface PurchaseLine {
   quantityOnHand: number;
   currentSalePriceUsd?: number | null;
   currency: 'USD' | 'LBP';
+  isSoldByWeight?: boolean;
+  weightUnit?: 'kg' | 'g' | 'lb' | null;
 }
 
 export interface Purchase {
