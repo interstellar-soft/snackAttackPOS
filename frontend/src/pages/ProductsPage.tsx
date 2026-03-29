@@ -43,6 +43,8 @@ type ProductFormValues = {
   cost: string;
   stockQuantity: string;
   isPinned: boolean;
+  isSoldByWeight: boolean;
+  weightUnit: 'kg' | 'g' | 'lb';
   reorderPoint: string;
   additionalBarcodes: ProductFormBarcode[];
 };
@@ -91,6 +93,8 @@ const emptyValues: ProductFormValues = {
   cost: '',
   stockQuantity: '',
   isPinned: false,
+  isSoldByWeight: false,
+  weightUnit: 'kg',
   reorderPoint: '3',
   additionalBarcodes: []
 };
@@ -198,6 +202,11 @@ export function ProductsPage() {
             <span>{product.categoryName ?? product.category ?? t('inventoryCategoryUnknown')}</span>
             {product.category && product.categoryName && product.category !== product.categoryName && (
               <span className="text-xs text-slate-400">{product.category}</span>
+            )}
+            {product.isSoldByWeight && (
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+                {t('inventorySoldByWeightTag', { unit: product.weightUnit ?? 'kg' })}
+              </span>
             )}
           </div>
         </td>
@@ -347,6 +356,8 @@ export function ProductsPage() {
         price: parsedPrice,
         currency: values.currency,
         isPinned: values.isPinned,
+        isSoldByWeight: values.isSoldByWeight,
+        ...(values.isSoldByWeight ? { weightUnit: values.weightUnit } : {}),
         reorderPoint: parsedReorderPoint,
         ...(sku ? { sku } : {}),
         ...(parsedCost !== null
@@ -428,6 +439,8 @@ export function ProductsPage() {
         price: product.priceUsd,
         currency: 'USD',
         isPinned: !product.isPinned,
+        isSoldByWeight: product.isSoldByWeight ?? false,
+        ...(product.isSoldByWeight ? { weightUnit: product.weightUnit ?? 'kg' } : {}),
         reorderPoint: product.reorderPoint ?? 3,
         additionalBarcodes: mapProductBarcodesToApi(product),
         ...(product.sku && product.sku.trim() ? { sku: product.sku } : {})
@@ -593,6 +606,8 @@ export function ProductsPage() {
                 ? dialog.product.quantityOnHand.toString()
                 : '',
             isPinned: dialog.product.isPinned,
+            isSoldByWeight: dialog.product.isSoldByWeight ?? false,
+            weightUnit: dialog.product.weightUnit ?? 'kg',
             reorderPoint: (dialog.product.reorderPoint ?? 3).toString(),
             additionalBarcodes: mapProductBarcodesToForm(dialog.product)
           }}
@@ -658,7 +673,7 @@ function ProductFormDialog({
   }, []);
 
   const handleChange = (
-    field: Exclude<keyof ProductFormValues, 'isPinned' | 'additionalBarcodes'>
+    field: Exclude<keyof ProductFormValues, 'isPinned' | 'isSoldByWeight' | 'additionalBarcodes'>
   ) =>
     (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       setFormValues((previous) => ({ ...previous, [field]: event.target.value }));
@@ -666,6 +681,10 @@ function ProductFormDialog({
 
   const handlePinnedChange = (event: ChangeEvent<HTMLInputElement>) => {
     setFormValues((previous) => ({ ...previous, isPinned: event.target.checked }));
+  };
+
+  const handleSoldByWeightChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setFormValues((previous) => ({ ...previous, isSoldByWeight: event.target.checked }));
   };
 
   const handleCategoryChange = (nextValue: string) => {
@@ -1015,6 +1034,40 @@ function ProductFormDialog({
               ))}
             </div>
           )}
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+          <div className="flex items-start gap-3">
+            <input
+              id="product-sold-by-weight"
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-800"
+              checked={formValues.isSoldByWeight}
+              onChange={handleSoldByWeightChange}
+            />
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="product-sold-by-weight">
+                {t('inventorySoldByWeight')}
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('inventorySoldByWeightDescription')}</p>
+              {formValues.isSoldByWeight && (
+                <div className="pt-2">
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="product-weight-unit">
+                    {t('inventoryWeightUnit')}
+                  </label>
+                  <select
+                    id="product-weight-unit"
+                    value={formValues.weightUnit}
+                    onChange={handleChange('weightUnit')}
+                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    <option value="kg">{t('inventoryWeightUnitKg')}</option>
+                    <option value="g">{t('inventoryWeightUnitG')}</option>
+                    <option value="lb">{t('inventoryWeightUnitLb')}</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="flex items-start gap-3">

@@ -5,6 +5,7 @@ This directory will house in-depth architecture notes, ADRs, and integration gui
 - [Desktop packaging guide](./desktop-app.md) — explains how to ship the React
   frontend inside Electron/Tauri without major code changes.
 - [Onboarding existing inventory](./inventory-onboarding.md) — shows how to record the stock you already have on hand when first deploying Aurora POS.
+- [Selling products by weight](./weighted-products.md) — step-by-step instructions for enabling decimal quantities for weighted items (e.g., wheat, produce, grains).
 
 ## Profit and waste accounting
 

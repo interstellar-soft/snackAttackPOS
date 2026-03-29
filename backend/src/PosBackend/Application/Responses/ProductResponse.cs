@@ -13,6 +13,8 @@ public class ProductResponse
     public string? Description { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public bool IsPinned { get; set; }
+    public bool IsSoldByWeight { get; set; }
+    public string? WeightUnit { get; set; }
     public bool? IsFlagged { get; set; }
     public string? FlagReason { get; set; }
     public decimal QuantityOnHand { get; set; }

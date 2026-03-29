@@ -157,11 +157,13 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<string>("Description").HasColumnType("text");
                 b.Property<bool>("IsActive").HasColumnType("boolean");
                 b.Property<bool>("IsPinned").HasColumnName("is_pinned").HasColumnType("boolean").HasDefaultValue(false);
+                b.Property<bool>("IsSoldByWeight").HasColumnName("is_sold_by_weight").HasColumnType("boolean").HasDefaultValue(false);
                 b.Property<string>("Name").HasColumnType("text");
                 b.Property<decimal>("PriceLbp").HasColumnType("numeric(14,2)");
                 b.Property<decimal>("PriceUsd").HasColumnType("numeric(12,2)");
                 b.Property<string>("Sku").HasColumnType("text").IsRequired(false);
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("WeightUnit").HasMaxLength(10).HasColumnName("weight_unit").HasColumnType("character varying(10)");
                 b.HasKey("Id");
                 b.HasIndex("Barcode").IsUnique();
                 b.HasIndex("CategoryId");

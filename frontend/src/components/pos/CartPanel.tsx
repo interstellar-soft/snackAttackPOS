@@ -37,11 +37,12 @@ interface CartPanelProps {
   onHoldComplete?: () => void;
 }
 
-const clampQuantity = (value: number) => {
+const clampQuantity = (value: number, allowFraction: boolean) => {
   if (!Number.isFinite(value)) {
     return 1;
   }
-  return Math.max(1, Math.floor(value));
+  const normalized = allowFraction ? Math.round(value * 1000) / 1000 : Math.floor(value);
+  return Math.max(1, normalized);
 };
 
 export function CartPanel({
@@ -222,7 +223,7 @@ export function CartPanel({
       }));
       return;
     }
-    const nextQuantity = clampQuantity(parsed);
+    const nextQuantity = clampQuantity(parsed, Boolean(item.isSoldByWeight));
     setItemQuantity(lineId, nextQuantity);
     setDraftValues((prev) => ({
       ...prev,
@@ -485,13 +486,17 @@ export function CartPanel({
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                   <label className="space-y-1">
-                    <span>{t('quantity')}</span>
+                    <span>
+                      {t('quantity')}
+                      {item.isSoldByWeight && item.weightUnit ? ` (${item.weightUnit})` : ''}
+                    </span>
                     {/**
                      * Use a text input when highlighted to allow selecting the full value reliably.
                      */}
                     <Input
                       type={isHighlighted ? 'text' : 'number'}
                       min={1}
+                      step={item.isSoldByWeight ? '0.001' : '1'}
                       ref={(element) => {
                         if (element) {
                           quantityInputRefs.current[item.lineId] = element;
@@ -518,7 +523,7 @@ export function CartPanel({
                           commitQuantity(item.lineId, event.currentTarget.value);
                         }
                       }}
-                      inputMode="numeric"
+                      inputMode={item.isSoldByWeight ? 'decimal' : 'numeric'}
                     />
                   </label>
                   <label className="space-y-1">
