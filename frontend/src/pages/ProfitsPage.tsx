@@ -472,12 +472,14 @@ export function ProfitsPage() {
       return;
     }
 
-    const mostRecent = periodGroups.daily[0]?.key;
+    const mostRecentGroupWithData = periodGroups.daily.find((group) => group.points.length > 0);
+    const mostRecent = mostRecentGroupWithData?.key ?? periodGroups.daily[0]?.key;
     if (!mostRecent) {
       return;
     }
 
-    const oldest = periodGroups.daily[periodGroups.daily.length - 1]?.key;
+    const oldestGroupWithData = [...periodGroups.daily].reverse().find((group) => group.points.length > 0);
+    const oldest = oldestGroupWithData?.key ?? periodGroups.daily[periodGroups.daily.length - 1]?.key;
     const mostRecentDate = new Date(mostRecent);
     const defaultStart = new Date(mostRecentDate);
     defaultStart.setUTCDate(defaultStart.getUTCDate() - 6);
@@ -509,7 +511,7 @@ export function ProfitsPage() {
           return;
         }
 
-        const fallback = groups[0]?.key;
+        const fallback = groups.find((group) => group.points.length > 0)?.key ?? groups[0]?.key;
 
         if (fallback !== undefined && current !== fallback) {
           next[key] = fallback;
