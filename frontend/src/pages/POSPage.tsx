@@ -46,6 +46,12 @@ interface ProductResponse {
   averageCostUsd?: number;
   isSoldByWeight?: boolean;
   weightUnit?: 'kg' | 'g' | 'lb' | null;
+  quantityOnHand?: number;
+}
+
+interface LastScanSummary {
+  label: string;
+  quantityOnHand?: number;
 }
 
 export function POSPage() {
@@ -91,7 +97,7 @@ export function POSPage() {
   const debtCardNamesQuery = TransactionsService.useDebtCardNames();
   const [priceQuote, setPriceQuote] = useState<PriceCartResponse | null>(null);
   const [barcode, setBarcode] = useState('');
-  const [lastScan, setLastScan] = useState<string | undefined>();
+  const [lastScan, setLastScan] = useState<LastScanSummary | undefined>();
   const [paidUsdText, setPaidUsdText] = useState('');
   const [paidUsdAmount, setPaidUsdAmount] = useState(0);
   const [paidLbpText, setPaidLbpText] = useState('');
@@ -332,7 +338,10 @@ export function POSPage() {
       const displaySku = product.sku?.trim();
       const scanLabel = displaySku ? `${product.name} (${displaySku})` : product.name;
       setLastScan(
-        scannedQuantity > 1 ? `${scanLabel} ×${scannedQuantity}` : scanLabel
+        {
+          label: scannedQuantity > 1 ? `${scanLabel} ×${scannedQuantity}` : scanLabel,
+          quantityOnHand: product.quantityOnHand
+        }
       );
       setBarcode('');
       focusBarcodeInput();
@@ -944,7 +953,13 @@ export function POSPage() {
     <div className="grid h-screen grid-rows-[auto_1fr] gap-3 overflow-hidden bg-slate-100 p-4 lg:p-6 dark:bg-slate-950">
       <TopBar
         onLogout={logout}
-        lastScan={lastScan}
+        lastScan={
+          lastScan
+            ? lastScan.quantityOnHand === undefined
+              ? lastScan.label
+              : `${lastScan.label} · ${t('posRemainingStock', { count: lastScan.quantityOnHand })}`
+            : undefined
+        }
         onNavigateAnalytics={canSeeAnalytics ? () => navigate('/analytics') : undefined}
         onNavigateProfits={canSeeAnalytics ? () => navigate('/profits') : undefined}
         onNavigateOffers={canManageInventory ? () => navigate('/offers') : undefined}
@@ -1013,12 +1028,23 @@ export function POSPage() {
                       : t('scannerDisconnectedStatus')}
                 </p>
               )}
+              {lastScan && (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                  <p className="font-medium">{t('posLastScannedLabel', { item: lastScan.label })}</p>
+                  {lastScan.quantityOnHand !== undefined && (
+                    <p>{t('posRemainingStock', { count: lastScan.quantityOnHand })}</p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
               <ProductGrid
                 onScan={(product) => {
                   const displaySku = product.sku?.trim();
-                  setLastScan(displaySku ? `${product.name} (${displaySku})` : product.name);
+                  setLastScan({
+                    label: displaySku ? `${product.name} (${displaySku})` : product.name,
+                    quantityOnHand: product.quantityOnHand
+                  });
                 }}
               />
             </div>
