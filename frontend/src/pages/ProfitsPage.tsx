@@ -52,8 +52,6 @@ interface PeriodGroup {
 
 const baseScopes: BaseProfitScope[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
-const demoProfitSummary: ProfitSummaryResponse = createDemoProfitSummary();
-
 function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -67,64 +65,6 @@ function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
       <path strokeLinecap="round" strokeLinejoin="round" d="m6 8 4 4 4-4" />
     </svg>
   );
-}
-
-function createDemoProfitSummary(): ProfitSummaryResponse {
-  const today = new Date();
-
-  const dailyPoints = Array.from({ length: 14 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(date.getDate() - (13 - index));
-    const revenue = 760 + index * 18;
-    const cost = revenue * 0.69;
-    const gross = revenue - cost;
-    return {
-      periodStart: date.toISOString(),
-      revenueUsd: Number(revenue.toFixed(2)),
-      costUsd: Number(cost.toFixed(2)),
-      grossProfitUsd: Number(gross.toFixed(2)),
-      netProfitUsd: Number((gross * 0.96).toFixed(2))
-    } satisfies ProfitPoint;
-  });
-
-  const monthlyPoints = Array.from({ length: 12 }, (_, index) => {
-    const date = new Date(today);
-    date.setMonth(date.getMonth() - (11 - index));
-    date.setDate(1);
-    const revenue = 22800 + index * 640;
-    const cost = revenue * 0.7;
-    const gross = revenue - cost;
-    return {
-      periodStart: date.toISOString(),
-      revenueUsd: Number(revenue.toFixed(2)),
-      costUsd: Number(cost.toFixed(2)),
-      grossProfitUsd: Number(gross.toFixed(2)),
-      netProfitUsd: Number((gross * 0.95).toFixed(2))
-    } satisfies ProfitPoint;
-  });
-
-  const yearlyPoints = Array.from({ length: 5 }, (_, index) => {
-    const date = new Date(today);
-    date.setFullYear(date.getFullYear() - (4 - index));
-    date.setMonth(0, 1);
-    const revenue = 240000 + index * 12000;
-    const cost = revenue * 0.71;
-    const gross = revenue - cost;
-    return {
-      periodStart: date.toISOString(),
-      revenueUsd: Number(revenue.toFixed(2)),
-      costUsd: Number(cost.toFixed(2)),
-      grossProfitUsd: Number(gross.toFixed(2)),
-      netProfitUsd: Number((gross * 0.94).toFixed(2))
-    } satisfies ProfitPoint;
-  });
-
-  return {
-    daily: { points: dailyPoints },
-    weekly: { points: dailyPoints },
-    monthly: { points: monthlyPoints },
-    yearly: { points: yearlyPoints }
-  };
 }
 
 function toUtcStartOfDay(date: Date) {
@@ -360,7 +300,12 @@ export function ProfitsPage() {
     }
   });
 
-  const profitSummary = data ?? demoProfitSummary;
+  const profitSummary: ProfitSummaryResponse = data ?? {
+    daily: { points: [] },
+    weekly: { points: [] },
+    monthly: { points: [] },
+    yearly: { points: [] }
+  };
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 
@@ -1037,4 +982,3 @@ export function ProfitsPage() {
     </div>
   );
 }
-
