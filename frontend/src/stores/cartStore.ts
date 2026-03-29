@@ -90,6 +90,7 @@ interface CartState {
   items: CartItem[];
   rate: number;
   lastAddedItemId: string | null;
+  activeHeldCartName: string | null;
   addItem: (item: CartItemInput) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
   setItemQuantity: (lineId: string, quantity: number) => void;
@@ -121,6 +122,7 @@ export const useCartStore = create<CartState>()(
       items: [],
       rate: 90000,
       lastAddedItemId: null,
+      activeHeldCartName: null,
       manualCartTotalUsd: null,
       manualCartTotalLbp: null,
       heldCarts: [],
@@ -300,6 +302,7 @@ export const useCartStore = create<CartState>()(
         set({
           items: [],
           lastAddedItemId: null,
+          activeHeldCartName: null,
           manualCartTotalUsd: null,
           manualCartTotalLbp: null
         }),
@@ -371,6 +374,7 @@ export const useCartStore = create<CartState>()(
         set({
           items: [],
           lastAddedItemId: null,
+          activeHeldCartName: null,
           manualCartTotalUsd: null,
           manualCartTotalLbp: null,
           heldCarts: [heldCart, ...state.heldCarts]
@@ -386,6 +390,7 @@ export const useCartStore = create<CartState>()(
         set({
           items: target.items.map((item) => ({ ...item })),
           lastAddedItemId: null,
+          activeHeldCartName: target.name,
           manualCartTotalUsd: target.manualCartTotalUsd,
           manualCartTotalLbp: target.manualCartTotalLbp,
           rate: target.rate,
@@ -439,6 +444,11 @@ export const useCartStore = create<CartState>()(
           ...state,
           items,
           lastAddedItemId: null,
+          activeHeldCartName:
+            typeof (state as Partial<CartState>).activeHeldCartName === 'string' &&
+            (state as Partial<CartState>).activeHeldCartName.trim()
+              ? (state as Partial<CartState>).activeHeldCartName.trim()
+              : null,
           manualCartTotalUsd:
             state.manualCartTotalUsd !== undefined && state.manualCartTotalUsd !== null
               ? clampUsd(Number(state.manualCartTotalUsd))
