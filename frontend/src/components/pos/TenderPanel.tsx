@@ -164,6 +164,7 @@ export function TenderPanel({
               if (event.key === 'Enter') {
                 event.preventDefault();
                 handleCommitUsd();
+                onCheckout();
               }
             }}
           />
