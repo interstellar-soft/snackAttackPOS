@@ -121,32 +121,32 @@ function SummaryArcCard({
 }
 
 function toUtcStartOfDay(date: Date) {
-  const local = new Date(date);
-  local.setHours(0, 0, 0, 0);
-  return local;
+  const utc = new Date(date);
+  utc.setUTCHours(0, 0, 0, 0);
+  return utc;
 }
 
 function toUtcStartOfWeek(date: Date) {
-  const local = toUtcStartOfDay(date);
-  const day = local.getDay();
+  const utc = toUtcStartOfDay(date);
+  const day = utc.getUTCDay();
   const diff = (day + 6) % 7;
-  local.setDate(local.getDate() - diff);
-  local.setHours(0, 0, 0, 0);
-  return local;
+  utc.setUTCDate(utc.getUTCDate() - diff);
+  utc.setUTCHours(0, 0, 0, 0);
+  return utc;
 }
 
 function toUtcStartOfMonth(date: Date) {
-  const local = toUtcStartOfDay(date);
-  local.setDate(1);
-  local.setHours(0, 0, 0, 0);
-  return local;
+  const utc = toUtcStartOfDay(date);
+  utc.setUTCDate(1);
+  utc.setUTCHours(0, 0, 0, 0);
+  return utc;
 }
 
 function toUtcStartOfYear(date: Date) {
-  const local = toUtcStartOfDay(date);
-  local.setMonth(0, 1);
-  local.setHours(0, 0, 0, 0);
-  return local;
+  const utc = toUtcStartOfDay(date);
+  utc.setUTCMonth(0, 1);
+  utc.setUTCHours(0, 0, 0, 0);
+  return utc;
 }
 
 function parseKeyToLocalDate(key: string) {
@@ -154,7 +154,7 @@ function parseKeyToLocalDate(key: string) {
   if (Number.isNaN(date.valueOf())) {
     return undefined;
   }
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
 function toDateInputValue(key: string) {
@@ -162,9 +162,9 @@ function toDateInputValue(key: string) {
   if (!date) {
     return '';
   }
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -173,8 +173,8 @@ function toMonthInputValue(key: string) {
   if (!date) {
     return '';
   }
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   return `${year}-${month}`;
 }
 
@@ -189,8 +189,8 @@ function fromDateInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return undefined;
   }
-  const date = new Date(year, month - 1, day);
-  date.setHours(0, 0, 0, 0);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCHours(0, 0, 0, 0);
   return date.toISOString();
 }
 
@@ -205,7 +205,7 @@ function fromWeekDateInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return undefined;
   }
-  const date = new Date(year, month - 1, day);
+  const date = new Date(Date.UTC(year, month - 1, day));
   const startOfWeek = toUtcStartOfWeek(date);
   return startOfWeek.toISOString();
 }
@@ -220,8 +220,8 @@ function fromMonthInputValue(value: string) {
   if (!Number.isFinite(year) || !Number.isFinite(month)) {
     return undefined;
   }
-  const date = new Date(year, month - 1, 1);
-  date.setHours(0, 0, 0, 0);
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  date.setUTCHours(0, 0, 0, 0);
   return date.toISOString();
 }
 
@@ -233,8 +233,8 @@ function fromYearInputValue(value: string) {
   if (!Number.isFinite(year)) {
     return undefined;
   }
-  const date = new Date(year, 0, 1);
-  date.setHours(0, 0, 0, 0);
+  const date = new Date(Date.UTC(year, 0, 1));
+  date.setUTCHours(0, 0, 0, 0);
   return date.toISOString();
 }
 
@@ -243,13 +243,13 @@ function toYearInputValue(key: string) {
   if (!date) {
     return '';
   }
-  return String(date.getFullYear());
+  return String(date.getUTCFullYear());
 }
 
 function toLocalDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -266,9 +266,9 @@ function toPeriodIdentity(scope: ProfitScope, key: string) {
     case 'weekly':
       return toLocalDateKey(toUtcStartOfWeek(date));
     case 'monthly':
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
     case 'yearly':
-      return String(date.getFullYear());
+      return String(date.getUTCFullYear());
     default:
       return key;
   }
@@ -425,16 +425,16 @@ export function ProfitsPage() {
         const next = new Date(date);
         switch (scopeKey) {
           case 'daily':
-            next.setDate(next.getDate() - 1);
+            next.setUTCDate(next.getUTCDate() - 1);
             return next;
           case 'weekly':
-            next.setDate(next.getDate() - 7);
+            next.setUTCDate(next.getUTCDate() - 7);
             return next;
           case 'monthly':
-            next.setMonth(next.getMonth() - 1);
+            next.setUTCMonth(next.getUTCMonth() - 1);
             return next;
           case 'yearly':
-            next.setFullYear(next.getFullYear() - 1);
+            next.setUTCFullYear(next.getUTCFullYear() - 1);
             return next;
         }
       };
@@ -658,7 +658,7 @@ export function ProfitsPage() {
     if (scope === 'monthly') {
       const monthStart = toUtcStartOfMonth(new Date(activeKey));
       const monthEnd = new Date(monthStart);
-      monthEnd.setMonth(monthEnd.getMonth() + 1);
+      monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
 
       return aggregatedDailyPoints
         .filter((point) => {
@@ -671,7 +671,7 @@ export function ProfitsPage() {
     if (scope === 'yearly') {
       const yearStart = toUtcStartOfYear(new Date(activeKey));
       const yearEnd = new Date(yearStart);
-      yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+      yearEnd.setUTCFullYear(yearEnd.getUTCFullYear() + 1);
 
       const withinYear = aggregatedDailyPoints.filter((point) => {
         const pointDate = new Date(point.periodStart);
@@ -724,13 +724,13 @@ export function ProfitsPage() {
             return;
           }
           const hourStart = new Date(pointDate);
-          hourStart.setMinutes(0, 0, 0);
+          hourStart.setUTCMinutes(0, 0, 0);
           hourBuckets.set(hourStart.toISOString(), point);
         });
 
         return Array.from({ length: 24 }, (_, hour) => {
           const hourDate = new Date(dayStart);
-          hourDate.setHours(hour, 0, 0, 0);
+          hourDate.setUTCHours(hour, 0, 0, 0);
           const key = hourDate.toISOString();
           return (
             hourBuckets.get(key) ?? {
