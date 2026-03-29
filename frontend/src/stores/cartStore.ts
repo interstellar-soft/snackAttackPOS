@@ -50,6 +50,14 @@ const normalizeUnitLbp = (value: number) => {
   return Math.round(value);
 };
 
+const normalizeQuantity = (value: number, allowFraction: boolean) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 1;
+  }
+  const normalized = allowFraction ? Math.round(value * 1000) / 1000 : Math.floor(value);
+  return Math.max(1, normalized);
+};
+
 export interface CartItem {
   lineId: string;
   productId: string;
@@ -63,6 +71,7 @@ export interface CartItem {
   costUsd: number;
   costLbp: number;
   quantity: number;
+  isSoldByWeight?: boolean;
   discountPercent: number;
   isWaste: boolean;
   hasConfiguredPriceOverride: boolean;
@@ -200,7 +209,10 @@ export const useCartStore = create<CartState>()(
           if (index === -1) {
             return {};
           }
-          const sanitizedQuantity = Math.max(1, Math.floor(quantity));
+          const sanitizedQuantity = normalizeQuantity(
+            quantity,
+            Boolean(state.items[index].isSoldByWeight)
+          );
           const items = [...state.items];
           items[index] = { ...items[index], quantity: sanitizedQuantity };
           return { items };

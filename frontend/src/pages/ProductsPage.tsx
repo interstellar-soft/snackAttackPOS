@@ -43,6 +43,7 @@ type ProductFormValues = {
   cost: string;
   stockQuantity: string;
   isPinned: boolean;
+  isSoldByWeight: boolean;
   reorderPoint: string;
   additionalBarcodes: ProductFormBarcode[];
 };
@@ -91,6 +92,7 @@ const emptyValues: ProductFormValues = {
   cost: '',
   stockQuantity: '',
   isPinned: false,
+  isSoldByWeight: false,
   reorderPoint: '3',
   additionalBarcodes: []
 };
@@ -198,6 +200,11 @@ export function ProductsPage() {
             <span>{product.categoryName ?? product.category ?? t('inventoryCategoryUnknown')}</span>
             {product.category && product.categoryName && product.category !== product.categoryName && (
               <span className="text-xs text-slate-400">{product.category}</span>
+            )}
+            {product.isSoldByWeight && (
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+                {t('inventorySoldByWeightTag')}
+              </span>
             )}
           </div>
         </td>
@@ -347,6 +354,7 @@ export function ProductsPage() {
         price: parsedPrice,
         currency: values.currency,
         isPinned: values.isPinned,
+        isSoldByWeight: values.isSoldByWeight,
         reorderPoint: parsedReorderPoint,
         ...(sku ? { sku } : {}),
         ...(parsedCost !== null
@@ -428,6 +436,7 @@ export function ProductsPage() {
         price: product.priceUsd,
         currency: 'USD',
         isPinned: !product.isPinned,
+        isSoldByWeight: product.isSoldByWeight ?? false,
         reorderPoint: product.reorderPoint ?? 3,
         additionalBarcodes: mapProductBarcodesToApi(product),
         ...(product.sku && product.sku.trim() ? { sku: product.sku } : {})
@@ -593,6 +602,7 @@ export function ProductsPage() {
                 ? dialog.product.quantityOnHand.toString()
                 : '',
             isPinned: dialog.product.isPinned,
+            isSoldByWeight: dialog.product.isSoldByWeight ?? false,
             reorderPoint: (dialog.product.reorderPoint ?? 3).toString(),
             additionalBarcodes: mapProductBarcodesToForm(dialog.product)
           }}
@@ -658,7 +668,7 @@ function ProductFormDialog({
   }, []);
 
   const handleChange = (
-    field: Exclude<keyof ProductFormValues, 'isPinned' | 'additionalBarcodes'>
+    field: Exclude<keyof ProductFormValues, 'isPinned' | 'isSoldByWeight' | 'additionalBarcodes'>
   ) =>
     (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       setFormValues((previous) => ({ ...previous, [field]: event.target.value }));
@@ -666,6 +676,10 @@ function ProductFormDialog({
 
   const handlePinnedChange = (event: ChangeEvent<HTMLInputElement>) => {
     setFormValues((previous) => ({ ...previous, isPinned: event.target.checked }));
+  };
+
+  const handleSoldByWeightChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setFormValues((previous) => ({ ...previous, isSoldByWeight: event.target.checked }));
   };
 
   const handleCategoryChange = (nextValue: string) => {
@@ -1015,6 +1029,23 @@ function ProductFormDialog({
               ))}
             </div>
           )}
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+          <div className="flex items-start gap-3">
+            <input
+              id="product-sold-by-weight"
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-800"
+              checked={formValues.isSoldByWeight}
+              onChange={handleSoldByWeightChange}
+            />
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="product-sold-by-weight">
+                {t('inventorySoldByWeight')}
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('inventorySoldByWeightDescription')}</p>
+            </div>
+          </div>
         </div>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="flex items-start gap-3">

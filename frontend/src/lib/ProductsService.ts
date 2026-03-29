@@ -23,6 +23,7 @@ export interface Product {
   isFlagged?: boolean;
   flagReason?: string | null;
   isPinned?: boolean;
+  isSoldByWeight?: boolean;
   quantityOnHand?: number;
   averageCostUsd?: number;
   reorderPoint?: number;
@@ -48,6 +49,7 @@ export interface CreateProductInput {
   categoryName: string;
   description?: string;
   isPinned: boolean;
+  isSoldByWeight: boolean;
   reorderPoint: number;
   quantityOnHand?: number;
   additionalBarcodes?: ProductBarcodeInput[];

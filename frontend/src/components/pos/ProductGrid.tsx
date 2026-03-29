@@ -68,6 +68,7 @@ export function ProductGrid({ onScan }: ProductGridProps) {
       costUsd: averageCostUsd,
       costLbp: unitCostLbp,
       quantity: 1,
+      isSoldByWeight: product.isSoldByWeight ?? false,
       discountPercent: 0,
       hasConfiguredPriceOverride: false
     });
