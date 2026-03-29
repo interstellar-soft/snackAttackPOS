@@ -49,7 +49,6 @@ public class AnalyticsController : ControllerBase
 
         var daily = BuildSeries(lines, resolvedTimezone, StartOfDayUtc);
 
-        var weekly = BuildSeries(lines, resolvedTimezone, StartOfWeekUtc);
 
         var monthly = BuildSeries(lines, resolvedTimezone, StartOfMonthUtc);
 
@@ -57,7 +56,7 @@ public class AnalyticsController : ControllerBase
         {
             Daily = new ProfitSeries { Points = hourly },
             Weekly = new ProfitSeries { Points = daily },
-            Monthly = new ProfitSeries { Points = weekly },
+            Monthly = new ProfitSeries { Points = daily },
             Yearly = new ProfitSeries { Points = monthly }
         };
     }
