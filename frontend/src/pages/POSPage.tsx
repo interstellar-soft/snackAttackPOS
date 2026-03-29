@@ -817,7 +817,7 @@ export function POSPage() {
     }
     const hasUsdInput = paidUsdText.trim().length > 0;
     const hasLbpInput = paidLbpText.trim().length > 0;
-    const shouldAssumeExactTender = !hasUsdInput && !hasLbpInput;
+    const shouldAssumeExactTender = !isDebtCheckout && !hasUsdInput && !hasLbpInput;
     const parsedUsd = shouldAssumeExactTender ? totalUsd : parseTenderAmount(paidUsdText);
     const parsedLbp = shouldAssumeExactTender ? 0 : parseTenderAmount(paidLbpText);
     if (parsedUsd !== paidUsdAmount) {
