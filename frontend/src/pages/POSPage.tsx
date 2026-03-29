@@ -44,6 +44,7 @@ interface ProductResponse {
   isFlagged?: boolean;
   flagReason?: string;
   averageCostUsd?: number;
+  isSoldByWeight?: boolean;
 }
 
 export function POSPage() {
@@ -319,6 +320,7 @@ export function POSPage() {
         costUsd: averageCostUsd,
         costLbp: unitCostLbp,
         quantity: scannedQuantity,
+        isSoldByWeight: product.isSoldByWeight ?? false,
         discountPercent: 0,
         isWaste: false,
         hasConfiguredPriceOverride: hasConfiguredOverride,

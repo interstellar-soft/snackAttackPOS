@@ -10,6 +10,7 @@ public class Product : BaseEntity
     public Category? Category { get; set; }
     public decimal PriceUsd { get; set; }
     public decimal PriceLbp { get; set; }
+    public bool IsSoldByWeight { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsPinned { get; set; }
     public ICollection<ExpirationBatch> ExpirationBatches { get; set; } = new List<ExpirationBatch>();
