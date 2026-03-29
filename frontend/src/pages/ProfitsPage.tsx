@@ -67,6 +67,59 @@ function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+interface SummaryArcCardProps {
+  accentClassName: string;
+  trackClassName: string;
+  label: string;
+  value: string;
+  subtitle: string;
+  ratio: number;
+}
+
+function SummaryArcCard({
+  accentClassName,
+  trackClassName,
+  label,
+  value,
+  subtitle,
+  ratio
+}: SummaryArcCardProps) {
+  const clampedRatio = Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0;
+  const sweepDegrees = 280;
+  const startDegrees = 220;
+  const endDegrees = startDegrees + sweepDegrees;
+  const activeDegrees = startDegrees + sweepDegrees * clampedRatio;
+
+  return (
+    <div className="flex min-w-[170px] flex-1 flex-col items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-4">
+      <div className="relative h-36 w-36">
+        <div
+          className={`absolute inset-0 rounded-full ${trackClassName}`}
+          style={{
+            maskImage: `conic-gradient(transparent 0deg ${startDegrees}deg, white ${startDegrees}deg ${endDegrees}deg, transparent ${endDegrees}deg 360deg)`,
+            WebkitMaskImage: `conic-gradient(transparent 0deg ${startDegrees}deg, white ${startDegrees}deg ${endDegrees}deg, transparent ${endDegrees}deg 360deg)`
+          }}
+        />
+        <div
+          className={`absolute inset-0 rounded-full ${accentClassName}`}
+          style={{
+            maskImage: `conic-gradient(transparent 0deg ${startDegrees}deg, white ${startDegrees}deg ${activeDegrees}deg, transparent ${activeDegrees}deg 360deg)`,
+            WebkitMaskImage: `conic-gradient(transparent 0deg ${startDegrees}deg, white ${startDegrees}deg ${activeDegrees}deg, transparent ${activeDegrees}deg 360deg)`
+          }}
+        />
+        <div className="absolute inset-[12px] rounded-full bg-slate-900/95" />
+        <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-xl font-semibold text-slate-100">
+          {value}
+        </div>
+      </div>
+      <div className="text-center">
+        <p className="text-2xl font-medium text-slate-100">{label}</p>
+        <p className="text-sm text-slate-400">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
 function toUtcStartOfDay(date: Date) {
   const local = new Date(date);
   local.setHours(0, 0, 0, 0);
@@ -681,6 +734,34 @@ export function ProfitsPage() {
           : scope === 'yearly'
             ? t('profitBarsRepresentMonthsInYear')
             : t('profitBarsRepresentDaysInRange');
+  const selectedPeriodIndex =
+    scope === 'custom'
+      ? -1
+      : periodGroupsForScope.findIndex((group) => group.key === (selectedPeriodKey ?? fallbackPeriodKey));
+  const hasPreviousPeriod = scope !== 'custom' && selectedPeriodIndex < periodGroupsForScope.length - 1;
+  const hasNextPeriod = scope !== 'custom' && selectedPeriodIndex > 0;
+
+  const setSelectedScopePeriod = (nextKey: string | undefined) => {
+    if (scope === 'custom') {
+      return;
+    }
+    setSelectedPeriods((prev) => ({
+      ...prev,
+      [scope]: nextKey
+    }));
+  };
+
+  const navigatePeriod = (direction: 'previous' | 'next') => {
+    if (scope === 'custom' || selectedPeriodIndex < 0) {
+      return;
+    }
+    const nextIndex = direction === 'previous' ? selectedPeriodIndex + 1 : selectedPeriodIndex - 1;
+    const nextGroup = periodGroupsForScope[nextIndex];
+    setSelectedScopePeriod(nextGroup?.key);
+  };
+
+  const maxSummaryValue = Math.max(totals.revenue, totals.netProfit, averageSale, 1);
+  const receiptsLikeCount = chartData.length;
 
   const openPicker = () => {
     const input = pickerRef.current;
@@ -884,86 +965,112 @@ export function ProfitsPage() {
         </Card>
       )}
 
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <Card className="border-slate-800 bg-slate-950 p-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <CardTitle>{t('profitOverviewTitle')}</CardTitle>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('profitOverviewDescription')}</p>
+            <CardTitle className="text-3xl font-semibold text-slate-100">{t('profits')}</CardTitle>
+            <p className="mt-1 text-sm text-slate-400">{t('profitOverviewDescription')}</p>
           </div>
-            <div className="flex flex-wrap items-end gap-4">
-              <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
-                <span className="mb-1 font-medium">{t('profitScopeLabel')}</span>
-                <select
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  value={scope}
-                  onChange={(event) => {
-                    const value = event.target.value as ProfitScope;
-                    setScope(value);
-                  }}
-                >
-                  <option value="daily">{t('profitScopeDaily')}</option>
-                  <option value="weekly">{t('profitScopeWeekly')}</option>
-                  <option value="monthly">{t('profitScopeMonthly')}</option>
-                  <option value="yearly">{t('profitScopeYearly')}</option>
-                  <option value="custom">{t('profitScopeCustom')}</option>
-                </select>
-              </label>
-              <label className="flex flex-col text-sm text-slate-600 dark:text-slate-300">
-                <span className="mb-1 font-medium">{periodPickerLabel}</span>
-                {renderPeriodPicker()}
-                {scope === 'custom' && isCustomRangeInvalid && (
-                  <span className="mt-1 text-xs text-red-600 dark:text-red-400">{t('profitCustomRangeInvalid')}</span>
-                )}
-              </label>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(['daily', 'weekly', 'monthly', 'yearly', 'custom'] as ProfitScope[]).map((scopeOption) => (
+              <button
+                key={scopeOption}
+                type="button"
+                onClick={() => setScope(scopeOption)}
+                className={`rounded-lg border px-3 py-2 text-sm transition ${
+                  scope === scopeOption
+                    ? 'border-blue-400 bg-blue-500/20 text-blue-200'
+                    : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                {scopeOption === 'daily'
+                  ? t('profitScopeDaily')
+                  : scopeOption === 'weekly'
+                    ? t('profitScopeWeekly')
+                    : scopeOption === 'monthly'
+                      ? t('profitScopeMonthly')
+                      : scopeOption === 'yearly'
+                        ? t('profitScopeYearly')
+                        : t('profitScopeCustom')}
+              </button>
+            ))}
           </div>
-        </Card>
+        </div>
 
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
-          <Card className="space-y-2 p-4">
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalNet')}</p>
-            <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
-              {formatCurrency(totals.netProfit, 'USD', locale)}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigatePeriod('previous')}
+              disabled={!hasPreviousPeriod}
+              className="rounded-md border border-slate-700 px-3 py-1 text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ‹
+            </button>
+            <p className="min-w-[14rem] text-center text-xl font-medium text-slate-100">
+              {selectedPeriodLabel ?? t('profitPeriodUnavailable')}
             </p>
+            <button
+              type="button"
+              onClick={() => navigatePeriod('next')}
+              disabled={!hasNextPeriod}
+              className="rounded-md border border-slate-700 px-3 py-1 text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ›
+            </button>
+          </div>
+          <div className="flex flex-col text-sm text-slate-300">
+            <span className="mb-1 font-medium">{periodPickerLabel}</span>
+            {renderPeriodPicker()}
+            {scope === 'custom' && isCustomRangeInvalid && (
+              <span className="mt-1 text-xs text-red-400">{t('profitCustomRangeInvalid')}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-6 flex flex-wrap items-stretch gap-4">
+          <SummaryArcCard
+            label={t('profitScopeDaily')}
+            value={Intl.NumberFormat(locale).format(receiptsLikeCount)}
+            subtitle={t('profitBarsRepresentDaysInRange')}
+            ratio={receiptsLikeCount / Math.max(receiptsLikeCount, 24)}
+            accentClassName="bg-amber-400/90"
+            trackClassName="bg-amber-900/50"
+          />
+          <SummaryArcCard
+            label={t('profitTotalRevenue')}
+            value={formatCurrency(totals.revenue, 'USD', locale)}
+            subtitle={t('profitOverviewTitle')}
+            ratio={totals.revenue / maxSummaryValue}
+            accentClassName="bg-lime-400/90"
+            trackClassName="bg-lime-900/50"
+          />
+          <SummaryArcCard
+            label={t('profitAverageSale')}
+            value={formatCurrency(averageSale, 'USD', locale)}
+            subtitle={t('profitAveragePerPeriod', { period: periodLabel })}
+            ratio={averageSale / maxSummaryValue}
+            accentClassName="bg-sky-400/90"
+            trackClassName="bg-sky-900/50"
+          />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Card className="space-y-2 border-slate-800 bg-slate-900/70 p-4">
+            <p className="text-sm font-semibold text-slate-400">{t('profitTotalNet')}</p>
+            <p className="text-2xl font-semibold text-emerald-300">{formatCurrency(totals.netProfit, 'USD', locale)}</p>
           </Card>
-          <Card className="space-y-2 p-4">
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalRevenue')}</p>
-            <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-              {formatCurrency(totals.revenue, 'USD', locale)}
-            </p>
+          <Card className="space-y-2 border-slate-800 bg-slate-900/70 p-4">
+            <p className="text-sm font-semibold text-slate-400">{t('profitNetMargin')}</p>
+            <p className="text-2xl font-semibold text-emerald-300">{formattedNetProfitMargin}</p>
+            <p className="text-xs text-slate-500">{t('profitNetMarginDescription')}</p>
           </Card>
-          <Card className="space-y-2 p-4">
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitAverageSale')}</p>
-            <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-              {formatCurrency(averageSale, 'USD', locale)}
+          <Card className="space-y-2 border-slate-800 bg-slate-900/70 p-4">
+            <p className="text-sm font-semibold text-slate-400">{t('profitTotalDebt')}</p>
+            <p className="text-lg font-semibold text-rose-300">
+              {formatCurrency(outstandingDebt.usd, 'USD', locale)} • {formatCurrency(outstandingDebt.lbp, 'LBP', locale)}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t('profitAveragePerPeriod', { period: periodLabel })}
-            </p>
-          </Card>
-          <Card className="space-y-2 p-4">
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitAverageProfit')}</p>
-            <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
-              {formatCurrency(averageProfit, 'USD', locale)}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t('profitAveragePerPeriod', { period: periodLabel })}
-            </p>
-          </Card>
-          <Card className="space-y-2 p-4">
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitNetMargin')}</p>
-            <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-300">
-              {formattedNetProfitMargin}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t('profitNetMarginDescription')}</p>
-          </Card>
-          <Card className="space-y-2 p-4">
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('profitTotalDebt')}</p>
-            <p className="text-lg font-semibold text-red-600 dark:text-red-400">
-              {formatCurrency(outstandingDebt.usd, 'USD', locale)} •{' '}
-              {formatCurrency(outstandingDebt.lbp, 'LBP', locale)}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500">
               {debtsQuery.isLoading
                 ? t('profitDebtLoading')
                 : debtsQuery.isError
@@ -972,33 +1079,34 @@ export function ProfitsPage() {
             </p>
           </Card>
         </div>
+      </Card>
 
-      <Card className="p-6">
+      <Card className="border-slate-800 bg-slate-950 p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <CardTitle>{t('profitChartTitle')}</CardTitle>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{barMeaningLabel}</p>
+            <CardTitle className="text-slate-100">{t('profitChartTitle')}</CardTitle>
+            <p className="mt-1 text-xs text-slate-400">{barMeaningLabel}</p>
           </div>
         </div>
         {hasDisplayRows ? (
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={displayRows} barSize={28} maxBarSize={36} barCategoryGap="2%" barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
+            <BarChart data={displayRows} barSize={18} maxBarSize={22} barCategoryGap="8%" barGap={0}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis dataKey="label" tick={{ fill: '#94a3b8' }} />
+              <YAxis tick={{ fill: '#94a3b8' }} />
               <Tooltip
                 formatter={(value: number) => [formatCurrency(Number(value), 'USD', locale), t('profitTableNet')]}
               />
               <Legend formatter={() => t('profitTableNet')} />
-              <Bar dataKey="netProfit" name={t('profitTableNet')} fill="#10b981" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="netProfit" name={t('profitTableNet')} fill="#65a30d" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t('profitEmpty')}</p>
+          <p className="text-sm text-slate-400">{t('profitEmpty')}</p>
         )}
       </Card>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden border-slate-800 bg-slate-950">
         <CardHeader>
           <CardTitle>{t('profits')}</CardTitle>
         </CardHeader>
