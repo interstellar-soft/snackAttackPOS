@@ -29,4 +29,6 @@ public class PurchaseLineResponse
     public decimal QuantityOnHand { get; set; }
     public decimal? CurrentSalePriceUsd { get; set; }
     public string Currency { get; set; } = "USD";
+    public bool IsSoldByWeight { get; set; }
+    public string? WeightUnit { get; set; }
 }

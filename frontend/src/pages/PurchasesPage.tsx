@@ -38,6 +38,8 @@ interface DraftItem {
   salePriceUsd: string;
   isExisting: boolean;
   quantityOnHand: number;
+  isSoldByWeight: boolean;
+  weightUnit: 'kg' | 'g' | 'lb' | null;
 }
 
 const createId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
@@ -77,6 +79,19 @@ const calculateSalePriceFromProfit = (unitCost: string, profitPercent: string) =
   }
   const price = cost * (1 + percent / 100);
   return formatDecimalString(price);
+};
+
+const resolvePurchaseScanIncrement = (product: Product) => {
+  const scannedQuantity = Number(product.scannedQuantity);
+  if (!Number.isFinite(scannedQuantity) || scannedQuantity <= 0) {
+    return 1;
+  }
+
+  if (product.isSoldByWeight) {
+    return scannedQuantity;
+  }
+
+  return Math.max(1, scannedQuantity);
 };
 
 export function PurchasesPage() {
@@ -308,7 +323,9 @@ export function PurchasesPage() {
           currency: lineCurrency,
           salePriceUsd: line.currentSalePriceUsd != null ? line.currentSalePriceUsd.toString() : '',
           isExisting: true,
-          quantityOnHand: line.quantityOnHand ?? 0
+          quantityOnHand: line.quantityOnHand ?? 0,
+          isSoldByWeight: line.isSoldByWeight ?? false,
+          weightUnit: line.weightUnit ?? null
         };
       })
     );
@@ -383,7 +400,7 @@ export function PurchasesPage() {
 
   const addExistingProductToItems = useCallback(
     (product: Product) => {
-      const increment = Math.max(1, product.scannedQuantity ?? 1);
+      const increment = resolvePurchaseScanIncrement(product);
       const derivedBarcode =
         product.scannedMergesWithPrimary === false
           ? product.scannedBarcode ?? product.barcode
@@ -396,7 +413,7 @@ export function PurchasesPage() {
           const next = [...previous];
           const target = next[existingIndex];
           const nextQuantity = (Number(target.quantity) || 0) + increment;
-          const updated = { ...target, quantity: nextQuantity.toString(), barcode: derivedBarcode };
+          const updated = { ...target, quantity: formatDecimalString(nextQuantity), barcode: derivedBarcode };
           next[existingIndex] = updated;
           nextHighlightedId = updated.id;
           return next;
@@ -409,7 +426,7 @@ export function PurchasesPage() {
           name: product.name,
           sku: product.sku?.trim() ?? '',
           categoryName: product.categoryName ?? product.category ?? '',
-          quantity: increment.toString(),
+          quantity: formatDecimalString(increment),
           unitCost: (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
           profitPercent: calculateProfitPercent(
             (product.averageCostUsd ?? product.priceUsd ?? 0).toString(),
@@ -418,7 +435,9 @@ export function PurchasesPage() {
           currency: 'USD',
           salePriceUsd: product.priceUsd?.toString() ?? '',
           isExisting: true,
-          quantityOnHand: product.quantityOnHand ?? 0
+          quantityOnHand: product.quantityOnHand ?? 0,
+          isSoldByWeight: product.isSoldByWeight ?? false,
+          weightUnit: product.weightUnit ?? null
         };
         nextHighlightedId = newItem.id;
         return [...previous, newItem];
@@ -473,7 +492,9 @@ export function PurchasesPage() {
               currency: 'USD',
               salePriceUsd: '',
               isExisting: false,
-              quantityOnHand: 0
+              quantityOnHand: 0,
+              isSoldByWeight: false,
+              weightUnit: null
             };
             nextHighlightedId = newItem.id;
             return [...previous, newItem];
@@ -1122,6 +1143,11 @@ export function PurchasesPage() {
                             <span className="text-xs text-slate-500">
                               {t('purchasesOnHand', { count: item.quantityOnHand.toLocaleString() })}
                             </span>
+                            {item.isSoldByWeight && (
+                              <span className="text-xs text-slate-500">
+                                {item.weightUnit ? `Weight unit: ${item.weightUnit}` : 'Weight-based item'}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -1233,7 +1259,9 @@ export function PurchasesPage() {
                     currency: 'USD',
                     salePriceUsd: '',
                     isExisting: false,
-                    quantityOnHand: 0
+                    quantityOnHand: 0,
+                    isSoldByWeight: false,
+                    weightUnit: null
                   };
                   setItems((previous) => [...previous, newItem]);
                   setLastScannedItemId(newItem.id);
