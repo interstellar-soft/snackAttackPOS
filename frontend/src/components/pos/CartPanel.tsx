@@ -57,6 +57,7 @@ export function CartPanel({
   const { t, i18n } = useTranslation();
   const {
     items,
+    activeHeldCartName,
     setItemQuantity,
     updateDiscount,
     removeItem,
@@ -151,6 +152,19 @@ export function CartPanel({
     setHoldClientName('');
     setHoldError(null);
   }, [items.length]);
+
+  useEffect(() => {
+    if (!isHoldFormVisible) {
+      return;
+    }
+    if (holdClientName.trim()) {
+      return;
+    }
+    if (!activeHeldCartName) {
+      return;
+    }
+    setHoldClientName(activeHeldCartName);
+  }, [activeHeldCartName, holdClientName, isHoldFormVisible]);
 
   useEffect(() => {
     const container = listContainerRef.current;
@@ -336,7 +350,6 @@ export function CartPanel({
     setHoldClientName('');
     setHoldError(null);
     setIsHoldFormVisible(false);
-    setHeldCartSearch('');
     onHoldComplete?.();
   };
 
@@ -356,6 +369,7 @@ export function CartPanel({
               className="bg-emerald-600 hover:bg-emerald-500"
               onClick={() => {
                 setIsHoldFormVisible(true);
+                setHoldClientName(activeHeldCartName ?? '');
                 setHoldError(null);
               }}
               disabled={items.length === 0}
