@@ -1,19 +1,17 @@
-version: '3.9'
-
 services:
   db:
     image: postgres:15-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-snackattack}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,11 +26,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://0.0.0.0:5000
-      ConnectionStrings__DefaultConnection: ${BACKEND_DB_CONNECTION}
-      Jwt__Issuer: ${BACKEND_JWT_ISSUER}
-      Jwt__Audience: ${BACKEND_JWT_AUDIENCE}
-      Jwt__Key: ${BACKEND_JWT_KEY}
-      Timezone: ${APP_TIMEZONE}
+      ConnectionStrings__DefaultConnection: ${BACKEND_DB_CONNECTION:-Host=db;Port=5432;Database=snackattack;Username=postgres;Password=postgres}
+      Jwt__Issuer: ${BACKEND_JWT_ISSUER:-snackAttackPOS}
+      Jwt__Audience: ${BACKEND_JWT_AUDIENCE:-snackAttackPOSClients}
+      Jwt__Key: ${BACKEND_JWT_KEY:-dev-only-super-secret-key-change-me}
+      Timezone: ${APP_TIMEZONE:-UTC}
     ports:
       - "5000:5000"
 
@@ -41,7 +39,7 @@ services:
       context: ../ml
     restart: unless-stopped
     environment:
-      TZ: ${APP_TIMEZONE}
+      TZ: ${APP_TIMEZONE:-UTC}
     ports:
       - "8001:8001"
 
@@ -50,8 +48,8 @@ services:
       context: ../frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: ${FRONTEND_API_URL}
-      VITE_ML_URL: ${FRONTEND_ML_URL}
+      VITE_API_URL: ${FRONTEND_API_URL:-http://localhost:5000}
+      VITE_ML_URL: ${FRONTEND_ML_URL:-http://localhost:8001}
     ports:
       - "5173:80"
     depends_on:
