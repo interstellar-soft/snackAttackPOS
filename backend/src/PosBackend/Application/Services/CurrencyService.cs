@@ -6,6 +6,8 @@ namespace PosBackend.Application.Services;
 
 public class CurrencyService
 {
+    private const decimal ChangeIssuanceRate = 89000m;
+
     private readonly ApplicationDbContext _db;
 
     public CurrencyService(ApplicationDbContext db)
@@ -51,6 +53,12 @@ public class CurrencyService
         var balanceUsd = RoundUsd(roundedTotalUsd - paidUsdEquivalent);
         var paidLbpEquivalent = roundedPaidLbp + ConvertUsdToLbp(roundedPaidUsd, exchangeRate);
         var balanceLbp = RoundLbp(roundedTotalLbp - paidLbpEquivalent);
+
+        if (balanceUsd < 0)
+        {
+            balanceLbp = ConvertUsdToLbp(balanceUsd, ChangeIssuanceRate);
+        }
+
         return (roundedTotalUsd, roundedTotalLbp, balanceUsd, balanceLbp);
     }
 }

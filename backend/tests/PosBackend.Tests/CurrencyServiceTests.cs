@@ -46,6 +46,6 @@ public class CurrencyServiceTests
         Assert.Equal(36.67m, result.totalUsd);
         Assert.Equal(3300000m, result.totalLbp);
         Assert.Equal(-1.67m, result.balanceUsd);
-        Assert.Equal(-150000m, result.balanceLbp);
+        Assert.Equal(-148630m, result.balanceLbp);
     }
 }
