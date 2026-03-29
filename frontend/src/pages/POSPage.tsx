@@ -799,6 +799,10 @@ export function POSPage() {
     setIsDebtCheckout(next);
     if (next) {
       setSaveToMyCart(false);
+      setPaidUsdText('');
+      setPaidUsdAmount(0);
+      setPaidLbpText('');
+      setPaidLbpAmount(0);
     } else {
       setDebtCardName('');
     }
@@ -901,6 +905,8 @@ export function POSPage() {
     setBalance(response);
     if (isDebtCheckout && trimmedDebtCardName) {
       queryClient.invalidateQueries({ queryKey: TransactionsService.keys.debtCardNames() });
+      queryClient.invalidateQueries({ queryKey: TransactionsService.keys.debts() });
+      queryClient.invalidateQueries({ queryKey: ['profit-summary'] });
     }
     clear();
     setPaidUsdText('');
