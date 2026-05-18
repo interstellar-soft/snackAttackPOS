@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './api';
 import { useAuthStore } from '../stores/authStore';
+import { TransactionsService } from './TransactionsService';
 
 export interface MyCartSummary {
   referenceDate: string;
@@ -21,6 +22,7 @@ export interface PersonalPurchase {
   totalUsd: number;
   totalLbp: number;
   purchaseDate: string;
+  lineIds: string[];
 }
 
 const myCartKeys = {
@@ -50,6 +52,20 @@ export const MyCartService = {
         }
         const query = date ? `?date=${encodeURIComponent(date)}` : '';
         return await apiFetch<MyCartSummary>(`/api/my-cart/summary${query}`, {}, token);
+      }
+    });
+  },
+  useRefundPurchase() {
+    const token = useAuthToken();
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: async (payload: { transactionId: string; lineIds: string[] }) =>
+        await apiFetch('/api/transactions/return', { method: 'POST', body: JSON.stringify(payload) }, token ?? undefined),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: myCartKeys.base });
+        queryClient.invalidateQueries({ queryKey: TransactionsService.keys.all });
+        queryClient.invalidateQueries({ queryKey: ['profit-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['transactions', 'debts'] });
       }
     });
   },

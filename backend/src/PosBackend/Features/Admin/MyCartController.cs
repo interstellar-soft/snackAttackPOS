@@ -88,6 +88,7 @@ public class MyCartController : ControllerBase
         var query = _db.PersonalPurchases
             .AsNoTracking()
             .Include(p => p.Transaction)
+                .ThenInclude(t => t!.Lines)
             .Where(p => p.UserId == userId.Value);
 
         if (from.HasValue)
@@ -112,7 +113,10 @@ public class MyCartController : ControllerBase
                 TransactionNumber = p.Transaction != null ? p.Transaction.TransactionNumber : string.Empty,
                 TotalUsd = p.TotalUsd,
                 TotalLbp = p.TotalLbp,
-                PurchaseDate = p.PurchaseDate
+                PurchaseDate = p.PurchaseDate,
+                LineIds = p.Transaction != null
+                    ? p.Transaction.Lines.Where(line => line.Quantity > 0).Select(line => line.Id).ToList()
+                    : new List<Guid>()
             })
             .ToListAsync(cancellationToken);
 
