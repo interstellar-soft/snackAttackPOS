@@ -346,14 +346,15 @@ export const useCartStore = create<CartState>()(
           if (item.isWaste) {
             return total;
           }
+          const refundMultiplier = item.isRefund ? -1 : 1;
           if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
-            return total + item.manualTotalUsd;
+            return total + item.manualTotalUsd * refundMultiplier;
           }
           if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined && rate > 0) {
-            return total + Math.round((item.manualTotalLbp / rate) * 100) / 100;
+            return total + (Math.round((item.manualTotalLbp / rate) * 100) / 100) * refundMultiplier;
           }
           const discountedPriceUsd = item.priceUsd * (1 - item.discountPercent / 100);
-          return total + discountedPriceUsd * item.quantity;
+          return total + discountedPriceUsd * item.quantity * refundMultiplier;
         }, 0);
       },
       subtotalLbp: () => {
@@ -369,14 +370,15 @@ export const useCartStore = create<CartState>()(
           if (item.isWaste) {
             return total;
           }
+          const refundMultiplier = item.isRefund ? -1 : 1;
           if (item.manualTotalLbp !== null && item.manualTotalLbp !== undefined) {
-            return total + item.manualTotalLbp;
+            return total + item.manualTotalLbp * refundMultiplier;
           }
           if (item.manualTotalUsd !== null && item.manualTotalUsd !== undefined) {
-            return total + Math.round(item.manualTotalUsd * rate);
-        }
-        const discountedPriceLbp = item.priceLbp * (1 - item.discountPercent / 100);
-        return total + discountedPriceLbp * item.quantity;
+            return total + Math.round(item.manualTotalUsd * rate) * refundMultiplier;
+          }
+          const discountedPriceLbp = item.priceLbp * (1 - item.discountPercent / 100);
+          return total + discountedPriceLbp * item.quantity * refundMultiplier;
       }, 0);
       },
       setLastAddedItemId: (lineId) => set({ lastAddedItemId: lineId }),
