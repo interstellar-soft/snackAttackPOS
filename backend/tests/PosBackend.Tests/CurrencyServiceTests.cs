@@ -48,4 +48,16 @@ public class CurrencyServiceTests
         Assert.Equal(-1.67m, result.balanceUsd);
         Assert.Equal(-148630m, result.balanceLbp);
     }
+
+    [Fact]
+    public void ComputeBalance_OverpaidLbp_IssuesChangeAtPolicyRate()
+    {
+        using var context = CreateContext();
+        var service = new CurrencyService(context);
+
+        var result = service.ComputeBalance(4m, 0m, 450000m, 89000m);
+
+        Assert.Equal(-1.06m, result.balanceUsd);
+        Assert.Equal(-95400m, result.balanceLbp);
+    }
 }
