@@ -6,7 +6,7 @@ namespace PosBackend.Application.Services;
 
 public class CurrencyService
 {
-    private const decimal ChangeIssuanceRate = 89000m;
+    private const decimal ChangeIssuanceRate = 90000m;
 
     private readonly ApplicationDbContext _db;
 

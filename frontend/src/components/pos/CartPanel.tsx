@@ -65,6 +65,7 @@ export function CartPanel({
     subtotalUsd,
     subtotalLbp,
     setItemWaste,
+    setItemRefund,
     rate,
     holdCart,
   } = useCartStore();
@@ -459,6 +460,11 @@ export function CartPanel({
                         {t('cartManualOverrideApplied')}
                       </Badge>
                     )}
+                    {item.isRefund && (
+                      <Badge className="bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-200">
+                        Refund
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {canMarkWaste && (
@@ -474,6 +480,18 @@ export function CartPanel({
                         {item.isWaste ? t('cartUnmarkWaste') : t('cartMarkWaste')}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                        item.isRefund
+                          ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 focus:ring-rose-500 dark:border-rose-700 dark:bg-rose-900/40 dark:text-rose-200'
+                          : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 focus:ring-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100'
+                      }`}
+                      onClick={() => setItemRefund(item.lineId, !item.isRefund)}
+                      disabled={item.isWaste}
+                    >
+                      {item.isRefund ? 'Unrefund' : 'Refund'}
+                    </button>
                     <button
                       type="button"
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-red-200 text-red-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-white dark:border-red-500/40 dark:text-red-300 dark:hover:border-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-200 dark:focus:ring-offset-slate-900"
