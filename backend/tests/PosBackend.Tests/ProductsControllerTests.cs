@@ -93,6 +93,33 @@ public class ProductsControllerTests
     }
 
     [Fact]
+    public async Task CreateProduct_AllowsNegativeQuantityOnHand()
+    {
+        await using var context = CreateContext();
+
+        var controller = CreateController(context);
+        var request = new CreateProductRequest
+        {
+            Name = "Backordered Item",
+            Barcode = "7777777777777",
+            Price = 1.25m,
+            Currency = "USD",
+            CategoryName = "Snacks",
+            QuantityOnHand = -2.5m
+        };
+
+        var result = await controller.CreateProduct(request, CancellationToken.None);
+
+        var created = Assert.IsType<CreatedAtActionResult>(result.Result);
+        var response = Assert.IsType<ProductResponse>(created.Value);
+        Assert.Equal(-2.5m, response.QuantityOnHand);
+
+        var storedInventory = await context.Inventories.AsNoTracking().FirstOrDefaultAsync(i => i.ProductId == response.Id);
+        Assert.NotNull(storedInventory);
+        Assert.Equal(-2.5m, storedInventory!.QuantityOnHand);
+    }
+
+    [Fact]
     public async Task CreateProduct_ReturnsValidationProblem_ForDuplicateSku()
     {
         await using var context = CreateContext();

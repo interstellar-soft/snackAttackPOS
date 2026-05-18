@@ -344,7 +344,7 @@ export function ProductsPage() {
       return { error: t('inventoryCostValidationError') };
     }
 
-    if (quantityText && (!Number.isFinite(parsedQuantity) || (parsedQuantity ?? 0) < 0)) {
+    if (quantityText && !Number.isFinite(parsedQuantity)) {
       return { error: t('inventoryStockValidationError') };
     }
 
@@ -919,7 +919,6 @@ function ProductFormDialog({
             <Input
               id="product-stock-quantity"
               type="number"
-              min="0"
               step="0.01"
               value={formValues.stockQuantity}
               onChange={handleChange('stockQuantity')}

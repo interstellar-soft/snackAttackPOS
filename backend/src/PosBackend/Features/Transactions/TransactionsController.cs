@@ -355,7 +355,7 @@ public class TransactionsController : ControllerBase
                 ?? await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == line.ProductId, cancellationToken);
             if (inventory is not null)
             {
-                inventory.QuantityOnHand = Math.Max(0, inventory.QuantityOnHand - line.Quantity);
+                inventory.QuantityOnHand -= line.Quantity;
             }
         }
 
@@ -583,7 +583,7 @@ public class TransactionsController : ControllerBase
                 var inventory = await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == line.ProductId, cancellationToken);
                 if (inventory is not null)
                 {
-                    inventory.QuantityOnHand = Math.Max(0, inventory.QuantityOnHand - line.Quantity);
+                    inventory.QuantityOnHand -= line.Quantity;
                 }
             }
 
