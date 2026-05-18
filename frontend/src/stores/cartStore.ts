@@ -76,6 +76,7 @@ export interface CartItem {
   discountPercent: number;
   isWaste: boolean;
   hasConfiguredPriceOverride: boolean;
+  isRefund?: boolean;
   manualTotalUsd?: number | null;
   manualTotalLbp?: number | null;
 }
@@ -107,6 +108,7 @@ interface CartState {
   updateDiscount: (lineId: string, discount: number) => void;
   removeItem: (lineId: string) => void;
   setItemWaste: (lineId: string, isWaste: boolean) => void;
+  setItemRefund: (lineId: string, isRefund: boolean) => void;
   setItemManualTotals: (
     lineId: string,
     totals: { totalUsd?: number | null; totalLbp?: number | null }
@@ -164,7 +166,8 @@ export const useCartStore = create<CartState>()(
             i.priceLbp === normalized.priceLbp &&
             i.basePriceUsd === normalized.basePriceUsd &&
             i.basePriceLbp === normalized.basePriceLbp &&
-            i.hasConfiguredPriceOverride === normalized.hasConfiguredPriceOverride
+            i.hasConfiguredPriceOverride === normalized.hasConfiguredPriceOverride &&
+            Boolean(i.isRefund) === Boolean(normalized.isRefund)
         );
         if (existingIndex >= 0) {
           set((state) => {
@@ -271,6 +274,17 @@ export const useCartStore = create<CartState>()(
           }
           items.push(updatedItem);
           return { items, lastAddedItemId: updatedItem.lineId };
+        });
+      },
+      setItemRefund: (lineId, isRefund) => {
+        set((state) => {
+          const index = state.items.findIndex((item) => item.lineId === lineId);
+          if (index === -1) {
+            return {};
+          }
+          const items = [...state.items];
+          items[index] = { ...items[index], isRefund };
+          return { items };
         });
       },
       setItemManualTotals: (lineId, totals) =>
