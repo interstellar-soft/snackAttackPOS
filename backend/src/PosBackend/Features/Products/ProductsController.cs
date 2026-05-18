@@ -533,11 +533,6 @@ public class ProductsController : ControllerBase
             AddError(errors, nameof(request.ReorderPoint), "Reorder point cannot be negative.");
         }
 
-        if (request.QuantityOnHand is decimal quantityOnHand && quantityOnHand < 0)
-        {
-            AddError(errors, nameof(request.QuantityOnHand), "Quantity on hand cannot be negative.");
-        }
-
         request.WeightUnit = NormalizeOptional(request.WeightUnit)?.ToLowerInvariant();
         var allowedWeightUnits = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "kg", "g", "lb" };
         if (request.IsSoldByWeight)

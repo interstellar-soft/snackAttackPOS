@@ -78,6 +78,46 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
     }
 
     [Fact]
+    public async Task Checkout_WhenStockIsInsufficient_AllowsNegativeInventory()
+    {
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+
+        var user = await context.Users.FirstAsync(u => u.Username == "cashier");
+        var inventory = await context.Inventories.Include(i => i.Product).FirstAsync();
+        inventory.QuantityOnHand = 0m;
+        await context.SaveChangesAsync();
+
+        var token = tokenService.CreateToken(user);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var request = new CheckoutRequest
+        {
+            ExchangeRate = 90000m,
+            PaidUsd = inventory.Product.PriceUsd,
+            Items = new[]
+            {
+                new CartItemRequest(inventory.ProductId, 1, null, null)
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/api/transactions/checkout", request);
+
+        response.EnsureSuccessStatusCode();
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var inventoryAfter = await verificationContext.Inventories
+            .AsNoTracking()
+            .FirstAsync(i => i.ProductId == inventory.ProductId);
+
+        Assert.Equal(-1m, inventoryAfter.QuantityOnHand);
+    }
+
+    [Fact]
     public async Task Checkout_WithTokenContainingOnlySubClaim_Succeeds()
     {
         var client = _factory.CreateClient();
