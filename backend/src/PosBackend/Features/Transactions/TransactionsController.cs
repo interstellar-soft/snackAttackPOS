@@ -740,7 +740,6 @@ public class TransactionsController : ControllerBase
     public async Task<ActionResult<TransactionResponse>> SettleDebt(Guid id, [FromBody] SettleDebtRequest request, CancellationToken cancellationToken)
     {
         var transaction = await _db.Transactions
-            .Include(t => t.User)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
         if (transaction is null)
@@ -753,38 +752,74 @@ public class TransactionsController : ControllerBase
             return BadRequest(new { message = "Transaction is not an outstanding debt." });
         }
 
-        if (transaction.BalanceUsd <= 0 && transaction.BalanceLbp <= 0)
-        {
-            transaction.DebtSettledAt = transaction.DebtSettledAt ?? DateTime.UtcNow;
-            await _db.SaveChangesAsync(cancellationToken);
-            return ToResponse(transaction);
-        }
-
         var additionalUsd = request.PaidUsd > 0 ? request.PaidUsd : 0m;
         var additionalLbp = request.PaidLbp > 0 ? request.PaidLbp : 0m;
 
-        if (additionalUsd == 0m && additionalLbp == 0m)
+        var trimmedDebtName = transaction.DebtCardName!.Trim();
+        var outstandingTransactions = await _db.Transactions
+            .Where(t => t.DebtSettledAt == null && t.DebtCardName != null && t.DebtCardName.Trim() == trimmedDebtName)
+            .OrderBy(t => t.CreatedAt)
+            .ThenBy(t => t.TransactionNumber)
+            .ToListAsync(cancellationToken);
+
+        var primaryTransaction = outstandingTransactions.FirstOrDefault(t => t.Id == transaction.Id);
+        if (primaryTransaction is null)
         {
-            additionalUsd = transaction.BalanceUsd > 0 ? transaction.BalanceUsd : 0m;
-            additionalLbp = transaction.BalanceLbp > 0 ? transaction.BalanceLbp : 0m;
+            return BadRequest(new { message = "Transaction is not an outstanding debt." });
         }
 
-        transaction.PaidUsd = _currencyService.RoundUsd(transaction.PaidUsd + additionalUsd);
-        transaction.PaidLbp = _currencyService.RoundLbp(transaction.PaidLbp + additionalLbp);
+        var orderedTransactions = new List<PosTransaction> { primaryTransaction };
+        orderedTransactions.AddRange(outstandingTransactions.Where(t => t.Id != primaryTransaction.Id));
 
-        var manualTotalLbp = transaction.HasManualTotalOverride ? transaction.TotalLbp : (decimal?)null;
-        var balance = _currencyService.ComputeBalance(transaction.TotalUsd, transaction.PaidUsd, transaction.PaidLbp, transaction.ExchangeRateUsed, manualTotalLbp);
-        transaction.BalanceUsd = balance.balanceUsd;
-        transaction.BalanceLbp = balance.balanceLbp;
-        transaction.UpdatedAt = DateTime.UtcNow;
-
-        var isSettled = Math.Abs(transaction.BalanceUsd) <= 0.01m && Math.Abs(transaction.BalanceLbp) <= 100m;
-
-        if (isSettled)
+        if (additionalUsd == 0m && additionalLbp == 0m)
         {
-            transaction.BalanceUsd = 0;
-            transaction.BalanceLbp = 0;
-            transaction.DebtSettledAt = DateTime.UtcNow;
+            additionalUsd = orderedTransactions.Sum(t => t.BalanceUsd > 0 ? t.BalanceUsd : 0m);
+            additionalLbp = orderedTransactions.Sum(t => t.BalanceLbp > 0 ? t.BalanceLbp : 0m);
+        }
+
+        var remainingUsd = additionalUsd;
+        var remainingLbp = additionalLbp;
+        var settledTransactions = new List<PosTransaction>();
+
+        foreach (var debtTransaction in orderedTransactions)
+        {
+            var debtUsd = debtTransaction.BalanceUsd > 0 ? debtTransaction.BalanceUsd : 0m;
+            var debtLbp = debtTransaction.BalanceLbp > 0 ? debtTransaction.BalanceLbp : 0m;
+
+            var paidUsd = remainingUsd > 0 ? Math.Min(remainingUsd, debtUsd) : 0m;
+            var paidLbp = remainingLbp > 0 ? Math.Min(remainingLbp, debtLbp) : 0m;
+
+            if (paidUsd == 0m && paidLbp == 0m && (debtUsd > 0 || debtLbp > 0))
+            {
+                continue;
+            }
+
+            debtTransaction.PaidUsd = _currencyService.RoundUsd(debtTransaction.PaidUsd + paidUsd);
+            debtTransaction.PaidLbp = _currencyService.RoundLbp(debtTransaction.PaidLbp + paidLbp);
+
+            var manualTotalLbp = debtTransaction.HasManualTotalOverride ? debtTransaction.TotalLbp : (decimal?)null;
+            var balance = _currencyService.ComputeBalance(
+                debtTransaction.TotalUsd,
+                debtTransaction.PaidUsd,
+                debtTransaction.PaidLbp,
+                debtTransaction.ExchangeRateUsed,
+                manualTotalLbp);
+
+            debtTransaction.BalanceUsd = balance.balanceUsd;
+            debtTransaction.BalanceLbp = balance.balanceLbp;
+            debtTransaction.UpdatedAt = DateTime.UtcNow;
+
+            var isSettled = Math.Abs(debtTransaction.BalanceUsd) <= 0.01m && Math.Abs(debtTransaction.BalanceLbp) <= 100m;
+            if (isSettled)
+            {
+                debtTransaction.BalanceUsd = 0;
+                debtTransaction.BalanceLbp = 0;
+                debtTransaction.DebtSettledAt = DateTime.UtcNow;
+                settledTransactions.Add(debtTransaction);
+            }
+
+            remainingUsd = _currencyService.RoundUsd(remainingUsd - paidUsd);
+            remainingLbp = _currencyService.RoundLbp(remainingLbp - paidLbp);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -794,26 +829,27 @@ public class TransactionsController : ControllerBase
         {
             await _auditLogger.LogAsync(currentUserId.Value, "SettleDebt", nameof(PosTransaction), transaction.Id, new
             {
-                transaction.TransactionNumber,
-                transaction.DebtCardName,
-                transaction.PaidUsd,
-                transaction.PaidLbp,
-                transaction.BalanceUsd,
-                transaction.BalanceLbp
+                SourceTransactionNumber = primaryTransaction.TransactionNumber,
+                primaryTransaction.DebtCardName,
+                AppliedUsd = _currencyService.RoundUsd(additionalUsd - remainingUsd),
+                AppliedLbp = _currencyService.RoundLbp(additionalLbp - remainingLbp),
+                RemainingUsd = remainingUsd,
+                RemainingLbp = remainingLbp,
+                UpdatedTransactionIds = orderedTransactions.Select(t => t.Id).ToArray()
             }, cancellationToken);
         }
 
-        if (isSettled)
+        foreach (var settled in settledTransactions)
         {
             await _eventHub.PublishAsync(new PosEvent("transaction.debt.settled", new
             {
-                transaction.Id,
-                transaction.TransactionNumber,
-                transaction.DebtCardName
+                settled.Id,
+                settled.TransactionNumber,
+                settled.DebtCardName
             }));
         }
 
-        return ToResponse(transaction);
+        return ToResponse(primaryTransaction);
     }
 
     [HttpPost("compute-balance")]
