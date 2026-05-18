@@ -43,7 +43,7 @@ export function MyCartPage() {
         isMyCart
       />
       <div className="overflow-y-auto rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {t('myCartDailyTotal')}
@@ -53,6 +53,17 @@ export function MyCartPage() {
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {formatCurrency(summary?.dailyTotalLbp ?? 0, 'LBP', locale)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t('myCartWeeklyTotal')}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-800 dark:text-slate-100">
+              {formatCurrency(summary?.weeklyTotalUsd ?? 0, 'USD', locale)}
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {formatCurrency(summary?.weeklyTotalLbp ?? 0, 'LBP', locale)}
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
@@ -118,7 +129,9 @@ export function MyCartPage() {
                     return (
                       <tr key={purchase.id} className="hover:bg-slate-100/60 dark:hover:bg-slate-800/60">
                         <td className="px-3 py-2 font-medium text-slate-700 dark:text-slate-200">
-                          {purchase.transactionNumber}
+                          <button type="button" className="text-blue-600 hover:underline dark:text-blue-300" onClick={() => navigate('/invoices')}>
+                            {purchase.transactionNumber}
+                          </button>
                         </td>
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
                           {purchaseDate.toLocaleString(locale)}

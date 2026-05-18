@@ -6,6 +6,8 @@ export interface MyCartSummary {
   referenceDate: string;
   dailyTotalUsd: number;
   dailyTotalLbp: number;
+  weeklyTotalUsd: number;
+  weeklyTotalLbp: number;
   monthlyTotalUsd: number;
   monthlyTotalLbp: number;
   yearlyTotalUsd: number;
