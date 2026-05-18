@@ -768,6 +768,20 @@ export function ProfitsPage() {
     },
     [debtsQuery.data]
   );
+  const periodLabel =
+    scope === 'daily' || scope === 'custom'
+      ? t('profitPeriodDay')
+      : scope === 'weekly'
+        ? t('profitPeriodWeek')
+        : scope === 'monthly'
+          ? t('profitPeriodMonth')
+          : t('profitPeriodYear');
+  const selectedPeriodLabel =
+    scope === 'custom'
+      ? customRangeLabel
+      : selectedPeriodKey
+        ? formatPeriodSummaryLabel(scope, selectedPeriodKey, locale)
+        : undefined;
   const selectedPeriodDebt = useMemo(() => {
     if (!selectedPeriodLabel || debtsQuery.isLoading || debtsQuery.isError) {
       return { usd: 0, lbp: 0 };
@@ -855,20 +869,6 @@ export function ProfitsPage() {
       }).format(netProfitMargin),
     [locale, netProfitMargin]
   );
-  const periodLabel =
-    scope === 'daily' || scope === 'custom'
-      ? t('profitPeriodDay')
-      : scope === 'weekly'
-        ? t('profitPeriodWeek')
-        : scope === 'monthly'
-          ? t('profitPeriodMonth')
-          : t('profitPeriodYear');
-  const selectedPeriodLabel =
-    scope === 'custom'
-      ? customRangeLabel
-      : selectedPeriodKey
-        ? formatPeriodSummaryLabel(scope, selectedPeriodKey, locale)
-        : undefined;
   const placeholderRow =
     selectedPeriodLabel && isExplicitSelection && chartData.length === 0
       ? {
