@@ -33,6 +33,9 @@ public class MyCartController : ControllerBase
         var referenceDate = DateTime.SpecifyKind((date ?? DateTime.UtcNow).Date, DateTimeKind.Utc);
         var startOfDay = referenceDate;
         var endOfDay = startOfDay.AddDays(1);
+        var daysSinceMonday = ((int)referenceDate.DayOfWeek + 6) % 7;
+        var startOfWeek = startOfDay.AddDays(-daysSinceMonday);
+        var endOfWeek = startOfWeek.AddDays(7);
         var startOfMonth = new DateTime(referenceDate.Year, referenceDate.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfMonth = startOfMonth.AddMonths(1);
         var startOfYear = new DateTime(referenceDate.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -41,11 +44,15 @@ public class MyCartController : ControllerBase
         var baseQuery = _db.PersonalPurchases.AsNoTracking().Where(p => p.UserId == userId.Value);
 
         var dailyQuery = baseQuery.Where(p => p.PurchaseDate >= startOfDay && p.PurchaseDate < endOfDay);
+        var weeklyQuery = baseQuery.Where(p => p.PurchaseDate >= startOfWeek && p.PurchaseDate < endOfWeek);
         var monthlyQuery = baseQuery.Where(p => p.PurchaseDate >= startOfMonth && p.PurchaseDate < endOfMonth);
         var yearlyQuery = baseQuery.Where(p => p.PurchaseDate >= startOfYear && p.PurchaseDate < endOfYear);
 
         var dailyTotalUsd = await dailyQuery.SumAsync(p => (decimal?)p.TotalUsd, cancellationToken) ?? 0m;
         var dailyTotalLbp = await dailyQuery.SumAsync(p => (decimal?)p.TotalLbp, cancellationToken) ?? 0m;
+
+        var weeklyTotalUsd = await weeklyQuery.SumAsync(p => (decimal?)p.TotalUsd, cancellationToken) ?? 0m;
+        var weeklyTotalLbp = await weeklyQuery.SumAsync(p => (decimal?)p.TotalLbp, cancellationToken) ?? 0m;
 
         var monthlyTotalUsd = await monthlyQuery.SumAsync(p => (decimal?)p.TotalUsd, cancellationToken) ?? 0m;
         var monthlyTotalLbp = await monthlyQuery.SumAsync(p => (decimal?)p.TotalLbp, cancellationToken) ?? 0m;
@@ -58,6 +65,8 @@ public class MyCartController : ControllerBase
             ReferenceDate = referenceDate,
             DailyTotalUsd = dailyTotalUsd,
             DailyTotalLbp = dailyTotalLbp,
+            WeeklyTotalUsd = weeklyTotalUsd,
+            WeeklyTotalLbp = weeklyTotalLbp,
             MonthlyTotalUsd = monthlyTotalUsd,
             MonthlyTotalLbp = monthlyTotalLbp,
             YearlyTotalUsd = yearlyTotalUsd,

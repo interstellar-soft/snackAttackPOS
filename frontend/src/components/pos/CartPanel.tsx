@@ -184,17 +184,22 @@ export function CartPanel({
     scrollToBottom();
   }, [items.length]);
 
-  const highlightedQuantity = highlightedItemId
-    ? draftValues[highlightedItemId]?.quantity
-    : undefined;
+  const previousHighlightedItemIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!highlightedItemId) return;
+    if (!highlightedItemId) {
+      previousHighlightedItemIdRef.current = null;
+      return;
+    }
+    if (previousHighlightedItemIdRef.current === highlightedItemId) {
+      return;
+    }
+    previousHighlightedItemIdRef.current = highlightedItemId;
     const input = quantityInputRefs.current[highlightedItemId];
     if (input) {
       focusAndSelectQuantityInput(input);
     }
-  }, [focusAndSelectQuantityInput, highlightedItemId, highlightedQuantity]);
+  }, [focusAndSelectQuantityInput, highlightedItemId]);
 
   const commitQuantity = (lineId: string, rawValue: string) => {
     const item = items.find((cartItem) => cartItem.lineId === lineId);
