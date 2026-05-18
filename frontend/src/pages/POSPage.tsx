@@ -201,7 +201,8 @@ export function POSPage() {
       const requestItem: PriceCartItemInput = {
         productId: item.productId,
         quantity: item.quantity,
-        isWaste: item.isWaste
+        isWaste: item.isWaste,
+        isRefund: Boolean(item.isRefund)
       };
 
       if (item.discountPercent > 0) {
