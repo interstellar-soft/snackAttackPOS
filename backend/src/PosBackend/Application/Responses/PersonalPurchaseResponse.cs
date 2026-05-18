@@ -8,4 +8,5 @@ public class PersonalPurchaseResponse
     public decimal TotalUsd { get; set; }
     public decimal TotalLbp { get; set; }
     public DateTime PurchaseDate { get; set; }
+    public List<Guid> LineIds { get; set; } = new();
 }

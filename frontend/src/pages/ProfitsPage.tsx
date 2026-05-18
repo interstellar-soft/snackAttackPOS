@@ -768,6 +768,67 @@ export function ProfitsPage() {
     },
     [debtsQuery.data]
   );
+  const selectedPeriodDebt = useMemo(() => {
+    if (!selectedPeriodLabel || debtsQuery.isLoading || debtsQuery.isError) {
+      return { usd: 0, lbp: 0 };
+    }
+
+    let start: Date | null = null;
+    let endExclusive: Date | null = null;
+
+    if (scope === 'custom' && customRange.start && customRange.end) {
+      start = toUtcStartOfDay(new Date(customRange.start));
+      endExclusive = toUtcStartOfDay(new Date(customRange.end));
+      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+    } else if (scope !== 'custom' && selectedPeriodKey) {
+      const periodStart = new Date(selectedPeriodKey);
+      if (scope === 'daily') {
+        start = toUtcStartOfDay(periodStart);
+        endExclusive = new Date(start);
+        endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+      } else if (scope === 'weekly') {
+        start = toUtcStartOfWeek(periodStart);
+        endExclusive = new Date(start);
+        endExclusive.setUTCDate(endExclusive.getUTCDate() + 7);
+      } else if (scope === 'monthly') {
+        start = toUtcStartOfMonth(periodStart);
+        endExclusive = new Date(start);
+        endExclusive.setUTCMonth(endExclusive.getUTCMonth() + 1);
+      } else if (scope === 'yearly') {
+        start = toUtcStartOfYear(periodStart);
+        endExclusive = new Date(start);
+        endExclusive.setUTCFullYear(endExclusive.getUTCFullYear() + 1);
+      }
+    }
+
+    if (!start || !endExclusive) {
+      return { usd: 0, lbp: 0 };
+    }
+
+    const debts = debtsQuery.data ?? [];
+    return debts.reduce(
+      (acc, debt) => {
+        debt.transactions.forEach((tx) => {
+          const createdAt = new Date(tx.createdAt);
+          if (createdAt >= start! && createdAt < endExclusive!) {
+            acc.usd += Math.max(0, Number(tx.balanceUsd ?? 0));
+            acc.lbp += Math.max(0, Number(tx.balanceLbp ?? 0));
+          }
+        });
+        return acc;
+      },
+      { usd: 0, lbp: 0 }
+    );
+  }, [
+    customRange.end,
+    customRange.start,
+    debtsQuery.data,
+    debtsQuery.isError,
+    debtsQuery.isLoading,
+    scope,
+    selectedPeriodKey,
+    selectedPeriodLabel
+  ]);
 
   const totals = useMemo(
     () =>
@@ -1224,6 +1285,12 @@ export function ProfitsPage() {
             <p className="text-lg font-semibold text-rose-300">
               {formatCurrency(outstandingDebt.usd, 'USD', locale)} • {formatCurrency(outstandingDebt.lbp, 'LBP', locale)}
             </p>
+            {!debtsQuery.isLoading && !debtsQuery.isError && selectedPeriodLabel ? (
+              <p className="text-sm text-rose-200">
+                {t('profitSelectedPeriodDebt')}: {formatCurrency(selectedPeriodDebt.usd, 'USD', locale)} •{' '}
+                {formatCurrency(selectedPeriodDebt.lbp, 'LBP', locale)}
+              </p>
+            ) : null}
             <p className="text-xs text-slate-500">
               {debtsQuery.isLoading
                 ? t('profitDebtLoading')
