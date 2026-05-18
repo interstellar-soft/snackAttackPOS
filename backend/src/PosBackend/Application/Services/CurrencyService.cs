@@ -54,8 +54,13 @@ public class CurrencyService
         var paidLbpEquivalent = roundedPaidLbp + ConvertUsdToLbp(roundedPaidUsd, exchangeRate);
         var balanceLbp = RoundLbp(roundedTotalLbp - paidLbpEquivalent);
 
-        if (balanceUsd < 0)
+        if (balanceUsd < 0 || balanceLbp < 0)
         {
+            var changeUsd = balanceUsd < 0
+                ? balanceUsd
+                : -ConvertLbpToUsd(decimal.Abs(balanceLbp), exchangeRate);
+
+            balanceUsd = RoundUsd(changeUsd);
             balanceLbp = ConvertUsdToLbp(balanceUsd, ChangeIssuanceRate);
         }
 
