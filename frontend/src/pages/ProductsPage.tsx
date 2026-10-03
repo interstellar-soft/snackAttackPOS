@@ -372,7 +372,7 @@ export function ProductsPage() {
   const handleCreateSubmit = async (values: ProductFormValues) => {
     const result = validateValues(values);
     if ('error' in result) {
-      setDialogError(result.error);
+      setDialogError(result.error ?? t('inventoryCreateError'));
       return;
     }
 
@@ -389,7 +389,7 @@ export function ProductsPage() {
   const handleEditSubmit = async (values: ProductFormValues, product: Product) => {
     const result = validateValues(values);
     if ('error' in result) {
-      setDialogError(result.error);
+      setDialogError(result.error ?? t('inventoryCreateError'));
       return;
     }
 
@@ -605,7 +605,7 @@ export function ProductsPage() {
               typeof dialog.product.quantityOnHand === 'number'
                 ? dialog.product.quantityOnHand.toString()
                 : '',
-            isPinned: dialog.product.isPinned,
+            isPinned: dialog.product.isPinned ?? false,
             isSoldByWeight: dialog.product.isSoldByWeight ?? false,
             weightUnit: dialog.product.weightUnit ?? 'kg',
             reorderPoint: (dialog.product.reorderPoint ?? 3).toString(),

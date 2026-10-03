@@ -8,7 +8,7 @@ module.exports = {
     sourceType: 'module'
   },
   plugins: ['react-refresh', '@typescript-eslint'],
-  ignorePatterns: ['dist'],
+  ignorePatterns: ['dist', 'dist-electron', 'resources', 'release', '.test-output'],
   rules: {
     'react-refresh/only-export-components': 'warn'
   }

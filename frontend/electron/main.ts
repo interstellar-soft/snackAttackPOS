@@ -1,9 +1,13 @@
-import { app, BrowserWindow, dialog, ipcMain, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session, safeStorage } from 'electron';
 import log from 'electron-log';
 import path from 'node:path';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo, UpdateCheckResult } from 'electron-updater';
 import electronUpdater from 'electron-updater';
 import { bootstrapInfrastructure } from './docker';
+import { startLocalRuntime, type LocalCredentials, type LocalRuntime } from './local-runtime';
+import { promises as fs, existsSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 const { autoUpdater } = electronUpdater;
 
@@ -11,30 +15,37 @@ const preloadPath = path.join(__dirname, 'preload.js');
 
 const isDev = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
+let localRuntime: LocalRuntime | undefined;
+let runtimeStarting: Promise<LocalRuntime> | undefined;
+let shutdownComplete = false;
+let shuttingDown = false;
+const startupPath = path.join(__dirname, '../desktop/startup.html');
+const startupUrl = pathToFileURL(startupPath).href;
+app.setName('Aurora POS');
+app.setPath('userData', process.env.AURORA_DATA_DIR
+  ? path.resolve(process.env.AURORA_DATA_DIR) : path.join(app.getPath('appData'), 'Aurora POS'));
+
+if (!app.requestSingleInstanceLock()) app.exit(0);
+app.on('second-instance', () => { mainWindow?.restore(); mainWindow?.focus(); });
+app.on('before-quit', event => {
+  if ((!localRuntime && !runtimeStarting) || shutdownComplete) return;
+  event.preventDefault();
+  if (shuttingDown) return;
+  shuttingDown = true;
+  void Promise.resolve(localRuntime ?? runtimeStarting).then(runtime => runtime?.stop())
+    .catch(error => log.error('Store shutdown failed', error)).finally(() => {
+    shutdownComplete = true;
+    app.quit();
+  });
+});
 
 log.initialize({ preload: true });
 autoUpdater.logger = log;
 autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoInstallOnAppQuit = false;
 
 const updateFeedUrl = process.env.ELECTRON_UPDATE_URL;
-let hasLoggedMissingFeed = false;
-
-const isUpdateConfigured = () => {
-  if (updateFeedUrl) {
-    return true;
-  }
-
-  try {
-    return Boolean(autoUpdater.getFeedURL());
-  } catch (error) {
-    if (!hasLoggedMissingFeed) {
-      log.warn('Auto update feed URL not configured', error);
-      hasLoggedMissingFeed = true;
-    }
-    return false;
-  }
-};
+const isUpdateConfigured = () => Boolean(updateFeedUrl?.startsWith('https://'));
 
 const sendUpdaterStatus = (payload: Record<string, unknown>) => {
   log.info('[auto-updater]', payload);
@@ -49,6 +60,7 @@ const createMainWindow = () => {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       preload: preloadPath,
       enableBlinkFeatures: 'Serial'
     }
@@ -63,9 +75,14 @@ const createMainWindow = () => {
     mainWindow.loadURL(devServerUrl);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    const indexHtml = path.join(__dirname, '../dist/index.html');
-    mainWindow.loadFile(indexHtml);
+    mainWindow.loadFile(startupPath);
   }
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const current = mainWindow?.webContents.getURL();
+    if (url !== current && (!localRuntime || new URL(url).origin !== localRuntime.url)) event.preventDefault();
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -129,15 +146,15 @@ app.whenReady().then(async () => {
       return permission === 'serial';
     };
 
-    defaultSession.setPermissionCheckHandler((_, permission) => {
-      if (isSerialPermission(permission)) {
+    defaultSession.setPermissionCheckHandler((contents, permission) => {
+      if (contents === mainWindow?.webContents && isSerialPermission(permission)) {
         return true;
       }
       return false;
     });
 
-    defaultSession.setPermissionRequestHandler((_, permission, callback) => {
-      if (isSerialPermission(permission)) {
+    defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
+      if (contents === mainWindow?.webContents && isSerialPermission(permission)) {
         callback(true);
         return;
       }
@@ -198,20 +215,63 @@ app.whenReady().then(async () => {
     });
   }
 
-  if (updateFeedUrl) {
+  if (isUpdateConfigured() && updateFeedUrl) {
     // Allow overriding the update feed at runtime without rebuilding the app.
     autoUpdater.setFeedURL({ provider: 'generic', url: updateFeedUrl });
   }
 
   try {
-    await bootstrapInfrastructure({ isDev });
+    if (isDev) {
+      await bootstrapInfrastructure({ isDev });
+      createMainWindow();
+    } else {
+      const dataRoot = app.getPath('userData');
+      const configPath = path.join(dataRoot, 'store-credentials.dat');
+      await fs.mkdir(dataRoot, { recursive: true });
+      if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows credential encryption is unavailable.');
+      let credentials: LocalCredentials | undefined;
+      if (existsSync(configPath)) {
+        credentials = JSON.parse(safeStorage.decryptString(await fs.readFile(configPath))) as LocalCredentials;
+      }
+      const saveCredentials = async (value: LocalCredentials) => {
+        const pending = `${configPath}.tmp`;
+        await fs.writeFile(pending, safeStorage.encryptString(JSON.stringify(value)));
+        await fs.rename(pending, configPath);
+      };
+      ipcMain.handle('desktop/setup-state', event => {
+        if (event.senderFrame?.url !== startupUrl) throw new Error('Untrusted window');
+        return { needsSetup: !credentials };
+      });
+      const chosen = new Promise<LocalCredentials>(resolve => {
+        ipcMain.handle('desktop/setup', async (event, password: unknown) => {
+          if (credentials || event.senderFrame?.url !== startupUrl) throw new Error('Setup is unavailable');
+          if (typeof password !== 'string' || password.length < 9 || Buffer.byteLength(password, 'utf8') > 72)
+            throw new Error('Use a password of at least 9 characters and at most 72 UTF-8 bytes.');
+          const value = { databasePassword: randomBytes(32).toString('hex'),
+            jwtKey: randomBytes(48).toString('hex'), adminPassword: password };
+          await saveCredentials(value);
+          credentials = value;
+          resolve(value);
+        });
+      });
+      createMainWindow();
+      credentials = credentials ?? await chosen;
+      runtimeStarting = startLocalRuntime(process.resourcesPath, dataRoot, credentials);
+      localRuntime = await runtimeStarting;
+      if (shuttingDown) return;
+      delete credentials.adminPassword;
+      await saveCredentials(credentials);
+      ipcMain.removeHandler('desktop/setup');
+      ipcMain.removeHandler('desktop/setup-state');
+      await mainWindow!.loadURL(`${localRuntime.url}/`);
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log.error('Failed to bootstrap infrastructure', error);
-    dialog.showErrorBox('Infrastructure error', message);
+    log.error('Failed to start store', message);
+    dialog.showErrorBox('Aurora POS could not start', message);
+    app.quit();
+    return;
   }
-
-  createMainWindow();
   registerAutoUpdaterEvents();
 
   const updateConfigured = isUpdateConfigured();

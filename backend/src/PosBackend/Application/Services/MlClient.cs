@@ -12,11 +12,13 @@ public class MlClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<MlClient> _logger;
+    private readonly bool _enabled;
 
     public MlClient(HttpClient httpClient, IConfiguration configuration, ILogger<MlClient> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _enabled = configuration.GetValue("MlService:Enabled", true);
         var baseUrl = configuration.GetValue<string>("MlService:BaseUrl") ?? "http://ml:8001";
         _httpClient.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
     }
@@ -35,11 +37,13 @@ public class MlClient
 
     public async Task<AnomalyResult?> PredictAnomalyAsync(AnomalyRequest request, CancellationToken cancellationToken)
     {
+        if (!_enabled) return null;
         return await SendRequestAsync<AnomalyResult>("anomaly/predict", request, cancellationToken);
     }
 
     public async Task<VisionResult?> PredictVisionAsync(VisionRequest request, CancellationToken cancellationToken)
     {
+        if (!_enabled) return null;
         return await SendRequestAsync<VisionResult>("vision/predict", request, cancellationToken);
     }
 
@@ -47,7 +51,7 @@ public class MlClient
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync(relativeUrl, request, cancellationToken);
+            using var response = await _httpClient.PostAsJsonAsync(relativeUrl, request, cancellationToken);
             return await HandleResponseAsync<TResponse>(relativeUrl, response, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

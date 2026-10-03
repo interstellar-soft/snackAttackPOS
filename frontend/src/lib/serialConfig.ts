@@ -1,4 +1,4 @@
-const DEFAULT_SERIAL_PORT_HINT = 'COM4';
+const DEFAULT_SERIAL_PORT_HINT = '';
 
 const rawHint = import.meta.env.VITE_SERIAL_PORT_HINT;
 

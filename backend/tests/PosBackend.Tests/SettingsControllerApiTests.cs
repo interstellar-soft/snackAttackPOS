@@ -15,14 +15,16 @@ using Xunit;
 
 namespace PosBackend.Tests;
 
-public class SettingsControllerApiTests : IClassFixture<SettingsApiFactory>
+public class SettingsControllerApiTests : IDisposable
 {
     private readonly SettingsApiFactory _factory;
 
-    public SettingsControllerApiTests(SettingsApiFactory factory)
+    public SettingsControllerApiTests()
     {
-        _factory = factory;
+        _factory = new SettingsApiFactory();
     }
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task UpdateStoreProfile_WithValidJwt_UpdatesProfileAndCreatesAuditLog()
@@ -71,6 +73,7 @@ public class SettingsApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        var databaseName = Guid.NewGuid().ToString();
 
         builder.ConfigureServices(services =>
         {
@@ -83,7 +86,7 @@ public class SettingsApiFactory : WebApplicationFactory<Program>
             }
 
             services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseInMemoryDatabase($"SettingsTests-{Guid.NewGuid()}")
+                options.UseInMemoryDatabase(databaseName)
                        .EnableSensitiveDataLogging());
         });
     }

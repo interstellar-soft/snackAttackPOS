@@ -131,7 +131,7 @@ public class CategoriesController : ControllerBase
             }
         }
 
-        return ValidationProblem(ModelState);
+        return ValidationProblem(statusCode: StatusCodes.Status400BadRequest, modelStateDictionary: ModelState);
     }
 
     private static void AddError(Dictionary<string, List<string>> errors, string key, string message)

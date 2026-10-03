@@ -1,6 +1,6 @@
 {
   "name": "aurora-pos-frontend",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Aurora POS desktop application",
@@ -12,14 +12,16 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint src --ext .ts,.tsx",
     "build:electron": "node scripts/build-electron.mjs",
     "build:electron:watch": "node scripts/build-electron.mjs --watch",
     "electron:serve": "wait-on tcp:5173 file:dist-electron/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "electron:dev": "concurrently -k \"npm:dev\" \"npm:build:electron:watch\" \"npm:electron:serve\"",
-    "electron:package": "npm run build && npm run build:electron && electron-builder"
+    "electron:package": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-windows.ps1",
+    "test:cart": "node scripts/test-cart.mjs",
+    "test:desktop": "node scripts/test-desktop-runtime.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.35.5",
@@ -70,7 +72,8 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "package.json"
+      "package.json",
+      "desktop/**/*"
     ],
     "mac": {
       "target": [
@@ -86,7 +89,22 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "extraResources": [
+        {
+          "from": "resources/backend",
+          "to": "backend"
+        },
+        {
+          "from": "resources/postgresql",
+          "to": "postgresql"
+        },
+        {
+          "from": "resources/vc_redist.x64.exe",
+          "to": "vc_redist.x64.exe"
+        }
+      ],
+      "signAndEditExecutable": false
     },
     "linux": {
       "target": [
@@ -96,11 +114,15 @@
       "maintainer": "Aurora POS Team <support@example.com>",
       "category": "Utility"
     },
-    "publish": [
-      {
-        "provider": "generic",
-        "url": "https://updates.example.com/aurora-pos/"
-      }
-    ]
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "artifactName": "Aurora-POS-Setup-0.2.1.${ext}"
   }
 }

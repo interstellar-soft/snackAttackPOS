@@ -22,3 +22,11 @@ obj
 .DS_Store
 .idea
 .vscode
+.tools/
+frontend/resources/
+frontend/release/
+artifacts/
+frontend/.test-output/
+
+backend/src/PosMobile/wwwroot/ocr/
+backend/src/PosBackend/wwwroot/

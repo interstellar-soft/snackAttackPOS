@@ -13,6 +13,20 @@ namespace PosBackend.Tests;
 public class MlClientTests
 {
     [Fact]
+    public async Task DisabledClient_DoesNotContactMlService()
+    {
+        var handler = new DelegateHttpMessageHandler(_ => throw new InvalidOperationException("ML must not be contacted"));
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["MlService:Enabled"] = "false"
+        }).Build();
+        var client = new MlClient(new HttpClient(handler), configuration,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<MlClient>.Instance);
+        Assert.Null(await client.PredictAnomalyAsync(new MlClient.AnomalyRequest("coffee", 8, 1), CancellationToken.None));
+        Assert.Null(await client.PredictVisionAsync(new MlClient.VisionRequest("coffee", new[] { 1d }), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task PredictVisionAsync_SendsSnakeCasePayloadAndParsesResponse()
     {
         string? recordedContent = null;
@@ -34,7 +48,7 @@ public class MlClientTests
             })
             .Build();
 
-        var client = new MlClient(new HttpClient(handler), configuration);
+        var client = new MlClient(new HttpClient(handler), configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger<MlClient>.Instance);
         var request = new MlClient.VisionRequest("ABC123", new[] { 0.1, 0.2 });
 
         var result = await client.PredictVisionAsync(request, CancellationToken.None);

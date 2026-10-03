@@ -5,7 +5,8 @@ namespace PosBackend.Infrastructure.Data;
 
 public static class SeedData
 {
-    public static async Task InitializeAsync(ApplicationDbContext db, CancellationToken cancellationToken = default)
+    public static async Task InitializeAsync(ApplicationDbContext db, CancellationToken cancellationToken = default,
+        bool demoData = true, string? initialAdminPassword = null)
     {
         if (db.Database.IsRelational())
         {
@@ -23,7 +24,7 @@ public static class SeedData
                 Username = "admin",
                 DisplayName = "Admin",
                 Role = UserRole.Admin,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("ChangeMe123!")
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(initialAdminPassword ?? "ChangeMe123!")
             };
 
             var manager = new User
@@ -42,10 +43,12 @@ public static class SeedData
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("ChangeMe123!")
             };
 
-            await db.Users.AddRangeAsync(new[] { admin, manager, cashier }, cancellationToken);
+            if (!demoData && string.IsNullOrWhiteSpace(initialAdminPassword))
+                throw new InvalidOperationException("An initial administrator password is required for a new store.");
+            await db.Users.AddRangeAsync(demoData ? new[] { admin, manager, cashier } : new[] { admin }, cancellationToken);
         }
 
-        if (!await db.Categories.AnyAsync(cancellationToken))
+        if (demoData && !await db.Categories.AnyAsync(cancellationToken))
         {
             var categories = new[]
             {

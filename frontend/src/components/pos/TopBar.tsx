@@ -184,6 +184,7 @@ export function TopBar({
         {navItems.length > 0 && (
           <Button
             type="button"
+            variant="secondary"
             className="bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100"
             onClick={openDrawer}
             aria-expanded={isDrawerOpen}
@@ -201,7 +202,7 @@ export function TopBar({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" className="bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100" onClick={toggleTheme}>
+        <Button type="button" variant="secondary" className="bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100" onClick={toggleTheme}>
           {theme === 'dark' ? t('lightMode') : t('darkMode')}
         </Button>
         <Button type="button" className="bg-indigo-500 hover:bg-indigo-400" onClick={toggleLanguage}>
@@ -227,6 +228,7 @@ export function TopBar({
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('menu')}</h2>
               <Button
                 type="button"
+                variant="secondary"
                 className="bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100"
                 onClick={closeDrawer}
               >

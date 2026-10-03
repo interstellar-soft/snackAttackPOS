@@ -587,10 +587,11 @@ public class TransactionsController : ControllerBase
                 }
             }
 
-            await _db.SaveChangesAsync(cancellationToken);
-
             var receiptBytes = await _receiptRenderer.RenderPdfAsync(transaction, lines, currentRate, cancellationToken);
             receiptBase64 = Convert.ToBase64String(receiptBytes);
+
+            // A receipt failure must not leave a committed sale that the cashier retries.
+            await _db.SaveChangesAsync(cancellationToken);
 
             var eventName = request.IsRefund ? "transaction.return" : "transaction.completed";
             await _eventHub.PublishAsync(new PosEvent(eventName, new
@@ -773,7 +774,7 @@ public class TransactionsController : ControllerBase
 
         if (additionalUsd == 0m && additionalLbp == 0m)
         {
-            additionalUsd = orderedTransactions.Sum(t => t.BalanceUsd > 0 ? t.BalanceUsd : 0m);
+            // USD and LBP balances describe the same debt, not two payments.
             additionalLbp = orderedTransactions.Sum(t => t.BalanceLbp > 0 ? t.BalanceLbp : 0m);
         }
 
@@ -787,7 +788,8 @@ public class TransactionsController : ControllerBase
             var debtLbp = debtTransaction.BalanceLbp > 0 ? debtTransaction.BalanceLbp : 0m;
 
             var paidUsd = remainingUsd > 0 ? Math.Min(remainingUsd, debtUsd) : 0m;
-            var paidLbp = remainingLbp > 0 ? Math.Min(remainingLbp, debtLbp) : 0m;
+            var debtAfterUsdLbp = Math.Max(0m, debtLbp - _currencyService.ConvertUsdToLbp(paidUsd, debtTransaction.ExchangeRateUsed));
+            var paidLbp = remainingLbp > 0 ? Math.Min(remainingLbp, debtAfterUsdLbp) : 0m;
 
             if (paidUsd == 0m && paidLbp == 0m && (debtUsd > 0 || debtLbp > 0))
             {

@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self'">
+<title>Aurora POS — Welcome</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b1920;color:#eef7f4;font:16px system-ui;display:grid;place-items:center;min-height:100vh}main{width:min(480px,90vw);padding:40px;background:#132831;border:1px solid #29434b;border-radius:20px}small{color:#79d9b4;letter-spacing:.18em}h1{font-size:32px;line-height:1.1}p{line-height:1.6;color:#bdcdd1}label{display:block;margin:20px 0 7px}input,button{width:100%;padding:13px;border-radius:8px;font:inherit}input{background:#0b1920;border:1px solid #4b636b;color:white}button{margin-top:24px;background:#72e3b5;color:#102c23;border:0;font-weight:650;cursor:pointer}button:disabled{opacity:.5}#error{color:#ffb4a9}[hidden]{display:none!important}.spinner{width:28px;height:28px;border:3px solid #29434b;border-top-color:#72e3b5;border-radius:50%;animation:spin 1s linear infinite;margin:25px 0}@keyframes spin{to{transform:rotate(360deg)}}
+</style></head><body><main><small>AURORA POS</small><h1 id="title">Opening your store</h1>
+<div id="loading"><div class="spinner"></div><p>Your store is starting. First launch can take a minute. Windows may ask permission to install a required Microsoft component.</p></div>
+<form id="setup" hidden><p>Create your administrator password. Your username will be <strong>admin</strong>. Sales and stock are stored on this PC.</p>
+<label for="password">Password (at least 9 characters)</label><input id="password" type="password" minlength="9" maxlength="72" autocomplete="new-password" required>
+<label for="confirm">Confirm password</label><input id="confirm" type="password" minlength="9" maxlength="72" autocomplete="new-password" required>
+<p id="error" role="alert"></p><button id="submit" type="submit">Create my store</button></form>
+</main><script src="startup.js"></script></body></html>

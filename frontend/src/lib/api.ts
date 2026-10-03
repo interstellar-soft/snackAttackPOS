@@ -1,6 +1,8 @@
 import { QueryClient } from '@tanstack/react-query';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (window.location.protocol === 'http:' && ['17865', '18065'].includes(window.location.port)
+    ? window.location.origin : 'http://localhost:5000');
 export const ML_BASE_URL = import.meta.env.VITE_ML_URL || 'http://localhost:8001';
 
 export const queryClient = new QueryClient();
@@ -45,12 +47,12 @@ export interface ProductMutationPayload {
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {})
-  };
+  const headers = new Headers(options.headers);
+  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   let res: Response;
@@ -104,6 +106,7 @@ function parseErrorMessage(errorText: string): string | null {
       title?: unknown;
       detail?: unknown;
       errors?: unknown;
+      message?: unknown;
     };
 
     const validationMessages: string[] = [];
@@ -128,6 +131,10 @@ function parseErrorMessage(errorText: string): string | null {
 
     if (typeof maybeProblem.detail === 'string' && maybeProblem.detail.trim()) {
       return maybeProblem.detail.trim();
+    }
+
+    if (typeof maybeProblem.message === 'string' && maybeProblem.message.trim()) {
+      return maybeProblem.message.trim();
     }
 
     if (typeof maybeProblem.title === 'string' && maybeProblem.title.trim()) {

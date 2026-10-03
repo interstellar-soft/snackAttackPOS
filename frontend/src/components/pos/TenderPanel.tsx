@@ -34,7 +34,7 @@ interface TenderPanelProps {
   onChangeDebtCardName?: (next: string) => void;
   debtCardOptions?: string[];
   debtCardOptionsLoading?: boolean;
-  usdInputRef?: RefObject<HTMLInputElement | null>;
+  usdInputRef?: RefObject<HTMLInputElement>;
 }
 
 export function TenderPanel({

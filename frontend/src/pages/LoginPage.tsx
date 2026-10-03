@@ -39,7 +39,11 @@ export function LoginPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await login(username, password);
+    try {
+      await login(username.trim(), password);
+    } catch {
+      // The auth store displays the error next to the form.
+    }
   };
 
   return (

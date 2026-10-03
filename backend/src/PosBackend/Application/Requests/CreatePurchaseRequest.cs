@@ -35,7 +35,7 @@ public class CreatePurchaseItemRequest
     [MaxLength(180)]
     public string? CategoryName { get; set; }
 
-    [Range(0.01, double.MaxValue)]
+    [Range(0.001, double.MaxValue)]
     public decimal Quantity { get; set; }
 
     [Range(0.0, double.MaxValue)]

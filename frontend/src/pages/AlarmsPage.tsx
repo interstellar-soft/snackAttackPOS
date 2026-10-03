@@ -111,7 +111,7 @@ export function AlarmsPage() {
                 </div>
                 <div className="mt-3 grid gap-2 text-xs text-red-700 dark:text-red-200">
                   <div className="flex items-center justify-between">
-                    <span>{t('inventorySummaryQuantityLabel', { count: numberFormatter.format(alert.quantityOnHand ?? 0) })}</span>
+                    <span>{t('inventorySummaryQuantityLabel', { count: alert.quantityOnHand ?? 0 })}</span>
                     <span className="font-semibold">{t('inventoryReorderPointLabel')}: {numberFormatter.format(alert.reorderPoint ?? 0)}</span>
                   </div>
                   <div className="flex items-center justify-between">

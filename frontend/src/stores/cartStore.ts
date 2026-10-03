@@ -55,7 +55,7 @@ const normalizeQuantity = (value: number, allowFraction: boolean) => {
     return 1;
   }
   const normalized = allowFraction ? Math.round(value * 1000) / 1000 : Math.floor(value);
-  return Math.max(1, normalized);
+  return Math.max(allowFraction ? 0.001 : 1, normalized);
 };
 
 export interface CartItem {
@@ -474,9 +474,9 @@ export const useCartStore = create<CartState>()(
           items,
           lastAddedItemId: null,
           activeHeldCartName:
-            typeof (state as Partial<CartState>).activeHeldCartName === 'string' &&
-            (state as Partial<CartState>).activeHeldCartName.trim()
-              ? (state as Partial<CartState>).activeHeldCartName.trim()
+            typeof state.activeHeldCartName === 'string' &&
+            state.activeHeldCartName.trim()
+              ? state.activeHeldCartName.trim()
               : null,
           manualCartTotalUsd:
             state.manualCartTotalUsd !== undefined && state.manualCartTotalUsd !== null
@@ -539,7 +539,7 @@ export const useCartStore = create<CartState>()(
                 }))
                 .filter((cart) => cart.name)
             : []
-        } satisfies CartState;
+        } satisfies Partial<CartState>;
       }
     }
   )

@@ -2,7 +2,7 @@ import { create, type StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 import type { StateStorage } from 'zustand/middleware';
-import { apiFetch, type LoginResponse } from '../lib/api';
+import { apiFetch, queryClient, type LoginResponse } from '../lib/api';
 
 interface AuthState {
   token: string | null;
@@ -99,7 +99,10 @@ const authStoreCreator: StateCreator<AuthState> = (set) => ({
       throw error;
     }
   },
-  logout: () => set({ token: null, displayName: null, role: null })
+  logout: () => {
+    queryClient.clear();
+    set({ token: null, displayName: null, role: null, error: null });
+  }
 });
 
 export const useAuthStore = create<AuthState>()(

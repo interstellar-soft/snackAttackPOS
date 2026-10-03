@@ -10,7 +10,7 @@ public class PurchaseOrderLineConfiguration : IEntityTypeConfiguration<PurchaseO
     {
         builder.ToTable("purchase_order_lines");
         builder.Property(l => l.Barcode).HasMaxLength(128);
-        builder.Property(l => l.Quantity).HasColumnType("numeric(14,2)");
+        builder.Property(l => l.Quantity).HasColumnType("numeric(14,3)");
         builder.Property(l => l.UnitCostUsd).HasColumnType("numeric(14,4)");
         builder.Property(l => l.UnitCostLbp).HasColumnType("numeric(20,2)");
         builder.Property(l => l.TotalCostUsd).HasColumnType("numeric(14,2)");

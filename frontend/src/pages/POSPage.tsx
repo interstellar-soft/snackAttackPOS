@@ -34,6 +34,13 @@ interface BalanceResponse {
 }
 
 interface ProductResponse {
+  scannedBarcode?: string;
+  scannedQuantity?: number;
+  scannedUnitPriceUsd?: number;
+  scannedUnitPriceLbp?: number;
+  scannedTotalUsd?: number;
+  scannedTotalLbp?: number;
+  scannedMergesWithPrimary?: boolean;
   id: string;
   sku?: string | null;
   name: string;
@@ -360,12 +367,14 @@ export function POSPage() {
       if (!token) throw new Error('Not authenticated');
       return await apiFetch<BalanceResponse>('/api/settings/currency-rate', {}, token);
     },
-    enabled: !!token,
-    onSuccess: (data) => {
-      setRate(data.exchangeRate);
-      setBalance(data);
-    }
+    enabled: !!token
   });
+  useEffect(() => {
+    if (currencyQuery.data) {
+      setRate(currencyQuery.data.exchangeRate);
+      setBalance(currencyQuery.data);
+    }
+  }, [currencyQuery.data, setRate]);
 
   const computeBalance = useMutation<
     BalanceResponse,
@@ -540,9 +549,6 @@ export function POSPage() {
       }
 
       if (target instanceof HTMLTextAreaElement) {
-        if (target === barcodeInputRef.current) {
-          return false;
-        }
         return !target.readOnly && !target.disabled;
       }
 
