@@ -87,6 +87,7 @@ export interface TransactionItemInput {
 }
 
 export interface PriceCartItemInput {
+  isRefund?: boolean;
   productId: string;
   quantity: number;
   priceRuleId?: string | null;

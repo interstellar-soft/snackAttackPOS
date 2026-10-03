@@ -10,5 +10,10 @@
     "build": "npm run build --workspace frontend",
     "preview": "npm run preview --workspace frontend",
     "lint": "npm run lint --workspace frontend"
+  },
+  "devDependencies": {
+    "@tesseract.js-data/ara": "1.0.0",
+    "@tesseract.js-data/eng": "1.0.0",
+    "tesseract.js": "6.0.1"
   }
 }

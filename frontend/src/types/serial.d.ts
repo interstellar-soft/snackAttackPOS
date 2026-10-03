@@ -51,10 +51,6 @@ declare interface SerialConnectionEvent extends Event {
   readonly port: SerialPort;
 }
 
-declare global {
-  interface Navigator {
-    serial?: Serial;
-  }
+interface Navigator {
+  serial?: Serial;
 }
-
-export {};

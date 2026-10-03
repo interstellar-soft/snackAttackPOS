@@ -17,7 +17,7 @@ namespace PosBackend.Features.Admin;
 [Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
-    private const int MinimumPasswordLength = 8;
+    private const int MinimumPasswordLength = 9;
 
     private readonly ApplicationDbContext _db;
     private readonly AuditLogger _auditLogger;

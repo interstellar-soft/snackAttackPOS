@@ -35,7 +35,7 @@ public class CurrencyServiceTests
     }
 
     [Fact]
-    public async Task ComputeBalance_LbpOnly_ReturnsUsdChange()
+    public async Task ComputeBalance_LbpOnly_PreservesSubCentOutstandingBalance()
     {
         await using var context = CreateContext();
         var service = new CurrencyService(context);
@@ -44,9 +44,9 @@ public class CurrencyServiceTests
         var result = service.ComputeBalance(36.67m, 0m, 3300000m, rate);
 
         Assert.Equal(36.67m, result.totalUsd);
-        Assert.Equal(3300000m, result.totalLbp);
-        Assert.Equal(-1.67m, result.balanceUsd);
-        Assert.Equal(-148630m, result.balanceLbp);
+        Assert.Equal(3300300m, result.totalLbp);
+        Assert.Equal(0m, result.balanceUsd);
+        Assert.Equal(300m, result.balanceLbp);
     }
 
     [Fact]

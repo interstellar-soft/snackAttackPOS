@@ -150,7 +150,7 @@ public class PurchasesController : ControllerBase
                 unitCostLbp = _currencyService.ConvertUsdToLbp(unitCostUsd, exchangeRate);
             }
 
-            var lineQuantity = decimal.Round(item.Quantity, 2, MidpointRounding.AwayFromZero);
+            var lineQuantity = decimal.Round(item.Quantity, 3, MidpointRounding.AwayFromZero);
             var lineCostUsd = _currencyService.RoundUsd(unitCostUsd * lineQuantity);
             var lineCostLbp = _currencyService.RoundLbp(unitCostLbp * lineQuantity);
 
@@ -279,7 +279,7 @@ public class PurchasesController : ControllerBase
                 unitCostLbp = _currencyService.ConvertUsdToLbp(unitCostUsd, exchangeRate);
             }
 
-            var lineQuantity = decimal.Round(item.Quantity, 2, MidpointRounding.AwayFromZero);
+            var lineQuantity = decimal.Round(item.Quantity, 3, MidpointRounding.AwayFromZero);
             var lineCostUsd = _currencyService.RoundUsd(unitCostUsd * lineQuantity);
             var lineCostLbp = _currencyService.RoundLbp(unitCostLbp * lineQuantity);
 
@@ -350,7 +350,6 @@ public class PurchasesController : ControllerBase
             line.PurchaseOrderId = purchase.Id;
             line.PurchaseOrder = purchase;
             _db.PurchaseOrderLines.Add(line);
-            purchase.Lines.Add(line);
             purchase.TotalCostUsd += line.TotalCostUsd;
             purchase.TotalCostLbp += line.TotalCostLbp;
 

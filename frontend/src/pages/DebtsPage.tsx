@@ -96,7 +96,7 @@ export function DebtsPage() {
     const usd = selectedTransaction.balanceUsd > 0 ? selectedTransaction.balanceUsd.toFixed(2) : '0';
     const lbp = selectedTransaction.balanceLbp > 0 ? Math.round(selectedTransaction.balanceLbp).toString() : '0';
     setSettleUsd(usd);
-    setSettleLbp(lbp);
+    setSettleLbp(usd === '0' ? lbp : '0');
   }, [selectedTransactionId, selectedTransaction]);
 
   const handleSelectCard = (card: DebtCard) => {
@@ -130,9 +130,7 @@ export function DebtsPage() {
     setFeedback(null);
 
     try {
-      for (const transaction of outstandingTransactions) {
-        await settleDebt.mutateAsync({ id: transaction.id, paidUsd: 0, paidLbp: 0 });
-      }
+      await settleDebt.mutateAsync({ id: outstandingTransactions[0].id, paidUsd: 0, paidLbp: 0 });
       setFeedback({
         type: 'success',
         message: t('debtsMarkCardSuccess', { name: card.name || t('debtsUnknownClient') })
@@ -167,7 +165,7 @@ export function DebtsPage() {
           const nextUsd = result.balanceUsd > 0 ? result.balanceUsd.toFixed(2) : '0';
           const nextLbp = result.balanceLbp > 0 ? Math.round(result.balanceLbp).toString() : '0';
           setSettleUsd(nextUsd);
-          setSettleLbp(nextLbp);
+          setSettleLbp(nextUsd === '0' ? nextLbp : '0');
           setFeedback({ type: 'success', message: t('debtsSettleSuccess', { number: result.transactionNumber }) });
         },
         onError: () => {
@@ -256,14 +254,14 @@ export function DebtsPage() {
                             <div className="flex justify-end gap-2">
                               <Button
                                 type="button"
-                                variant={selectedCardId === debt.id ? 'default' : 'secondary'}
+                                variant={selectedCardId === debt.id ? 'primary' : 'secondary'}
                                 onClick={() => handleSelectCard(debt)}
                               >
                                 {t('debtsViewDetails')}
                               </Button>
                               <Button
                                 type="button"
-                                variant="outline"
+                                variant="secondary"
                                 onClick={() => void handleMarkCardPaid(debt)}
                                 disabled={!hasOutstandingBalance || settleDebt.isPending}
                               >
@@ -323,7 +321,7 @@ export function DebtsPage() {
                         <div className="flex flex-col items-start gap-2 md:items-end">
                           <Button
                             type="button"
-                            variant={isSelected ? 'default' : 'secondary'}
+                            variant={isSelected ? 'primary' : 'secondary'}
                             onClick={() => handleSelectTransaction(transaction)}
                             disabled={!canSettle || settleDebt.isPending}
                           >

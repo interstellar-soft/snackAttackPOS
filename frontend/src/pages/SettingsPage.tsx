@@ -12,6 +12,7 @@ import { useLanguageDirection } from '../hooks/useLanguageDirection';
 import { UserManagementCard } from '../components/settings/UserManagementCard';
 import { BackupCard } from '../components/settings/BackupCard';
 import { AnalyticsResetCard } from '../components/settings/AnalyticsResetCard';
+import { MobileSyncCard } from '../components/settings/MobileSyncCard';
 
 interface StatusMessage {
   type: 'success' | 'error';
@@ -140,6 +141,7 @@ export function SettingsPage() {
       </Card>
       {role?.toLowerCase() === 'admin' && (
         <div className="flex w-full max-w-4xl flex-col gap-4">
+          <MobileSyncCard />
           <UserManagementCard />
           <BackupCard />
           <AnalyticsResetCard />

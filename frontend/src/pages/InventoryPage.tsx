@@ -194,7 +194,7 @@ export function InventoryPage() {
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
                               {t('inventorySummaryQuantityLabel', {
-                                count: numberFormatter.format(category.quantityOnHand ?? 0)
+                                count: category.quantityOnHand ?? 0
                               })}
                             </p>
                           </div>
@@ -216,7 +216,7 @@ export function InventoryPage() {
                         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
                           <span>
                             {t('inventorySummaryCategoryProductCount', {
-                              count: numberFormatter.format(categoryItems.length)
+                              count: categoryItems.length
                             })}
                           </span>
                           {categoryItems.length > 0 && (
@@ -252,7 +252,7 @@ export function InventoryPage() {
                                   <div className="flex items-center justify-between">
                                     <span>
                                       {t('inventorySummaryQuantityLabel', {
-                                        count: numberFormatter.format(item.quantityOnHand ?? 0)
+                                        count: item.quantityOnHand ?? 0
                                       })}
                                     </span>
                                     <span className="font-semibold text-slate-900 dark:text-slate-100">
@@ -293,7 +293,7 @@ export function InventoryPage() {
                         </p>
                         <span className="text-xs text-slate-500 dark:text-slate-400">
                           {t('inventorySummaryQuantityLabel', {
-                            count: numberFormatter.format(item.quantityOnHand ?? 0)
+                            count: item.quantityOnHand ?? 0
                           })}
                         </span>
                       </div>

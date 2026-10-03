@@ -9,6 +9,7 @@ public class TransactionLineConfiguration : IEntityTypeConfiguration<Transaction
     public void Configure(EntityTypeBuilder<TransactionLine> builder)
     {
         builder.ToTable("transaction_lines");
+        builder.Property(l => l.Quantity).HasColumnType("numeric(18,3)");
         builder.Property(l => l.BaseUnitPriceUsd).HasColumnType("numeric(14,2)");
         builder.Property(l => l.BaseUnitPriceLbp).HasColumnType("numeric(18,2)");
         builder.Property(l => l.UnitPriceUsd).HasColumnType("numeric(14,2)");

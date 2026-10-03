@@ -14,14 +14,16 @@ using Xunit;
 
 namespace PosBackend.Tests;
 
-public class InventoryControllerApiTests : IClassFixture<InventoryApiFactory>
+public class InventoryControllerApiTests : IDisposable
 {
     private readonly InventoryApiFactory _factory;
 
-    public InventoryControllerApiTests(InventoryApiFactory factory)
+    public InventoryControllerApiTests()
     {
-        _factory = factory;
+        _factory = new InventoryApiFactory();
     }
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task GetInventorySummary_WithManagerRole_ReturnsAggregatedInventory()
@@ -123,20 +125,9 @@ public class InventoryControllerApiTests : IClassFixture<InventoryApiFactory>
             new Inventory
             {
                 Product = chocolateBar,
-                QuantityOnHand = 10m,
-                AverageCostUsd = 1.50m,
-                AverageCostLbp = 135000m,
-                ReorderPoint = 12m,
-                ReorderQuantity = 10m,
-                IsReorderAlarmEnabled = true,
-                LastRestockedAt = DateTimeOffset.UtcNow.AddDays(-2)
-            },
-            new Inventory
-            {
-                Product = chocolateBar,
-                QuantityOnHand = 5m,
-                AverageCostUsd = 1.60m,
-                AverageCostLbp = 144000m,
+                QuantityOnHand = 15m,
+                AverageCostUsd = 23m / 15m,
+                AverageCostLbp = 138000m,
                 ReorderPoint = 12m,
                 ReorderQuantity = 10m,
                 IsReorderAlarmEnabled = true,
@@ -238,6 +229,7 @@ public class InventoryApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        var databaseName = Guid.NewGuid().ToString();
 
         builder.ConfigureServices(services =>
         {
@@ -250,7 +242,7 @@ public class InventoryApiFactory : WebApplicationFactory<Program>
             }
 
             services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseInMemoryDatabase($"InventoryTests-{Guid.NewGuid()}")
+                options.UseInMemoryDatabase(databaseName)
                        .EnableSensitiveDataLogging());
         });
     }

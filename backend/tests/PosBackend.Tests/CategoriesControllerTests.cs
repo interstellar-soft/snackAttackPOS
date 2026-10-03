@@ -54,9 +54,9 @@ public class CategoriesControllerTests
 
         var result = await controller.CreateCategory(request, CancellationToken.None);
 
-        var validation = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var validation = Assert.IsAssignableFrom<ObjectResult>(result.Result);
         var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
         Assert.Contains(nameof(request.Name), problem.Errors.Keys);
     }
 

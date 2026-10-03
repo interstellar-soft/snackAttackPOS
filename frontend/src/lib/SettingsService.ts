@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './api';
 import { useAuthStore } from '../stores/authStore';
@@ -20,18 +21,19 @@ export function useStoreProfileQuery() {
   const token = useAuthStore((state) => state.token);
   const setName = useStoreProfileStore((state) => state.setName);
 
-  return useQuery<StoreProfileResponse>({
+  const query = useQuery<StoreProfileResponse>({
     queryKey: STORE_PROFILE_QUERY_KEY,
     enabled: Boolean(token),
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       if (!token) throw new Error('Not authenticated');
       return await apiFetch<StoreProfileResponse>('/api/settings/store-profile', {}, token);
-    },
-    onSuccess: (data) => {
-      setName(data.name);
     }
   });
+  useEffect(() => {
+    if (query.data) setName(query.data.name);
+  }, [query.data, setName]);
+  return query;
 }
 
 export function useUpdateStoreProfileMutation() {

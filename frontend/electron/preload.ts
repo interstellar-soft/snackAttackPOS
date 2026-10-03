@@ -9,6 +9,8 @@ type UpdaterMessage = {
 const updaterChannel = 'updater/status';
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  setupState: () => ipcRenderer.invoke('desktop/setup-state'),
+  setupStore: (password: string) => ipcRenderer.invoke('desktop/setup', password),
   checkForUpdates: () => ipcRenderer.invoke('updater/check-now'),
   restartToUpdate: () => ipcRenderer.invoke('updater/restart-and-install'),
   onUpdateStatus: (callback: (message: UpdaterMessage) => void) => {

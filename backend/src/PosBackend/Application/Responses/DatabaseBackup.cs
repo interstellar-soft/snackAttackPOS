@@ -4,7 +4,7 @@ namespace PosBackend.Application.Responses;
 
 public class DatabaseBackup
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
@@ -12,6 +12,8 @@ public class DatabaseBackup
     public List<UserBackup> Users { get; set; } = new();
     public List<CategoryBackup> Categories { get; set; } = new();
     public List<ProductBackup> Products { get; set; } = new();
+    public List<ProductBarcodeBackup> ProductBarcodes { get; set; } = new();
+    public List<PersonalPurchaseBackup> PersonalPurchases { get; set; } = new();
     public List<InventoryBackup> Inventories { get; set; } = new();
     public List<ExpirationBatchBackup> ExpirationBatches { get; set; } = new();
     public List<PriceRuleBackup> PriceRules { get; set; } = new();
@@ -58,6 +60,26 @@ public class ProductBackup : BackupEntityBase
     public decimal PriceLbp { get; set; }
     public bool IsActive { get; set; }
     public bool IsPinned { get; set; }
+    public bool IsSoldByWeight { get; set; }
+    public string? WeightUnit { get; set; }
+}
+
+public class ProductBarcodeBackup : BackupEntityBase
+{
+    public Guid ProductId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public int QuantityPerScan { get; set; } = 1;
+    public decimal? PriceUsdOverride { get; set; }
+    public decimal? PriceLbpOverride { get; set; }
+}
+
+public class PersonalPurchaseBackup : BackupEntityBase
+{
+    public Guid UserId { get; set; }
+    public Guid TransactionId { get; set; }
+    public decimal TotalUsd { get; set; }
+    public decimal TotalLbp { get; set; }
+    public DateTime PurchaseDate { get; set; }
 }
 
 public class InventoryBackup : BackupEntityBase
@@ -154,6 +176,9 @@ public class PosTransactionBackup : BackupEntityBase
     public decimal BalanceUsd { get; set; }
     public decimal BalanceLbp { get; set; }
     public string? ReceiptHtml { get; set; }
+    public bool HasManualTotalOverride { get; set; }
+    public string? DebtCardName { get; set; }
+    public DateTime? DebtSettledAt { get; set; }
 }
 
 public class TransactionLineBackup : BackupEntityBase
@@ -175,6 +200,7 @@ public class TransactionLineBackup : BackupEntityBase
     public decimal ProfitUsd { get; set; }
     public decimal ProfitLbp { get; set; }
     public bool IsWaste { get; set; }
+    public bool HasManualPriceOverride { get; set; }
 }
 
 public class CurrencyRateBackup : BackupEntityBase

@@ -69,7 +69,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<DateOnly>("ExpirationDate").HasColumnType("date");
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
-                b.Property<decimal>("Quantity").HasColumnType("numeric(14,2)");
+                b.Property<decimal>("Quantity").HasColumnType("numeric(14,3)");
                 b.HasKey("Id");
                 b.HasIndex("ProductId");
                 b.ToTable("expiration_batches", (string)null);
@@ -84,7 +84,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<DateTimeOffset?>("LastRestockedAt").HasColumnType("timestamp with time zone");
                 b.Property<bool>("IsReorderAlarmEnabled").HasColumnType("boolean");
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
-                b.Property<decimal>("QuantityOnHand").HasColumnType("numeric(14,2)");
+                b.Property<decimal>("QuantityOnHand").HasColumnType("numeric(14,3)");
                 b.Property<decimal>("ReorderPoint").HasColumnType("numeric(18,2)");
                 b.Property<decimal>("ReorderQuantity").HasColumnType("numeric(18,2)");
                 b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
@@ -217,7 +217,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
                 b.Property<Guid>("PurchaseOrderId").HasColumnType("uuid");
-                b.Property<decimal>("Quantity").HasColumnType("numeric(14,2)");
+                b.Property<decimal>("Quantity").HasColumnType("numeric(14,3)");
                 b.Property<string>("Currency").HasMaxLength(3).HasColumnType("character varying(3)");
                 b.Property<decimal>("TotalCostLbp").HasColumnType("numeric(20,2)");
                 b.Property<decimal>("TotalCostUsd").HasColumnType("numeric(14,2)");
@@ -243,7 +243,7 @@ namespace PosBackend.Infrastructure.Data.Migrations
                 b.Property<Guid>("ProductId").HasColumnType("uuid");
                 b.Property<decimal>("ProfitLbp").HasColumnType("numeric(18,2)");
                 b.Property<decimal>("ProfitUsd").HasColumnType("numeric(14,2)");
-                b.Property<decimal>("Quantity").HasColumnType("numeric(18,2)");
+                b.Property<decimal>("Quantity").HasColumnType("numeric(18,3)");
                 b.Property<Guid>("TransactionId").HasColumnType("uuid");
                 b.Property<decimal>("TotalLbp").HasColumnType("numeric(18,2)");
                 b.Property<decimal>("TotalUsd").HasColumnType("numeric(14,2)");

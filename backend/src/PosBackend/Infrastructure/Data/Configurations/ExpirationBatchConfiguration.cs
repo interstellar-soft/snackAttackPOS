@@ -9,6 +9,6 @@ public class ExpirationBatchConfiguration : IEntityTypeConfiguration<ExpirationB
     public void Configure(EntityTypeBuilder<ExpirationBatch> builder)
     {
         builder.ToTable("expiration_batches");
-        builder.Property(b => b.Quantity).HasColumnType("numeric(14,2)");
+        builder.Property(b => b.Quantity).HasColumnType("numeric(14,3)");
     }
 }

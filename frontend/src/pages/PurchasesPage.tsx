@@ -706,9 +706,6 @@ export function PurchasesPage() {
         return !target.readOnly && !target.disabled;
       }
       if (target instanceof HTMLTextAreaElement) {
-        if (target === barcodeInputRef.current) {
-          return false;
-        }
         return !target.readOnly && !target.disabled;
       }
       if (target instanceof HTMLElement && target.isContentEditable) {
@@ -1141,7 +1138,7 @@ export function PurchasesPage() {
                               {t('inventoryBarcode')}: {item.barcode}
                             </span>
                             <span className="text-xs text-slate-500">
-                              {t('purchasesOnHand', { count: item.quantityOnHand.toLocaleString() })}
+                              {t('purchasesOnHand', { count: item.quantityOnHand })}
                             </span>
                             {item.isSoldByWeight && (
                               <span className="text-xs text-slate-500">

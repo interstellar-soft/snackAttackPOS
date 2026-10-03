@@ -151,9 +151,9 @@ public class ProductsControllerTests
 
         var result = await controller.CreateProduct(request, CancellationToken.None);
 
-        var validation = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var validation = Assert.IsAssignableFrom<ObjectResult>(result.Result);
         var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
         Assert.Contains(nameof(request.Sku), problem.Errors.Keys);
     }
 
@@ -300,8 +300,8 @@ public class ProductsControllerTests
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ProductResponse>(ok.Value);
-        var responseBarcodes = Assert.NotNull(response.AdditionalBarcodes);
-        var additional = Assert.Single(responseBarcodes);
+        Assert.NotNull(response.AdditionalBarcodes);
+        var additional = Assert.Single(response.AdditionalBarcodes);
         Assert.Equal("9876543210987", additional.Code);
         Assert.Equal(1, additional.QuantityPerScan);
 
@@ -427,10 +427,10 @@ public class ProductsControllerTests
 
         var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
 
-        var validation = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var validation = Assert.IsAssignableFrom<ObjectResult>(result.Result);
         var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
-        Assert.Contains(nameof(request.AdditionalBarcodes), problem.Errors.Keys);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
+        Assert.Contains("AdditionalBarcodes[1].Code", problem.Errors.Keys);
     }
 
     [Fact]
@@ -486,9 +486,9 @@ public class ProductsControllerTests
 
         var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
 
-        var validation = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var validation = Assert.IsAssignableFrom<ObjectResult>(result.Result);
         var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
         Assert.Contains(nameof(request.AdditionalBarcodes), problem.Errors.Keys);
     }
 
@@ -558,9 +558,9 @@ public class ProductsControllerTests
 
         var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
 
-        var validation = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var validation = Assert.IsAssignableFrom<ObjectResult>(result.Result);
         var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
         Assert.Contains(nameof(request.Sku), problem.Errors.Keys);
     }
 
@@ -609,9 +609,9 @@ public class ProductsControllerTests
 
         var result = await controller.UpdateProduct(product.Id, request, CancellationToken.None);
 
-        var validation = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status400BadRequest, validation.StatusCode);
+        var validation = Assert.IsAssignableFrom<ObjectResult>(result.Result);
         var problem = Assert.IsType<ValidationProblemDetails>(validation.Value);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
         Assert.Contains(nameof(request.Barcode), problem.Errors.Keys);
     }
 
@@ -801,7 +801,7 @@ public class ProductsControllerTests
 
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var httpClient = new HttpClient(new FakeHttpMessageHandler());
-        var mlClient = new MlClient(httpClient, configuration);
+        var mlClient = new MlClient(httpClient, configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger<MlClient>.Instance);
         var watchdog = new ScanWatchdog();
         var currencyService = new CurrencyService(context);
         var controller = new ProductsController(context, mlClient, watchdog, currencyService)

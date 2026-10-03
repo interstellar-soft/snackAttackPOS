@@ -381,12 +381,12 @@ export function ProfitsPage() {
     }
   });
 
-  const profitSummary: ProfitSummaryResponse = data ?? {
+  const profitSummary = useMemo<ProfitSummaryResponse>(() => data ?? {
     daily: { points: [] },
     weekly: { points: [] },
     monthly: { points: [] },
     yearly: { points: [] }
-  };
+  }, [data]);
   const locale = i18n.language === 'ar' ? 'ar-LB' : 'en-US';
   const canManageInventory = role?.toLowerCase() === 'admin' || role?.toLowerCase() === 'manager';
 

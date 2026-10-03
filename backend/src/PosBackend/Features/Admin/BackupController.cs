@@ -62,6 +62,10 @@ public class BackupController : ControllerBase
             return BadRequest("Backup payload is required.");
         }
 
+        if (backup.SchemaVersion < 1 || backup.SchemaVersion > DatabaseBackup.CurrentSchemaVersion ||
+            backup.Users is null || !backup.Users.Any(u => u.Role == PosBackend.Domain.Entities.UserRole.Admin))
+            return BadRequest("The backup must have a supported schema and contain an administrator account.");
+
         var currentUserId = User.GetCurrentUserId();
         if (!currentUserId.HasValue)
         {
@@ -70,8 +74,11 @@ public class BackupController : ControllerBase
 
         var result = await _backupService.ImportAsync(backup, cancellationToken);
 
-        await _auditLogger.LogAsync(currentUserId.Value, "ImportBackup", nameof(DatabaseBackup), null, new
+        var auditUserId = backup.Users.Any(u => u.Id == currentUserId.Value)
+            ? currentUserId.Value : backup.Users.First(u => u.Role == PosBackend.Domain.Entities.UserRole.Admin).Id;
+        await _auditLogger.LogAsync(auditUserId, "ImportBackup", nameof(DatabaseBackup), null, new
         {
+            InitiatedByUserId = currentUserId.Value,
             backup.SchemaVersion,
             result.RecordsImported
         }, cancellationToken);

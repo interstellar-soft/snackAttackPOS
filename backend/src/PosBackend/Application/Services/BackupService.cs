@@ -17,6 +17,10 @@ public class BackupService
 
     public async Task<DatabaseBackup> ExportAsync(CancellationToken cancellationToken = default)
     {
+        // Every table must represent the same point in time, even during checkout.
+        await using var snapshot = _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, cancellationToken)
+            : null;
         var backup = new DatabaseBackup
         {
             GeneratedAt = DateTime.UtcNow,
@@ -61,7 +65,9 @@ public class BackupService
                     PriceUsd = p.PriceUsd,
                     PriceLbp = p.PriceLbp,
                     IsActive = p.IsActive,
-                    IsPinned = p.IsPinned
+                    IsPinned = p.IsPinned,
+                    IsSoldByWeight = p.IsSoldByWeight,
+                    WeightUnit = p.WeightUnit
                 })
                 .ToListAsync(cancellationToken),
             Inventories = await _db.Inventories
@@ -211,7 +217,10 @@ public class BackupService
                     PaidLbp = t.PaidLbp,
                     BalanceUsd = t.BalanceUsd,
                     BalanceLbp = t.BalanceLbp,
-                    ReceiptHtml = t.ReceiptHtml
+                    ReceiptHtml = t.ReceiptHtml,
+                    HasManualTotalOverride = t.HasManualTotalOverride,
+                    DebtCardName = t.DebtCardName,
+                    DebtSettledAt = t.DebtSettledAt
                 })
                 .ToListAsync(cancellationToken),
             TransactionLines = await _db.TransactionLines
@@ -238,7 +247,8 @@ public class BackupService
                     CostLbp = l.CostLbp,
                     ProfitUsd = l.ProfitUsd,
                     ProfitLbp = l.ProfitLbp,
-                    IsWaste = l.IsWaste
+                    IsWaste = l.IsWaste,
+                    HasManualPriceOverride = l.HasManualPriceOverride
                 })
                 .ToListAsync(cancellationToken),
             CurrencyRates = await _db.CurrencyRates
@@ -285,18 +295,39 @@ public class BackupService
                 .ToListAsync(cancellationToken)
         };
 
+        backup.ProductBarcodes = await _db.ProductBarcodes.AsNoTracking()
+            .Select(b => new ProductBarcodeBackup
+            {
+                Id = b.Id, CreatedAt = b.CreatedAt, UpdatedAt = b.UpdatedAt,
+                ProductId = b.ProductId, Code = b.Code, QuantityPerScan = b.QuantityPerScan,
+                PriceUsdOverride = b.PriceUsdOverride, PriceLbpOverride = b.PriceLbpOverride
+            }).ToListAsync(cancellationToken);
+        backup.PersonalPurchases = await _db.PersonalPurchases.AsNoTracking()
+            .Select(p => new PersonalPurchaseBackup
+            {
+                Id = p.Id, CreatedAt = p.CreatedAt, UpdatedAt = p.UpdatedAt,
+                UserId = p.UserId, TransactionId = p.TransactionId,
+                TotalUsd = p.TotalUsd, TotalLbp = p.TotalLbp, PurchaseDate = p.PurchaseDate
+            }).ToListAsync(cancellationToken);
+        if (snapshot is not null) await snapshot.CommitAsync(cancellationToken);
         return backup;
     }
 
     public async Task<BackupImportResult> ImportAsync(DatabaseBackup backup, CancellationToken cancellationToken = default)
     {
-        if (backup.SchemaVersion != DatabaseBackup.CurrentSchemaVersion)
+        if (backup.SchemaVersion < 1 || backup.SchemaVersion > DatabaseBackup.CurrentSchemaVersion)
         {
             throw new InvalidOperationException($"Unsupported backup schema version {backup.SchemaVersion}. Expected {DatabaseBackup.CurrentSchemaVersion}.");
         }
 
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
 
+        // Restores invalidate the cloud's old cursor; the next upload replaces the whole mirror.
+        if (_db.Database.IsNpgsql())
+            await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(194071, 1); UPDATE mobile_sync_state SET generation=gen_random_uuid(), revision=0, pruned_through=0 WHERE id=1; DELETE FROM mobile_sync_outbox;", cancellationToken);
+
+        await _db.PersonalPurchases.ExecuteDeleteAsync(cancellationToken);
+        await _db.ProductBarcodes.ExecuteDeleteAsync(cancellationToken);
         await _db.TransactionLines.ExecuteDeleteAsync(cancellationToken);
         await _db.Transactions.ExecuteDeleteAsync(cancellationToken);
         await _db.OfferItems.ExecuteDeleteAsync(cancellationToken);
@@ -360,7 +391,9 @@ public class BackupService
             PriceUsd = p.PriceUsd,
             PriceLbp = p.PriceLbp,
             IsActive = p.IsActive,
-            IsPinned = p.IsPinned
+            IsPinned = p.IsPinned,
+            IsSoldByWeight = p.IsSoldByWeight,
+            WeightUnit = p.WeightUnit
         }).ToList();
         if (products.Count > 0)
         {
@@ -528,7 +561,10 @@ public class BackupService
             PaidLbp = t.PaidLbp,
             BalanceUsd = t.BalanceUsd,
             BalanceLbp = t.BalanceLbp,
-            ReceiptHtml = t.ReceiptHtml
+            ReceiptHtml = t.ReceiptHtml,
+            HasManualTotalOverride = t.HasManualTotalOverride,
+            DebtCardName = t.DebtCardName,
+            DebtSettledAt = t.DebtSettledAt
         }).ToList();
         if (transactions.Count > 0)
         {
@@ -557,7 +593,8 @@ public class BackupService
             CostLbp = l.CostLbp,
             ProfitUsd = l.ProfitUsd,
             ProfitLbp = l.ProfitLbp,
-            IsWaste = l.IsWaste
+            IsWaste = l.IsWaste,
+            HasManualPriceOverride = l.HasManualPriceOverride
         }).ToList();
         if (transactionLines.Count > 0)
         {
@@ -612,6 +649,24 @@ public class BackupService
             await _db.AuditLogs.AddRangeAsync(auditLogs, cancellationToken);
         }
         counts["auditLogs"] = auditLogs.Count;
+
+        var barcodes = (backup.ProductBarcodes ?? new()).Select(b => new ProductBarcode
+        {
+            Id = b.Id, CreatedAt = b.CreatedAt, UpdatedAt = b.UpdatedAt,
+            ProductId = b.ProductId, Code = b.Code, QuantityPerScan = b.QuantityPerScan,
+            PriceUsdOverride = b.PriceUsdOverride, PriceLbpOverride = b.PriceLbpOverride
+        }).ToList();
+        await _db.ProductBarcodes.AddRangeAsync(barcodes, cancellationToken);
+        counts["productBarcodes"] = barcodes.Count;
+
+        var personalPurchases = (backup.PersonalPurchases ?? new()).Select(p => new PersonalPurchase
+        {
+            Id = p.Id, CreatedAt = p.CreatedAt, UpdatedAt = p.UpdatedAt,
+            UserId = p.UserId, TransactionId = p.TransactionId,
+            TotalUsd = p.TotalUsd, TotalLbp = p.TotalLbp, PurchaseDate = p.PurchaseDate
+        }).ToList();
+        await _db.PersonalPurchases.AddRangeAsync(personalPurchases, cancellationToken);
+        counts["personalPurchases"] = personalPurchases.Count;
 
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

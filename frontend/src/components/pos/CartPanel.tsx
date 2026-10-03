@@ -42,7 +42,7 @@ const clampQuantity = (value: number, allowFraction: boolean) => {
     return 1;
   }
   const normalized = allowFraction ? Math.round(value * 1000) / 1000 : Math.floor(value);
-  return Math.max(1, normalized);
+  return Math.max(allowFraction ? 0.001 : 1, normalized);
 };
 
 export function CartPanel({
@@ -518,7 +518,7 @@ export function CartPanel({
                      */}
                     <Input
                       type={isHighlighted ? 'text' : 'number'}
-                      min={1}
+                      min={item.isSoldByWeight ? 0.001 : 1}
                       step={item.isSoldByWeight ? '0.001' : '1'}
                       ref={(element) => {
                         if (element) {

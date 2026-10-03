@@ -10,8 +10,15 @@ using PosBackend.Application.Middleware;
 using PosBackend.Application.Services;
 using PosBackend.Infrastructure.Data;
 using Npgsql;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
+// Desktop logs are captured by the launcher; do not require Windows Event Log access.
+if (builder.Configuration.GetValue<bool>("Desktop:Enabled") || builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole();
+}
 
 QuestPDF.Settings.License = LicenseType.Community;
 
@@ -32,6 +39,15 @@ builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddScoped<CurrencyService>();
 builder.Services.AddScoped<BackupService>();
 builder.Services.AddHttpClient<MlClient>();
+var syncProtection = builder.Services.AddDataProtection().SetApplicationName("Aurora.POS.MobileSync");
+if (OperatingSystem.IsWindows()) syncProtection.ProtectKeysWithDpapi();
+if (builder.Configuration["MobileSync:KeyDirectory"] is { Length: > 0 } keyDirectory)
+    syncProtection.PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
+builder.Services.AddHttpClient("mobile-sync", client => client.Timeout = TimeSpan.FromSeconds(60))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddScoped<MobileSyncService>();
+builder.Services.AddScoped<MobilePurchaseService>();
+builder.Services.AddHostedService<MobileSyncWorker>();
 
 var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
@@ -59,9 +75,12 @@ if (isRunningInContainer)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"]) &&
+    (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")))
+    builder.Configuration["Jwt:Key"] = "development-only-signing-key-never-use-in-production";
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
 
-const int MinimumJwtKeyLengthBytes = 16;
+const int MinimumJwtKeyLengthBytes = 32;
 if (string.IsNullOrWhiteSpace(jwtOptions.Key) ||
     Encoding.UTF8.GetByteCount(jwtOptions.Key) < MinimumJwtKeyLengthBytes)
 {
@@ -93,8 +112,9 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
-        policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials().SetIsOriginAllowed(_ => true));
+    var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? new[] { "http://localhost:5173", "http://127.0.0.1:5173" };
+    options.AddDefaultPolicy(policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod());
 });
 
 var app = builder.Build();
@@ -110,11 +130,22 @@ if (connectionHostOverridden)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await SeedData.InitializeAsync(db);
+    await SeedData.InitializeAsync(db, demoData: builder.Configuration.GetValue("Seed:DemoData",
+        builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")),
+        initialAdminPassword: builder.Configuration["Seed:AdminPassword"]);
 }
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+if (app.Configuration.GetValue<bool>("Desktop:Enabled"))
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
@@ -125,12 +156,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "backend" }));
-
-app.MapGet("/seed", async (ApplicationDbContext db, CancellationToken cancellationToken) =>
-{
-    await SeedData.InitializeAsync(db, cancellationToken);
-    return Results.Ok(new { status = "seeded" });
-});
 
 app.Run();
 

@@ -2,7 +2,8 @@ import { ChangeEventHandler, ReactNode, useEffect, useRef, useState } from 'reac
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { API_BASE_URL } from '../../lib/api';
+import { API_BASE_URL, queryClient } from '../../lib/api';
+import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
 
 interface StatusMessage {
@@ -11,7 +12,7 @@ interface StatusMessage {
 }
 
 export function BackupCard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const token = useAuthStore((state) => state.token);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -79,6 +80,12 @@ export function BackupCard() {
     if (!file || !token) {
       return;
     }
+    if (!window.confirm(i18n.language.startsWith('ar')
+      ? 'ستستبدل النسخة الاحتياطية جميع بيانات المتجر. هل تريد المتابعة؟'
+      : 'This backup will replace all store data. Export a current backup first. Continue?')) {
+      event.target.value = '';
+      return;
+    }
 
     setStatus(null);
     setIsImporting(true);
@@ -114,6 +121,13 @@ export function BackupCard() {
         type: 'success',
         content: t('adminBackupImportSuccess', { count: total })
       });
+      window.alert(i18n.language.startsWith('ar')
+        ? 'تمت الاستعادة. سجّل الدخول باستخدام حساب من النسخة الاحتياطية.'
+        : 'Backup restored. Sign in with an account from the backup.');
+      useCartStore.getState().clear();
+      useCartStore.setState({ heldCarts: [] });
+      queryClient.clear();
+      useAuthStore.getState().logout();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('adminBackupImportError');
       setStatus({ type: 'error', content: message });

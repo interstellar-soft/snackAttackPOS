@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using Microsoft.AspNetCore.TestHost;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -23,14 +24,16 @@ using Xunit;
 
 namespace PosBackend.Tests;
 
-public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFactory>
+public class TransactionsControllerApiTests : IDisposable
 {
     private readonly TransactionsApiFactory _factory;
 
-    public TransactionsControllerApiTests(TransactionsApiFactory factory)
+    public TransactionsControllerApiTests()
     {
-        _factory = factory;
+        _factory = new TransactionsApiFactory();
     }
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task Checkout_WithValidRequest_PersistsTransaction()
@@ -477,7 +480,7 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
         var settleRequest = new SettleDebtRequest
         {
             PaidUsd = checkoutBody.BalanceUsd,
-            PaidLbp = checkoutBody.BalanceLbp
+            PaidLbp = 0m
         };
 
         var settleResponse = await client.PostAsJsonAsync($"/api/transactions/{transactionId}/settle-debt", settleRequest);
@@ -527,7 +530,7 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
         var partialPaymentRequest = new SettleDebtRequest
         {
             PaidUsd = checkoutBody.BalanceUsd / 2m,
-            PaidLbp = checkoutBody.BalanceLbp / 2m
+            PaidLbp = 0m
         };
 
         var settleResponse = await client.PostAsJsonAsync($"/api/transactions/{transactionId}/settle-debt", partialPaymentRequest);
@@ -607,7 +610,8 @@ public class TransactionsControllerApiTests : IClassFixture<TransactionsApiFacto
 
         var debtCard = Assert.Single(debts!);
         var updatedFirst = debtCard.Transactions.Single(t => t.Id == firstBody.TransactionId);
-        var updatedSecond = debtCard.Transactions.Single(t => t.Id == secondBody.TransactionId);
+        Assert.DoesNotContain(debtCard.Transactions, t => t.Id == secondBody.TransactionId);
+        var updatedSecond = await client.GetFromJsonAsync<TransactionResponse>($"/api/transactions/{secondBody.TransactionId}");
 
         Assert.Equal(0m, updatedSecond.BalanceUsd);
         Assert.True(updatedFirst.BalanceUsd > 0m);
@@ -620,6 +624,7 @@ public class TransactionsApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        var databaseName = Guid.NewGuid().ToString();
 
         builder.ConfigureServices(services =>
         {
@@ -632,7 +637,7 @@ public class TransactionsApiFactory : WebApplicationFactory<Program>
             }
 
             services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseInMemoryDatabase($"TransactionsTests-{Guid.NewGuid()}")
+                options.UseInMemoryDatabase(databaseName)
                        .EnableSensitiveDataLogging());
         });
 
@@ -647,7 +652,7 @@ public class TransactionsApiFactory : WebApplicationFactory<Program>
                         ["MlService:BaseUrl"] = "http://localhost"
                     })
                     .Build();
-                return new MlClient(new HttpClient(handler), configuration);
+                return new MlClient(new HttpClient(handler), configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger<MlClient>.Instance);
             });
         });
     }
